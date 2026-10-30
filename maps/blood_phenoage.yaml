@@ -1,0 +1,223 @@
+# Generated once from the live-verified LOINC table (primary/alternate/caution -> accepts.codes, reject -> reject_codes).
+# min_evidence_class_for_actions hypothesis_only: spec section 5.
+kind: plsi_map
+schema_version: 1
+id: blood_phenoage
+title: Blood PhenoAge (Levine 2018)
+map_version: 1.0.0
+claim_level: instantiated
+summary: Nine routine blood markers from one draw and the derived phenotypic age (Levine 2018) with its acceleration over chronological age.
+tags: [aging_clock, blood, phenoage]
+coordinates:
+- id: albumin
+  label: Albumin
+  kind: measured
+  unit: g/L
+  accepts:
+    codes:
+    - {system: loinc, code: 1751-7, display: 'Albumin [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 61151-7, display: 'Albumin [Mass/volume] in Serum or Plasma by Bromocresol green (BCG) dye binding method'}
+    - {system: loinc, code: 61152-5, display: 'Albumin [Mass/volume] in Serum or Plasma by Bromocresol purple (BCP) dye binding method'}
+    - {system: loinc, code: 77148-5, display: 'Albumin [Mass/volume] in Serum, Plasma or Blood by Bromocresol purple (BCP) dye binding method'}
+    - {system: loinc, code: 76631-1, display: 'Albumin [Mass/volume] in Blood by Bromocresol purple (BCP) dye binding method'}
+    - {system: loinc, code: 54347-0, display: 'Albumin [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 62235-7, display: 'Albumin [Moles/volume] in Serum or Plasma by Bromocresol green (BCG) dye binding method'}
+    - {system: loinc, code: 62234-0, display: 'Albumin [Moles/volume] in Serum or Plasma by Bromocresol purple (BCP) dye binding method'}
+    - {system: loinc, code: 2862-1, display: 'Albumin [Mass/volume] in Serum or Plasma by Electrophoresis'}
+    reject_codes:
+    - {system: loinc, code: 35706-1, display: Albumin/Protein.total in Serum or Plasma}
+    - {system: loinc, code: 1758-2, display: 'Albumin.glycated [Mass/volume] in Serum or Plasma'}
+  correspondence_type: terminology
+- id: creatinine
+  label: Creatinine
+  kind: measured
+  unit: umol/L
+  accepts:
+    codes:
+    - {system: loinc, code: 2160-0, display: 'Creatinine [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14682-9, display: 'Creatinine [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 77140-2, display: 'Creatinine [Moles/volume] in Serum, Plasma or Blood'}
+    - {system: loinc, code: 38483-4, display: 'Creatinine [Mass/volume] in Blood'}
+    - {system: loinc, code: 59826-8, display: 'Creatinine [Moles/volume] in Blood'}
+    - {system: loinc, code: 103616-9, display: 'Creatinine [Moles/volume] in Serum or Plasma by LC/MS/MS'}
+    - {system: loinc, code: 35203-9, display: 'Creatinine [Mass or Moles/volume] in Serum or Plasma'}
+    reject_codes:
+    - {system: loinc, code: 40248-7, display: 'Creatinine [Mass/volume] in Serum or Plasma --baseline'}
+    - {system: loinc, code: 11041-1, display: 'Creatinine [Mass/volume] in Serum or Plasma --post dialysis'}
+  conversions:
+  - from_unit: mg/dL
+    factor: 88.42
+    source: &id001 {kind: doi, id: 10.7326/0003-4819-106-1-114, title: Young DS 1987. Implementation of SI units for clinical laboratory data.
+        Ann Intern Med}
+  correspondence_type: terminology
+- id: glucose
+  label: Glucose
+  kind: measured
+  unit: mmol/L
+  accepts:
+    codes:
+    - {system: loinc, code: 2345-7, display: 'Glucose [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14749-6, display: 'Glucose [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 1558-6, display: 'Fasting glucose [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14771-0, display: 'Fasting glucose [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 74774-1, display: 'Glucose [Mass/volume] in Serum, Plasma or Blood'}
+    - {system: loinc, code: 77135-2, display: 'Glucose [Moles/volume] in Serum, Plasma or Blood'}
+    - {system: loinc, code: 2339-0, display: 'Glucose [Mass/volume] in Blood'}
+    - {system: loinc, code: 15074-8, display: 'Glucose [Moles/volume] in Blood'}
+    - {system: loinc, code: 41652-9, display: 'Glucose [Mass/volume] in Venous blood'}
+    - {system: loinc, code: 39480-9, display: 'Glucose [Moles/volume] in Venous blood'}
+    - {system: loinc, code: 35211-2, display: 'Glucose [Mass or Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 41653-7, display: 'Glucose [Mass/volume] in Capillary blood by Glucometer'}
+    - {system: loinc, code: 14743-9, display: 'Glucose [Moles/volume] in Capillary blood by Glucometer'}
+    - {system: loinc, code: 32016-8, display: 'Glucose [Mass/volume] in Capillary blood'}
+    - {system: loinc, code: 2340-8, display: 'Glucose [Mass/volume] in Blood by Automated test strip'}
+    - {system: loinc, code: 96594-7, display: 'Glucose [Mass/volume] in DBS'}
+    reject_codes:
+    - {system: loinc, code: 16165-3, display: 'Glucose [Mass/volume] in Serum or Plasma --10 AM specimen'}
+    - {system: loinc, code: 14768-6, display: 'Glucose [Moles/volume] in Serum or Plasma --baseline'}
+    - {system: loinc, code: 95126-9, display: Lipid and glucose panel - Serum or Plasma}
+    - {system: loinc, code: 93791-2, display: 'Glucose [Mass/volume] mean in Serum or Plasma'}
+  conversions:
+  - from_unit: mg/dL
+    factor: 0.0555062167
+    source: *id001
+  correspondence_type: terminology
+- id: crp
+  label: C-reactive protein
+  kind: measured
+  unit: mg/dL
+  accepts:
+    codes:
+    - {system: loinc, code: 1988-5, display: 'C reactive protein [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 30522-7, display: 'C reactive protein [Mass/volume] in Serum or Plasma by High sensitivity method'}
+    - {system: loinc, code: 71426-1, display: 'C reactive protein [Mass/volume] in Blood by High sensitivity method'}
+    - {system: loinc, code: 105126-7, display: 'C reactive protein [Mass/volume] in Serum, Plasma or Blood'}
+    - {system: loinc, code: 112900-6, display: 'C reactive protein [Mass/volume] in Blood'}
+    - {system: loinc, code: 76485-2, display: 'C reactive protein [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 76486-0, display: 'C reactive protein [Moles/volume] in Serum or Plasma by High sensitivity method'}
+    - {system: loinc, code: 48421-2, display: 'C reactive protein [Mass/volume] in Capillary blood'}
+    - {system: loinc, code: 106736-2, display: 'C reactive protein [Mass/volume] in Serum, Plasma or Blood by Rapid immunoassay'}
+    reject_codes:
+    - {system: loinc, code: 11039-5, display: 'C reactive protein [Presence] in Serum or Plasma'}
+    - {system: loinc, code: 35648-5, display: 'C reactive protein [Quintile] in Serum or Plasma by High sensitivity method'}
+  correspondence_type: terminology
+- id: lymphocyte_pct
+  label: Lymphocytes (% of leukocytes)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 736-9, display: Lymphocytes/Leukocytes in Blood by Automated count}
+    - {system: loinc, code: 26478-8, display: Lymphocytes/Leukocytes in Blood}
+    - {system: loinc, code: 737-7, display: Lymphocytes/Leukocytes in Blood by Manual count}
+    - {system: loinc, code: 71678-7, display: 'Lymphocytes/Leukocytes [Pure number fraction] in Blood by Automated count'}
+    - {system: loinc, code: 71673-8, display: 'Lymphocytes/Leukocytes [Pure number fraction] in Blood by Manual count'}
+    - {system: loinc, code: 30365-1, display: Lymphocytes/Leukocytes in Blood by Flow cytometry (FC)}
+    reject_codes:
+    - {system: loinc, code: 731-0, display: 'Lymphocytes [#/volume] in Blood by Automated count'}
+    - {system: loinc, code: 26474-7, display: 'Lymphocytes [#/volume] in Blood'}
+    - {system: loinc, code: 732-8, display: 'Lymphocytes [#/volume] in Blood by Manual count'}
+    - {system: loinc, code: 26479-6, display: Lymphocytes/Leukocytes in Cerebrospinal Fluid}
+    - {system: loinc, code: 74402-9, display: Lymphocytes/Leukocytes in Cord blood}
+    - {system: loinc, code: 74461-5, display: Lymphocytes/Leukocytes in Blood from Fetus}
+  correspondence_type: terminology
+- id: mcv
+  label: Mean corpuscular volume
+  kind: measured
+  unit: fL
+  accepts:
+    codes:
+    - {system: loinc, code: 787-2, display: 'MCV [Entitic mean volume] in Red Blood Cells by Automated count'}
+    - {system: loinc, code: 30428-7, display: 'MCV [Entitic mean volume] in Red Blood Cells'}
+    reject_codes:
+    - {system: loinc, code: 11272-2, display: 'MCV [Entitic mean volume] in Cord blood by Automated count'}
+    - {system: loinc, code: 62242-3, display: 'MCV [Entitic mean volume] in Red Blood Cells from Fetus by Automated count'}
+  correspondence_type: terminology
+- id: rdw
+  label: Red cell distribution width (CV)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 788-0, display: 'Erythrocyte [DistWidth] in Blood by Automated count'}
+    - {system: loinc, code: 30385-9, display: 'Erythrocyte [DistWidth] in Blood'}
+    - {system: loinc, code: 115741-1, display: 'Erythrocytes [DistWidth] in Red Blood Cells by Coefficient of variation'}
+    reject_codes:
+    - {system: loinc, code: 115742-9, display: 'Erythrocytes [DistWidth] in Red Blood Cells by Standard deviation'}
+    - {system: loinc, code: 21000-5, display: 'Deprecated Erythrocyte distribution width [Entitic volume] by Automated count'}
+    - {system: loinc, code: 30384-2, display: 'Deprecated Erythrocyte distribution width [Entitic volume]'}
+    - {system: loinc, code: 47277-9, display: 'Erythrocyte [DistWidth] in Cord blood'}
+    - {system: loinc, code: 62247-2, display: 'Erythrocyte [DistWidth] in Blood from Fetus by Automated count'}
+  correspondence_type: terminology
+- id: alp
+  label: Alkaline phosphatase
+  kind: measured
+  unit: U/L
+  accepts:
+    codes:
+    - {system: loinc, code: 6768-6, display: 'Alkaline phosphatase [Enzymatic activity/volume] in Serum or Plasma'}
+    - {system: loinc, code: 77141-0, display: 'Alkaline phosphatase [Enzymatic activity/volume] in Serum, Plasma or Blood'}
+    - {system: loinc, code: 1783-0, display: 'Alkaline phosphatase [Enzymatic activity/volume] in Blood'}
+    reject_codes:
+    - {system: loinc, code: 6769-4, display: 'Deprecated Alkaline phosphatase [Enzymatic activity/volume] in Serum or Plasma'}
+    - {system: loinc, code: 1779-8, display: 'Alkaline phosphatase.liver [Enzymatic activity/volume] in Serum or Plasma'}
+  correspondence_type: terminology
+- id: wbc
+  label: Leukocytes
+  kind: measured
+  unit: 10*3/uL
+  accepts:
+    codes:
+    - {system: loinc, code: 6690-2, display: 'Leukocytes [#/volume] in Blood by Automated count'}
+    - {system: loinc, code: 26464-8, display: 'Leukocytes [#/volume] in Blood'}
+    - {system: loinc, code: 804-5, display: 'Leukocytes [#/volume] in Blood by Manual count'}
+    - {system: loinc, code: 33256-9, display: 'Leukocytes [#/volume] corrected for nucleated erythrocytes in Blood by Automated count'}
+    - {system: loinc, code: 49498-9, display: 'Leukocytes [#/volume] in Blood by Estimate'}
+    reject_codes:
+    - {system: loinc, code: 33028-2, display: 'Leukocytes [#/volume] in Blood from Blood product unit'}
+  correspondence_type: terminology
+- id: chronological_age
+  label: Chronological age at the draw
+  kind: derived
+  unit: a
+  derive:
+    engine: native
+    model: chronological_age
+    inputs: &id002 [albumin, creatinine, glucose, crp, lymphocyte_pct, mcv, rdw, alp, wbc]
+  predictable: false
+  correspondence_type: expert
+  sources:
+  - {kind: rule, id: plsi.derive.chronological_age}
+- id: phenoage
+  label: Phenotypic age (blood PhenoAge)
+  kind: derived
+  unit: a
+  derive:
+    engine: native
+    model: phenoage
+    inputs: *id002
+  correspondence_type: statistical
+  sources:
+  - &id003 {kind: doi, id: 10.18632/aging.101414, title: Levine ME et al. 2018. An epigenetic biomarker of aging for lifespan and healthspan.
+      Aging}
+  - {kind: rule, id: plsi.derive.phenoage}
+- id: phenoage_acceleration
+  label: PhenoAge acceleration (PhenoAge minus chronological age)
+  kind: derived
+  unit: a
+  derive:
+    engine: native
+    model: phenoage_acceleration
+    inputs: *id002
+  correspondence_type: statistical
+  sources:
+  - *id003
+  - {kind: rule, id: plsi.derive.phenoage_acceleration}
+inference_boundaries:
+  supports: [phenotypic age and its acceleration from nine markers drawn on the same calendar day, change of each blood marker and of PhenoAge
+      between draws]
+  does_not_support: [diagnosis, PhenoAge from markers drawn on different days, DNA-methylation PhenoAge (a different model; see methylation_clocks)]
+  min_evidence_class_for_actions: hypothesis_only
+sources:
+- *id003
+- *id001

@@ -1,0 +1,74 @@
+# LOINC codes checked against NLM Clinical Tables; free codes where LOINC has no code for the quantity.
+kind: plsi_map
+schema_version: 1
+id: womens_health
+title: Reproductive history and menopause
+map_version: 0.1.0
+claim_level: designed
+summary: Typical menstrual cycle length, age at menarche, number of pregnancies, age at menopause and months since the final menstrual period, as the user reports them.
+tags: [womens_health, reproductive, menopause, history]
+coordinates:
+- id: cycle_length
+  label: Typical menstrual cycle length over the past year, reported
+  kind: measured
+  unit: d
+  accepts:
+    codes:
+    - {system: loinc, code: 64700-8, display: 'On average, during the last year, how many day were there in a typical menstrual cycle, that is,
+          from the beginning of bleeding of one menstrual period to the beginning of bleeding of the next period [PhenX]'}
+    reject_codes:
+    - {system: loinc, code: 3144-3, display: 'Last menstrual period duration'}
+  recency_days: 365
+  score_window_days: {before: 30, after: 90}
+  correspondence_type: terminology
+- id: age_at_menarche
+  label: Age at first menstrual period, reported
+  kind: measured
+  unit: a
+  accepts:
+    codes:
+    - {system: loinc, code: 42798-9, display: 'Age at menarche'}
+  recency_days: 36500
+  predictable: false
+  correspondence_type: terminology
+- id: pregnancies
+  label: Number of pregnancies, reported
+  kind: measured
+  unit: '1'
+  accepts:
+    codes:
+    - {system: loinc, code: 11996-6, display: '[#] Pregnancies'}
+    reject_codes:
+    - {system: loinc, code: 75201-4, display: 'Mother''s Pregnancies # [Reported]'}
+    - {system: loinc, code: 64720-6, display: 'How many times have you fathered a pregnancy, regardless of outcome [PhenX]'}
+    - {system: loinc, code: 63962-5, display: 'Pregnancy number [PhenX]'}
+  recency_days: 3650
+  predictable: false
+  correspondence_type: terminology
+- id: age_at_menopause
+  label: Age at menopause (final menstrual period), reported
+  kind: measured
+  unit: a
+  accepts:
+    codes:
+    - {system: loinc, code: 42802-9, display: 'Age at menopause'}
+    reject_codes:
+    - {system: loinc, code: 63890-8, display: 'Age at last menstrual period'}
+  recency_days: 36500
+  predictable: false
+  correspondence_type: terminology
+- id: months_since_final_period
+  label: Months since the final menstrual period, reported
+  kind: measured
+  unit: mo
+  accepts:
+    codes:
+    - {system: free, code: womens_health.months_since_final_period, display: 'Months since final menstrual period'}
+  recency_days: 365
+  predictable: false
+  correspondence_type: terminology
+inference_boundaries:
+  supports: [reproductive history and menopause timing as context for plans and risk estimates]
+  does_not_support: [diagnosis, pregnancy status (care_context and persona scope rules), hormone therapy (a medication, kept in
+      care_context), contraception]
+  min_evidence_class_for_actions: hypothesis_only

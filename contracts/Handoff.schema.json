@@ -1,0 +1,204 @@
+{
+  "$defs": {
+    "BotRole": {
+      "description": "The PLSI team on Grok Bot; the roster (slug -> display name, core vs opt-in specialists, skills) is skills/shared/team.\nEvery handoff has the orchestrator (PLSI) on one end; only PLSI talks to the user.",
+      "enum": [
+        "orchestrator",
+        "processor",
+        "consultant",
+        "nostradamus",
+        "challenger",
+        "reviewer",
+        "controller",
+        "memoryhole",
+        "visualizer",
+        "wearables",
+        "nutritionist",
+        "coach",
+        "sleep",
+        "biohacker",
+        "researcher",
+        "explorer",
+        "navigator",
+        "scout",
+        "pharma",
+        "engineer",
+        "writer",
+        "panel",
+        "visitprep",
+        "clinev",
+        "liaison",
+        "targets",
+        "landscape",
+        "analyst",
+        "grants"
+      ],
+      "title": "BotRole",
+      "type": "string"
+    },
+    "HandoffKind": {
+      "enum": [
+        "request",
+        "result",
+        "question",
+        "answer"
+      ],
+      "title": "HandoffKind",
+      "type": "string"
+    },
+    "Question": {
+      "additionalProperties": false,
+      "description": "Asked by the orchestrator: a question card when `options` are given, else a plain chat question.",
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "multi": {
+          "default": false,
+          "title": "Multi",
+          "type": "boolean"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "Question",
+      "type": "object"
+    },
+    "StateCite": {
+      "additionalProperties": false,
+      "properties": {
+        "map_id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Map Id",
+          "type": "string"
+        },
+        "state_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "State Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "map_id",
+        "state_hash"
+      ],
+      "title": "StateCite",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One message between PLSI bots, sent as JSON in the handoff text. `thread` ties a request to its questions,\nanswers and result. `summary` is deidentified; records travel as `files` (paths on the shared computer).",
+  "properties": {
+    "answers": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        ]
+      },
+      "default": {},
+      "title": "Answers",
+      "type": "object"
+    },
+    "files": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "instance": {
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "title": "Instance",
+      "type": "string"
+    },
+    "plan_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Plan Id"
+    },
+    "questions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Question"
+      },
+      "title": "Questions",
+      "type": "array"
+    },
+    "recipient": {
+      "$ref": "#/$defs/BotRole"
+    },
+    "sender": {
+      "$ref": "#/$defs/BotRole"
+    },
+    "skill": {
+      "pattern": "^[a-z]+/[a-z0-9][a-z0-9-]{0,63}$",
+      "title": "Skill",
+      "type": "string"
+    },
+    "states": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StateCite"
+      },
+      "title": "States",
+      "type": "array"
+    },
+    "summary": {
+      "maxLength": 2000,
+      "title": "Summary",
+      "type": "string"
+    },
+    "thread": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+      "title": "Thread",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/HandoffKind"
+    }
+  },
+  "required": [
+    "type",
+    "sender",
+    "recipient",
+    "thread",
+    "skill",
+    "instance",
+    "summary"
+  ],
+  "title": "Handoff",
+  "type": "object"
+}

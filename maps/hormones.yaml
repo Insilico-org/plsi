@@ -1,0 +1,137 @@
+# LOINC codes checked against NLM Clinical Tables (accepted -> accepts.codes, close but different -> reject_codes).
+kind: plsi_map
+schema_version: 1
+id: hormones
+title: Sex and adrenal hormones
+map_version: 0.1.0
+claim_level: designed
+summary: Total testosterone, estradiol, sex hormone binding globulin, DHEA-S, IGF-1 and morning cortisol in serum or plasma.
+tags: [hormones, endocrine, blood]
+coordinates:
+- id: testosterone_total
+  label: Total testosterone, serum or plasma
+  kind: measured
+  unit: ng/dL
+  accepts:
+    codes:
+    - {system: loinc, code: 2986-8, display: 'Testosterone [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14913-8, display: 'Testosterone [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 83115-6, display: 'Testosterone [Moles/volume] in Serum or Plasma by Immunoassay'}
+    reject_codes:
+    - {system: loinc, code: 2991-8, display: 'Testosterone Free [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14914-6, display: 'Testosterone Free [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 2990-0, display: 'Testosterone.free+weakly bound [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 21555-8, display: 'Testosterone [Mass/volume] adjusted for sex hormone binding globulin in Serum or Plasma'}
+    - {system: loinc, code: 48357-8, display: 'Testosterone [Moles/volume] in Saliva (oral fluid)'}
+    - {system: loinc, code: 55519-3, display: 'Testosterone [Moles/volume] in Serum or Plasma --baseline'}
+  conversions:
+  - from_unit: nmol/L
+    factor: 28.84
+    source: &young {kind: doi, id: 10.7326/0003-4819-106-1-114, title: Young DS 1987. Implementation of SI units for clinical laboratory data.
+        Ann Intern Med}
+  recency_days: 365
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+- id: estradiol
+  label: Estradiol (E2), serum or plasma
+  kind: measured
+  unit: pg/mL
+  accepts:
+    codes:
+    - {system: loinc, code: 2243-4, display: 'Estradiol (E2) [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14715-7, display: 'Estradiol (E2) [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 35384-7, display: 'Estradiol (E2) [Mass/volume] in Serum or Plasma by High sensitivity method'}
+    reject_codes:
+    - {system: loinc, code: 2240-0, display: 'Estradiol (E2) Free [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 13884-2, display: 'Estradiol (E2).bioavailable [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 2254-1, display: 'Estrogen [Mass/volume] in Serum or Plasma'}
+  conversions:
+  - from_unit: pmol/L
+    factor: 0.2724
+    source: *young
+  recency_days: 365
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+- id: shbg
+  label: Sex hormone binding globulin (SHBG), serum or plasma
+  kind: measured
+  unit: nmol/L
+  accepts:
+    codes:
+    - {system: loinc, code: 13967-5, display: 'Sex hormone binding globulin [Moles/volume] in Serum or Plasma'}
+    reject_codes:
+    - {system: loinc, code: 2942-1, display: 'Sex hormone binding globulin [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 65359-2, display: 'Sex hormone binding globulin [Moles/volume] in Serum or Plasma --pre or post XXX challenge'}
+  recency_days: 365
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+- id: dhea_s
+  label: DHEA sulfate (DHEA-S), serum or plasma
+  kind: measured
+  unit: ug/dL
+  accepts:
+    codes:
+    - {system: loinc, code: 2191-5, display: 'Dehydroepiandrosterone sulfate (DHEA-S) [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14688-6, display: 'Dehydroepiandrosterone sulfate (DHEA-S) [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 107494-7, display: 'Dehydroepiandrosterone sulfate (DHEA-S) [Mass/volume] in Serum or Plasma by LC/MS/MS'}
+    reject_codes:
+    - {system: loinc, code: 16721-3, display: 'Dehydroepiandrosterone sulfate (DHEA-S) [Mass/volume] in Saliva (oral fluid)'}
+    - {system: loinc, code: 56552-3, display: 'Dehydroepiandrosterone sulfate (DHEA-S) [Mass/volume] in Serum or Plasma --baseline'}
+    - {system: loinc, code: 76347-4, display: 'Dehydroepiandrosterone sulfate (DHEA-S)/Cortisol [Molar ratio] in Serum or Plasma'}
+  conversions:
+  - from_unit: umol/L
+    factor: 36.85
+    source: *young
+  recency_days: 365
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+- id: igf_1
+  label: Insulin-like growth factor 1 (IGF-1), serum or plasma
+  kind: measured
+  unit: ng/mL
+  accepts:
+    codes:
+    - {system: loinc, code: 2484-4, display: 'Insulin-like growth factor-I [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 29775-4, display: 'Insulin-like growth factor-I [Moles/volume] in Serum or Plasma'}
+    reject_codes:
+    - {system: loinc, code: 38492-5, display: 'Insulin-like growth factor-I [Units/volume] in Serum or Plasma'}
+    - {system: loinc, code: 73561-3, display: 'Insulin-like growth factor-I [Z-score] in Serum or Plasma'}
+    - {system: loinc, code: 49850-1, display: 'Insulin-like growth factor-I [Mass/volume] in Serum or Plasma --baseline'}
+  conversions:
+  - from_unit: nmol/L
+    factor: 7.649
+    source: *young
+  recency_days: 365
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+- id: cortisol_morning
+  label: Cortisol, morning serum or plasma
+  kind: measured
+  unit: ug/dL
+  accepts:
+    codes:
+    - {system: loinc, code: 48104-4, display: 'Cortisol [Mass/volume] in Serum or Plasma --8 AM specimen'}
+    - {system: loinc, code: 45050-2, display: 'Cortisol [Moles/volume] in Serum or Plasma --8 AM specimen'}
+    - {system: loinc, code: 9813-7, display: 'Cortisol [Mass/volume] in Serum or Plasma --AM peak specimen'}
+    - {system: loinc, code: 14679-5, display: 'Cortisol [Moles/volume] in Serum or Plasma --AM peak specimen'}
+    reject_codes:
+    - {system: loinc, code: 2143-6, display: 'Cortisol [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14675-3, display: 'Cortisol [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 2145-1, display: 'Cortisol Free [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14678-7, display: 'Cortisol [Moles/volume] in Serum or Plasma --PM trough specimen'}
+    - {system: loinc, code: 21222-5, display: 'Cortisol [Mass/volume] in Serum or Plasma --11 PM specimen'}
+    - {system: loinc, code: 58674-3, display: 'Cortisol [Mass/volume] in Saliva (oral fluid) --8 AM specimen'}
+  conversions:
+  - from_unit: nmol/L
+    factor: 0.03625
+    source: *young
+  recency_days: 365
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+inference_boundaries:
+  supports: [level of each hormone and its change between draws, predictions on a single hormone]
+  does_not_support: [diagnosis, free or bioavailable testosterone (total only), cortisol drawn at an unstated time, comparing values
+      across a menstrual cycle phase without the phase]
+  min_evidence_class_for_actions: hypothesis_only
+sources:
+- *young

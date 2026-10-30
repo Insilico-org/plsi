@@ -1,0 +1,22 @@
+longevity_mothership:
+  title: Longevity Mothership relay (Insilico longevity research initiative)
+  url: https://plsi-mothership-relay.pages.dev/join
+  api_base: https://plsi-mothership-relay.pages.dev
+  key_env: [MOTHERSHIP_PROFESSIONAL_TOKEN]
+  notes: >-
+    The user gets a one-time code at /join; plsi mothership join trades it at POST /enroll {"code"} for an install_id
+    and a plsi1. install token. plsi mothership send POSTs each contribution, withdrawal or registry update (install
+    token) or preregistration or finding (professional plsp1. token, MOTHERSHIP_PROFESSIONAL_TOKEN) to /relay as
+    Authorization Bearer; the reply only says the Mother was woken and carries a ticket that POST /ack {"ticket"} later
+    trades for the Mother's receipt. GET /public/catalog, /public/releases/<version> and /public/findings (the last two
+    with the professional token). Research notes go by email (longevity_mothership_research). Consent text in
+    mothership/consent.md.
+
+longevity_mothership_research:
+  title: Longevity Mothership research intake (email, WIRE §7)
+  url: https://plsi-mothership-relay.pages.dev
+  notes: >-
+    Research notes go here and nowhere else: plsi mothership email drafts the email (subject, the note in plain words,
+    the message in one plsi block) and the user's own Grok email sends it to `email`, the Mother's Grok address with
+    the +research postfix. The sender's address signs the note; the Mother replies to it with a receipt and, after
+    review, the decision. Set `email` when the Mother bot exists.

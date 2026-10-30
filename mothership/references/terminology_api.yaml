@@ -1,0 +1,31 @@
+nlm_clinical_tables_loinc:
+  title: NLM Clinical Tables LOINC search
+  url: https://clinicaltables.nlm.nih.gov/apidoc/loinc/v3/doc.html
+  api_base: https://clinicaltables.nlm.nih.gov
+  licence: LOINC Terms of Use (isCopyrighted / EXTERNAL_COPYRIGHT_NOTICE mark third-party items)
+  notes: >-
+    Search GET /api/loinc_items/v3/search?type=question&terms=T&maxList=200&df=LOINC_NUM,LONG_COMMON_NAME&ef=PROPERTY,units,COMPONENT,SHORTNAME
+    returns [total, codes, ef, df]; ranking is autocomplete order, so rank locally. SYSTEM/SCALE_TYP/STATUS are not exposed:
+    parse specimen from LONG_COMMON_NAME (" in Serum or Plasma", " in Blood", " in Urine"); deprecation shows only as a
+    "Deprecated" prefix. Code check GET /fhir/R4/CodeSystem/$lookup?system=http://loinc.org&code=C (200 = exists, 400 =
+    unknown; deprecated codes still return 200). No key; advised max 25 req/s.
+
+loinc_fhir:
+  title: LOINC FHIR terminology server
+  url: https://fhir.loinc.org
+  api_base: https://fhir.loinc.org
+  key_env: [LOINC_USERNAME, LOINC_PASSWORD]
+  licence: LOINC Terms of Use
+  notes: >-
+    Optional and unused by default. HTTP Basic with a free loinc.org account; without it the server returns 302 to auth.loinc.org
+    or 401.
+
+rxnav:
+  title: NLM RxNav (RxNorm REST API)
+  url: https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html
+  api_base: https://rxnav.nlm.nih.gov/REST
+  licence: RxNav Terms of Service, https://lhncbc.nlm.nih.gov/RxNav/TermsofService.html
+  notes: >-
+    GET /approximateTerm.json?term=T&maxEntries=10&option=1 (scores are not normalized; dedupe by rxcui); ingredient via
+    GET /rxcui/{rxcui}/related.json?tty=IN+PIN (not allrelated). The drug-drug interaction API (/interaction/*) was retired
+    in 2024 and returns 404. No key; 20 req/s per IP.

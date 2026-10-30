@@ -1,0 +1,370 @@
+{
+  "$defs": {
+    "ClinicalStatus": {
+      "enum": [
+        "active",
+        "stopped",
+        "resolved",
+        "unknown"
+      ],
+      "title": "ClinicalStatus",
+      "type": "string"
+    },
+    "Code": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "$ref": "#/$defs/CodeSystem"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "Code",
+      "type": "object"
+    },
+    "CodeSystem": {
+      "enum": [
+        "loinc",
+        "rxnorm",
+        "snomed",
+        "icd10cm",
+        "cpg",
+        "free"
+      ],
+      "title": "CodeSystem",
+      "type": "string"
+    },
+    "Comparator": {
+      "enum": [
+        "<",
+        "<=",
+        ">",
+        ">="
+      ],
+      "title": "Comparator",
+      "type": "string"
+    },
+    "ObservationKind": {
+      "enum": [
+        "measurement",
+        "medication",
+        "condition",
+        "allergy",
+        "intervention",
+        "symptom",
+        "lifestyle",
+        "artifact",
+        "note",
+        "goal",
+        "preference"
+      ],
+      "title": "ObservationKind",
+      "type": "string"
+    },
+    "Origin": {
+      "additionalProperties": false,
+      "description": "Provenance of an observation. Never a path or filename (deid profile plsi-limited-v1).",
+      "properties": {
+        "file_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File Sha256"
+        },
+        "kind": {
+          "$ref": "#/$defs/OriginKind"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "record_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Id"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Origin",
+      "type": "object"
+    },
+    "OriginKind": {
+      "enum": [
+        "user_upload",
+        "fhir",
+        "csv",
+        "grok_extraction",
+        "device",
+        "methylation",
+        "extension"
+      ],
+      "title": "OriginKind",
+      "type": "string"
+    },
+    "TimeBasis": {
+      "enum": [
+        "document",
+        "user_stated",
+        "assumed"
+      ],
+      "title": "TimeBasis",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "clinical_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClinicalStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "code": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Code"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "dose": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dose"
+    },
+    "dose_quantity": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dose Quantity"
+    },
+    "dose_unit": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dose Unit"
+    },
+    "effective_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "format": "date",
+          "type": "string"
+        }
+      ],
+      "title": "Effective At"
+    },
+    "effective_basis": {
+      "$ref": "#/$defs/TimeBasis",
+      "default": "document"
+    },
+    "effective_end": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effective End"
+    },
+    "fasting": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fasting"
+    },
+    "kind": {
+      "$ref": "#/$defs/ObservationKind"
+    },
+    "origin": {
+      "$ref": "#/$defs/Origin"
+    },
+    "original_text": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Original Text",
+      "type": "string"
+    },
+    "repeat": {
+      "default": false,
+      "title": "Repeat",
+      "type": "boolean"
+    },
+    "specimen": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Specimen"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    },
+    "value_bool": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Value Bool"
+    },
+    "value_comparator": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Comparator"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "value_quantity": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Value Quantity"
+    },
+    "value_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Value Text"
+    }
+  },
+  "required": [
+    "kind",
+    "original_text",
+    "effective_at",
+    "origin"
+  ],
+  "title": "ObservationInput",
+  "type": "object"
+}

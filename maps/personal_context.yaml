@@ -1,0 +1,15 @@
+kind: plsi_map
+schema_version: 1
+id: personal_context
+title: Personal context
+map_version: 1.0.0
+claim_level: designed
+summary: 'Active goals and preferences: what the user wants and the constraints every suggestion must respect.'
+tags: [goals, preferences]
+coordinates:
+- {id: goals, label: Goals, kind: set, collects: goal, predictable: false, correspondence_type: expert}
+- {id: preferences, label: Preferences, kind: set, collects: preference, predictable: false, correspondence_type: expert}
+inference_boundaries:
+  supports: ['tailoring suggestions to stated goals and preferences']
+  does_not_support: [inferring goals the user did not state, health status]
+  min_evidence_class_for_actions: hypothesis_only

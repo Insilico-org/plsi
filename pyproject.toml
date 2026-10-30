@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plsi"
+version = "0.1.0"
+description = "Personal Longevity State Interface: State Map contracts and a JSON CLI toolbelt for Grok Bot"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+dependencies = ["pydantic>=2", "PyYAML"]
+
+[project.optional-dependencies]
+clocks = ["biolearn>=0.9,<1", "pandas>=2.1,<3", "seaborn"]  # DunedinPACE breaks under pandas 3; seaborn is imported but undeclared
+dev = ["pytest>=8"]
+pdf = ["matplotlib>=3.8"]  # plsi report --format pdf
+
+[project.scripts]
+plsi = "plsi.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+plsi = ["report.html", "map/data/*.csv", "map/data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not live'"
+markers = [
+    "live: needs real network access (deselected by default; run with -m live)",
+    "clocks: needs the clocks extra (biolearn)",
+]

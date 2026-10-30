@@ -1,0 +1,12 @@
+levine2018:
+  title: >-
+    Levine ME et al. 2018. An epigenetic biomarker of aging for lifespan and healthspan. Aging 10(4):573-591
+  url: https://doi.org/10.18632/aging.101414
+  notes: Source of the blood PhenoAge formula (native plsi.derive.phenoage). DOI 10.18632/aging.101414.
+
+matthews1985:
+  title: >-
+    Matthews DR et al. 1985. Homeostasis model assessment: insulin resistance and beta-cell function from fasting plasma
+    glucose and insulin concentrations in man. Diabetologia 28:412-419
+  url: https://doi.org/10.1007/BF00280883
+  notes: Source of HOMA-IR = glucose (mmol/L) x insulin (uIU/mL) / 22.5. DOI 10.1007/BF00280883.

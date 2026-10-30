@@ -1,0 +1,108 @@
+{
+  "$defs": {
+    "Block": {
+      "additionalProperties": false,
+      "description": "type: a BlockType, or any other string (rendered as pretty-printed JSON). data shapes:\nmarkdown {text} (#, **, *, - lists, [t](https://...) only; never raw HTML) · kv {items:[{key,value}]} ·\ntable {columns, rows} (cell = string | number | {text, href?}) ·\ntimeseries {series:[{name, unit, points:[{t,v}], predictions:[{t,expected,low,high}]}]} · list {items:[{text, href?}]} ·\ntimeline {now?, events:[{t, label, kind: past|predicted, level?: info|watch|high, t_end?, probability?, detail?, href?}]}",
+      "properties": {
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockType"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Type"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "title": "Block",
+      "type": "object"
+    },
+    "BlockType": {
+      "enum": [
+        "markdown",
+        "kv",
+        "table",
+        "timeseries",
+        "list",
+        "timeline"
+      ],
+      "title": "BlockType",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "blocks": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Block"
+      },
+      "title": "Blocks",
+      "type": "array"
+    },
+    "generated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "format": "date",
+          "type": "string"
+        }
+      ],
+      "title": "Generated At"
+    },
+    "kind": {
+      "const": "plsi_dashboard",
+      "default": "plsi_dashboard",
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "subject_id": {
+      "title": "Subject Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "subject_id",
+    "generated_at"
+  ],
+  "title": "DashboardPayload",
+  "type": "object"
+}

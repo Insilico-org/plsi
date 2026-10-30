@@ -1,0 +1,535 @@
+{
+  "$defs": {
+    "Accepts": {
+      "additionalProperties": false,
+      "properties": {
+        "codes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Code"
+          },
+          "title": "Codes",
+          "type": "array"
+        },
+        "reject_codes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Code"
+          },
+          "title": "Reject Codes",
+          "type": "array"
+        },
+        "requires_fasting": {
+          "default": false,
+          "title": "Requires Fasting",
+          "type": "boolean"
+        }
+      },
+      "title": "Accepts",
+      "type": "object"
+    },
+    "ClaimLevel": {
+      "enum": [
+        "designed",
+        "instantiated",
+        "exercised"
+      ],
+      "title": "ClaimLevel",
+      "type": "string"
+    },
+    "ClockExpansion": {
+      "additionalProperties": false,
+      "description": "Adds one derived coordinate per biolearn aging clock (plsi.map.biolearn.clocks()), fed by `input`.",
+      "properties": {
+        "engine": {
+          "const": "biolearn",
+          "default": "biolearn",
+          "title": "Engine",
+          "type": "string"
+        },
+        "input": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Input",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input"
+      ],
+      "title": "ClockExpansion",
+      "type": "object"
+    },
+    "Code": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "$ref": "#/$defs/CodeSystem"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "Code",
+      "type": "object"
+    },
+    "CodeSystem": {
+      "enum": [
+        "loinc",
+        "rxnorm",
+        "snomed",
+        "icd10cm",
+        "cpg",
+        "free"
+      ],
+      "title": "CodeSystem",
+      "type": "string"
+    },
+    "Conversion": {
+      "additionalProperties": false,
+      "properties": {
+        "factor": {
+          "exclusiveMinimum": 0,
+          "title": "Factor",
+          "type": "number"
+        },
+        "from_unit": {
+          "title": "From Unit",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        }
+      },
+      "required": [
+        "from_unit",
+        "factor",
+        "source"
+      ],
+      "title": "Conversion",
+      "type": "object"
+    },
+    "CoordinateKind": {
+      "enum": [
+        "measured",
+        "derived",
+        "set"
+      ],
+      "title": "CoordinateKind",
+      "type": "string"
+    },
+    "CorrespondenceType": {
+      "enum": [
+        "terminology",
+        "expert",
+        "statistical",
+        "mechanistic",
+        "validated",
+        "unmapped"
+      ],
+      "title": "CorrespondenceType",
+      "type": "string"
+    },
+    "Derive": {
+      "additionalProperties": false,
+      "properties": {
+        "carry_forward": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Carry Forward",
+          "type": "array"
+        },
+        "engine": {
+          "$ref": "#/$defs/DeriveEngine"
+        },
+        "formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Formula"
+        },
+        "inputs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "engine",
+        "model"
+      ],
+      "title": "Derive",
+      "type": "object"
+    },
+    "DeriveEngine": {
+      "enum": [
+        "native",
+        "expr",
+        "extension",
+        "biolearn"
+      ],
+      "title": "DeriveEngine",
+      "type": "string"
+    },
+    "EvidenceClass": {
+      "enum": [
+        "evidence_backed",
+        "rule_derived",
+        "model_derived",
+        "hypothesis_only",
+        "unknown"
+      ],
+      "title": "EvidenceClass",
+      "type": "string"
+    },
+    "InferenceBoundaries": {
+      "additionalProperties": false,
+      "properties": {
+        "does_not_support": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Does Not Support",
+          "type": "array"
+        },
+        "min_evidence_class_for_actions": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "supports": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Supports",
+          "type": "array"
+        }
+      },
+      "required": [
+        "min_evidence_class_for_actions"
+      ],
+      "title": "InferenceBoundaries",
+      "type": "object"
+    },
+    "MapCoordinate": {
+      "additionalProperties": false,
+      "properties": {
+        "accepts": {
+          "$ref": "#/$defs/Accepts",
+          "default": {
+            "codes": [],
+            "reject_codes": [],
+            "requires_fasting": false
+          }
+        },
+        "collects": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservationKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "conversions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Conversion"
+          },
+          "title": "Conversions",
+          "type": "array"
+        },
+        "correspondence_type": {
+          "$ref": "#/$defs/CorrespondenceType"
+        },
+        "derive": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Derive"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/CoordinateKind"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "predictable": {
+          "default": true,
+          "title": "Predictable",
+          "type": "boolean"
+        },
+        "recency_days": {
+          "default": 365,
+          "minimum": 1,
+          "title": "Recency Days",
+          "type": "integer"
+        },
+        "score_window_days": {
+          "$ref": "#/$defs/ScoreWindow",
+          "default": {
+            "after": 28,
+            "before": 14
+          }
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "kind",
+        "correspondence_type"
+      ],
+      "title": "MapCoordinate",
+      "type": "object"
+    },
+    "ObservationKind": {
+      "enum": [
+        "measurement",
+        "medication",
+        "condition",
+        "allergy",
+        "intervention",
+        "symptom",
+        "lifestyle",
+        "artifact",
+        "note",
+        "goal",
+        "preference"
+      ],
+      "title": "ObservationKind",
+      "type": "string"
+    },
+    "ScoreWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "default": 28,
+          "minimum": 0,
+          "title": "After",
+          "type": "integer"
+        },
+        "before": {
+          "default": 14,
+          "minimum": 0,
+          "title": "Before",
+          "type": "integer"
+        }
+      },
+      "title": "ScoreWindow",
+      "type": "object"
+    },
+    "SourceKind": {
+      "enum": [
+        "pmid",
+        "doi",
+        "nct",
+        "label",
+        "evipedia",
+        "model",
+        "rule"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A State Map. User maps (instance maps/user/) must have an id starting `user_` and claim_level designed;\nthat rule depends on where the file lives and is enforced by plsi.map.registry.",
+  "properties": {
+    "claim_level": {
+      "$ref": "#/$defs/ClaimLevel"
+    },
+    "coordinates": {
+      "items": {
+        "$ref": "#/$defs/MapCoordinate"
+      },
+      "minItems": 1,
+      "title": "Coordinates",
+      "type": "array"
+    },
+    "expand": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClockExpansion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "id": {
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "inference_boundaries": {
+      "$ref": "#/$defs/InferenceBoundaries"
+    },
+    "kind": {
+      "const": "plsi_map",
+      "default": "plsi_map",
+      "title": "Kind",
+      "type": "string"
+    },
+    "map_version": {
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Map Version",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "map_version",
+    "claim_level",
+    "summary",
+    "coordinates",
+    "inference_boundaries"
+  ],
+  "title": "MapContract",
+  "type": "object"
+}

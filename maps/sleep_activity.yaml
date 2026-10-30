@@ -1,0 +1,121 @@
+# Wearable-derived calendar-month means (wearables/import). LOINC codes checked against the NLM Clinical Tables LOINC API on 2026-10-21 (exercise and VO2max on 2026-10-22).
+# Values are calendar-month means of closed months (wearables/import step 3), dated the month's last day.
+# HRV RMSSD has no LOINC code: it has its own free-coded coordinate and is never converted to or from SDNN.
+# Sleep efficiency has no LOINC code either; it stays unmapped.
+kind: plsi_map
+schema_version: 1
+id: sleep_activity
+title: Sleep, recovery and activity
+map_version: 0.4.0
+claim_level: designed
+summary: Calendar-month means of sleep duration, resting heart rate, heart rate variability (SDNN), daily steps, weekly exercise minutes and active days from consumer wearables, plus VO2max estimates.
+tags: [sleep, recovery, activity, exercise, fitness, wearables]
+coordinates:
+- id: sleep_duration
+  label: Sleep duration (calendar-month mean)
+  kind: measured
+  unit: min
+  accepts:
+    codes:
+    - {system: loinc, code: 93832-4, display: 'Sleep duration'}
+    reject_codes:
+    - {system: loinc, code: 93830-8, display: 'Light sleep duration'}
+    - {system: loinc, code: 93831-6, display: 'Deep sleep duration'}
+    - {system: loinc, code: 93829-0, display: 'REM sleep duration'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: resting_heart_rate
+  label: Resting heart rate (calendar-month mean)
+  kind: measured
+  unit: /min
+  accepts:
+    codes:
+    - {system: loinc, code: 40443-4, display: 'Heart rate --resting'}
+    reject_codes:
+    - {system: loinc, code: 67129-7, display: 'Heart rate Peripheral artery by palpation --resting'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: hrv_sdnn
+  label: Heart rate variability, SDNN (calendar-month mean)
+  kind: measured
+  unit: ms
+  accepts:
+    codes:
+    - {system: loinc, code: 80404-7, display: 'R-R interval.standard deviation (Heart rate variability)'}
+    - {system: loinc, code: 112429-6, display: 'Heart rate variability SDNN [Time]'}
+    reject_codes:
+    - {system: loinc, code: 76644-4, display: 'R-R interval.coefficient of variation by EKG'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: hrv_rmssd
+  label: Heart rate variability, RMSSD (calendar-month mean)
+  kind: measured
+  unit: ms
+  accepts:
+    codes:
+    - {system: free, code: sleep_activity.hrv_rmssd, display: 'Heart rate variability RMSSD, calendar-month mean'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: daily_steps
+  label: Daily steps (calendar-month mean)
+  kind: measured
+  unit: /d
+  accepts:
+    codes:
+    - {system: loinc, code: 41951-5, display: 'Number of steps in 24 hour mean Measured'}
+    - {system: loinc, code: 41950-7, display: 'Number of steps in 24 hour Measured'}
+    reject_codes:
+    - {system: loinc, code: 55423-8, display: 'Number of steps in unspecified time Pedometer'}
+    - {system: loinc, code: 41952-3, display: 'Number of steps in 1 week Measured'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: exercise_minutes
+  label: Moderate-or-harder exercise minutes per week (calendar-month mean)
+  kind: measured
+  unit: min/wk
+  accepts:
+    codes:
+    - {system: loinc, code: 89574-8, display: 'Exercise Vital Sign (EVS)'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+  sources:
+  - {kind: doi, id: 10.1136/bjsports-2020-102955, title: Bull FC et al. 2020. WHO guidelines on physical activity and sedentary behaviour. Br J Sports Med}
+- id: active_days
+  label: Days per week with 30 or more exercise minutes (calendar-month mean)
+  kind: measured
+  unit: d/wk
+  accepts:
+    codes:
+    - {system: loinc, code: 77293-9, display: 'Days per week of moderate to vigorous physical activity'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: vo2_max
+  label: VO2max estimate (one reading per row)
+  kind: measured
+  unit: mL/min/kg
+  accepts:
+    codes:
+    - {system: loinc, code: 94122-9, display: 'Oxygen consumption (VO2)/Body weight [Volume Rate Content] --peak during exercise'}
+  recency_days: 120
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+  sources:
+  - {kind: doi, id: 10.1001/jama.2009.681, title: Kodama S et al. 2009. Cardiorespiratory fitness and all-cause mortality and cardiovascular events. JAMA}
+inference_boundaries:
+  supports:
+  - 'tracking monthly sleep duration, resting heart rate, HRV (SDNN or RMSSD, each on its own), steps, exercise minutes and active days over time'
+  - 'tracking the trend of device VO2max estimates'
+  - 'predictions on these coordinates for sleep, exercise and stress plans'
+  does_not_support:
+  - diagnosing a sleep disorder, arrhythmia or any other condition
+  - comparing values across different devices or HRV methods (SDNN vs RMSSD)
+  - single-night or single-day judgments
+  - treating a watch VO2max estimate as a measured (lab) VO2max, or exercise minutes as a measure of intensity zones
+  min_evidence_class_for_actions: hypothesis_only

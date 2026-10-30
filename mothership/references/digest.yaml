@@ -1,0 +1,15 @@
+longevity_papers: {title: Longevity Papers - curated digest of new longevity research, url: 'https://www.longevitypapers.com/'}
+
+longevents: {title: LongEvents - calendar of longevity conferences and events, url: 'https://longevents.hyperadvancer.com/'}
+
+dkv_reports: {title: Deep Knowledge Ventures (DKV) - longevity industry analytics and reports, url: 'https://www.dkv.global/',
+  notes: 'Industry landscape reports (companies, investors, markets); not clinical evidence.'}
+
+fierce_biotech: {title: 'Fierce Biotech - biotech industry news (deals, trials, approvals)', url: 'https://www.fiercebiotech.com/',
+  notes: Industry news; not clinical evidence.}
+
+longevity_technology: {title: Longevity.Technology - longevity research and industry news, url: 'https://longevity.technology/news/',
+  notes: 'News; cite the underlying paper after plsi evidence verify, not the article.'}
+
+eurekalert: {title: EurekAlert! (AAAS) - research press releases, url: 'https://www.eurekalert.org/', notes: 'Press releases;
+    cite the underlying paper after plsi evidence verify, not the release.'}

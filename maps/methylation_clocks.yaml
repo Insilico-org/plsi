@@ -1,0 +1,28 @@
+kind: plsi_map
+schema_version: 1
+id: methylation_clocks
+title: DNA methylation clocks (biolearn)
+map_version: 2.0.0
+claim_level: instantiated
+summary: >-
+  Every biolearn aging clock (outputs in years or years per year), computed from one stored beta-value
+  sample. Clock coordinates are generated from the installed biolearn gallery when the map loads.
+tags: [aging_clock, methylation, biolearn]
+coordinates:
+- id: methylation_betas
+  label: DNA methylation beta values (one sample)
+  kind: measured
+  accepts:
+    codes:
+    - {system: cpg, code: methylation_betas}
+  predictable: false
+  correspondence_type: terminology
+expand:
+  engine: biolearn
+  input: methylation_betas
+inference_boundaries:
+  supports: [epigenetic age and pace-of-aging estimates from one methylation array sample, as computed by biolearn]
+  does_not_support: [comparing clocks across array platforms or labs, diagnosis]
+  min_evidence_class_for_actions: hypothesis_only
+sources:
+- {kind: doi, id: 10.1101/2023.12.02.569722, title: Ying K et al. 2023. A unified framework for systematic curation and evaluation of aging biomarkers (biolearn). bioRxiv}

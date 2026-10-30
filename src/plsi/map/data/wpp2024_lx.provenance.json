@@ -1,0 +1,40 @@
+{
+  "attribution": "United Nations, Department of Economic and Social Affairs, Population Division (2024). World Population Prospects 2024, Online Edition.",
+  "licence": "CC BY 3.0 IGO (https://creativecommons.org/licenses/by/3.0/igo/)",
+  "source": "https://population.un.org/wpp/",
+  "methods": "https://population.un.org/wpp/Publications/Files/WPP2024_Methodology.pdf",
+  "revision": "WPP2024",
+  "quantity": "l(x), life-table survivors to exact age x of a 100,000 radix",
+  "scenario": [
+    "Estimates"
+  ],
+  "countries": [
+    "CRI",
+    "USA",
+    "CHN"
+  ],
+  "years": [
+    2005,
+    2023
+  ],
+  "year_selection": "2023: the most recent WPP2024 estimate year; 2005 kept for comparison",
+  "age_min": 0,
+  "age_max": 100,
+  "terminal_age_is_open_ended": true,
+  "rows": 1212,
+  "prepared_on": "2026-10-12",
+  "workbooks": [
+    {
+      "file": "WPP2024_MORT_F04_2_LIFE_TABLE_SURVIVORS_MALE.xlsx",
+      "sha256": "a2119fe0074f4dcc63770cc87f4e98b84413eac8c5a0d81bbe8327775612b916",
+      "sheet": "Estimates",
+      "selected_life_tables": 6
+    },
+    {
+      "file": "WPP2024_MORT_F04_3_LIFE_TABLE_SURVIVORS_FEMALE.xlsx",
+      "sha256": "9164e9fd42902615338fbbbbbb3b632cd10c0f683905e797a206838a0b9fb08b",
+      "sheet": "Estimates",
+      "selected_life_tables": 6
+    }
+  ]
+}

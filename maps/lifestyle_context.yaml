@@ -1,0 +1,68 @@
+# LOINC codes checked against the NLM Clinical Tables LOINC API on 2026-10-25. Amounts are as the user reports them
+# (or a questionnaire scores them), dated to when they describe; a weekly amount is the usual week at that time.
+kind: plsi_map
+schema_version: 1
+id: lifestyle_context
+title: Lifestyle context
+map_version: 0.2.0
+claim_level: designed
+summary: >-
+  Active lifestyle behaviors and exposures (alcohol use, smoking or vaping, shift work,
+  abstinence) as current context for planning, plus the reported amounts of alcohol and smoking
+  that plans to cut down predict on.
+tags: [lifestyle, exposures, substances, alcohol, smoking]
+coordinates:
+- {id: active_lifestyle, label: Active lifestyle behaviors, kind: set, collects: lifestyle, predictable: false, correspondence_type: expert}
+- id: alcohol_drinks_week
+  label: Alcoholic drinks per week (standard drinks, reported)
+  kind: measured
+  unit: /wk
+  accepts:
+    codes:
+    - {system: loinc, code: 44940-5, display: 'Alcoholic drinks per week - Reported'}
+    - {system: loinc, code: 105992-2, display: 'Alcoholic drinks per week'}
+  recency_days: 60
+  score_window_days: {before: 14, after: 30}
+  correspondence_type: terminology
+- id: alcohol_days_week
+  label: Days per week with alcoholic drinks (reported)
+  kind: measured
+  unit: d/wk
+  accepts:
+    codes:
+    - {system: loinc, code: 81032-5, display: 'Days per week alcoholic drinks consumed'}
+  recency_days: 60
+  score_window_days: {before: 14, after: 30}
+  correspondence_type: terminology
+- id: audit_c
+  label: AUDIT-C total score (0-12)
+  kind: measured
+  unit: '1'
+  accepts:
+    codes:
+    - {system: loinc, code: 75626-2, display: 'Total score [AUDIT-C]'}
+  recency_days: 180
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+  sources:
+  - {kind: pmid, id: '9738608', title: Bush K et al. 1998. The AUDIT alcohol consumption questions (AUDIT-C). Arch Intern Med}
+- id: cigarettes_day
+  label: Cigarettes smoked per day now (reported)
+  kind: measured
+  unit: /d
+  accepts:
+    codes:
+    - {system: loinc, code: 64218-1, display: 'How many cigarettes do you smoke per day now [PhenX]'}
+  recency_days: 60
+  score_window_days: {before: 14, after: 30}
+  correspondence_type: terminology
+inference_boundaries:
+  supports:
+  - reflecting stated ongoing lifestyle and exposures in current state
+  - distinguishing active vs stopped or resolved lifestyle periods via the event log
+  - tracking reported alcohol and cigarette amounts over time and predictions on them for cut-down and quit plans
+  does_not_support:
+  - dosing or diagnosing substance use disorder
+  - treating reported amounts as measured intake (people under-report)
+  - inferring lifestyle the user did not state
+  min_evidence_class_for_actions: hypothesis_only

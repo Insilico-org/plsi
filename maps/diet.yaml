@@ -1,0 +1,119 @@
+# Daily dietary intake from food diaries or reports, as calendar-month means of daily totals; LOINC codes checked against NLM Clinical Tables.
+kind: plsi_map
+schema_version: 1
+id: diet
+title: Dietary intake
+map_version: 0.1.0
+claim_level: designed
+summary: Calendar-month means of daily energy, protein, fibre, sodium and total sugars intake, from a food diary, a nutrition app or the user's report.
+tags: [diet, nutrition, intake, food_log]
+coordinates:
+- id: energy_intake
+  label: Energy intake (calendar-month mean of daily totals)
+  kind: measured
+  unit: kcal/d
+  accepts:
+    codes:
+    - {system: loinc, code: 9057-1, display: 'Calorie intake total 24 hour'}
+    - {system: loinc, code: 75302-0, display: 'Calorie intake 24 hour'}
+    - {system: loinc, code: 75298-0, display: 'Calorie intake 24 hour Estimated'}
+    - {system: loinc, code: 80494-8, display: 'Calorie intake 24 hour Measured'}
+    reject_codes:
+    - {system: loinc, code: 9052-2, display: 'Calorie intake total'}
+    - {system: loinc, code: 9053-0, display: 'Calorie intake total 1 hour'}
+    - {system: loinc, code: 9054-8, display: 'Calorie intake total 8 hour'}
+    - {system: loinc, code: 9055-5, display: 'Calorie intake total 10 hour'}
+    - {system: loinc, code: 9056-3, display: 'Calorie intake total 12 hour'}
+    - {system: loinc, code: 9058-9, display: 'Calorie need 24 hour Estimated'}
+    - {system: loinc, code: 32394-9, display: 'Calorie intake enteral total 24 hour Upper GI tract'}
+  conversions:
+  - {from_unit: kcal, factor: 1, source: &day {kind: rule, id: 'ucum:per-day', title: a 24-hour total printed without the per-day unit}}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: protein_intake
+  label: Protein intake (calendar-month mean of daily totals)
+  kind: measured
+  unit: g/d
+  accepts:
+    codes:
+    - {system: loinc, code: 9085-2, display: 'Protein intake 24 hour'}
+    - {system: loinc, code: 75299-8, display: 'Protein intake 24 hour Estimated'}
+    - {system: loinc, code: 82156-1, display: 'Protein intake 24 hour Measured'}
+    reject_codes:
+    - {system: loinc, code: 9079-5, display: 'Protein intake Estimated'}
+    - {system: loinc, code: 9080-3, display: 'Protein intake Measured'}
+    - {system: loinc, code: 9081-1, display: 'Protein intake 1 hour'}
+    - {system: loinc, code: 9082-9, display: 'Protein intake 8 hour'}
+    - {system: loinc, code: 9083-7, display: 'Protein intake 10 hour'}
+    - {system: loinc, code: 9084-5, display: 'Protein intake 12 hour'}
+    - {system: loinc, code: 81910-2, display: 'Protein intake/Body weight 24 hour Estimated'}
+    - {system: loinc, code: 81911-0, display: 'Protein intake/Body weight 24 hour Measured'}
+    - {system: loinc, code: 80481-5, display: 'Soy protein intake 24 hour Measured'}
+    - {system: loinc, code: 81906-0, display: 'High biological value protein intake 24 hour Measured'}
+  conversions:
+  - {from_unit: g, factor: 1, source: *day}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: fiber_intake
+  label: Fibre intake (calendar-month mean of daily totals)
+  kind: measured
+  unit: g/d
+  accepts:
+    codes:
+    - {system: loinc, code: 81057-2, display: 'Fiber intake 24 hour Measured'}
+    - {system: loinc, code: 81133-1, display: 'Fiber intake 24 hour Estimated'}
+    reject_codes:
+    - {system: loinc, code: 81058-0, display: 'Soluble fiber intake 24 hour Estimated'}
+    - {system: loinc, code: 81059-8, display: 'Soluble fiber intake 24 hour Measured'}
+    - {system: loinc, code: 81060-6, display: 'Insoluble fiber intake 24 hour Estimated'}
+    - {system: loinc, code: 81061-4, display: 'Insoluble fiber intake 24 hour Measured'}
+  conversions:
+  - {from_unit: g, factor: 1, source: *day}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: sodium_intake
+  label: Sodium intake (calendar-month mean of daily totals)
+  kind: measured
+  unit: mg/d
+  accepts:
+    codes:
+    - {system: loinc, code: 81011-9, display: 'Sodium intake 24 hour Estimated'}
+    - {system: loinc, code: 81012-7, display: 'Sodium intake 24 hour Measured'}
+    - {system: loinc, code: 9092-8, display: 'Sodium intake 24 hour'}
+    reject_codes:
+    - {system: loinc, code: 9086-0, display: 'Sodium intake Estimated'}
+    - {system: loinc, code: 9087-8, display: 'Sodium intake Measured'}
+    - {system: loinc, code: 9088-6, display: 'Sodium intake 1 hour'}
+    - {system: loinc, code: 9089-4, display: 'Sodium intake 8 hour'}
+    - {system: loinc, code: 9090-2, display: 'Sodium intake 10 hour'}
+    - {system: loinc, code: 9091-0, display: 'Sodium intake 12 hour'}
+  conversions:
+  - {from_unit: mg, factor: 1, source: *day}
+  - from_unit: mmol/d
+    factor: 22.99
+    source: {kind: doi, id: 10.1515/pac-2019-0603, title: 'Prohaska T et al. 2022. Standard atomic weights of the elements 2021 (IUPAC Technical Report). Pure Appl Chem'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: total_sugars_intake
+  label: Total sugars intake (calendar-month mean of daily totals)
+  kind: measured
+  unit: g/d
+  accepts:
+    codes:
+    - {system: free, code: diet.total_sugars_intake, display: 'Total sugars intake 24 hour'}
+    reject_codes:
+    - {system: loinc, code: 81049-9, display: 'Sucrose intake 24 hour Estimated'}
+    - {system: loinc, code: 81050-7, display: 'Sucrose intake 24 hour Measured'}
+  conversions:
+  - {from_unit: g, factor: 1, source: *day}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+inference_boundaries:
+  supports: [tracking monthly mean daily intake, predictions and scores on these intakes]
+  does_not_support: [diagnosis, judging a single day or meal, comparing diary apps or estimation methods, intake guessed rather than logged or reported]
+  min_evidence_class_for_actions: hypothesis_only

@@ -1,0 +1,46 @@
+# LOINC codes checked against the NLM Clinical Tables LOINC API on 2026-10-25.
+# Scores come from the user's answers to the questionnaire itself (all items, as published), never estimated from
+# conversation. They are not collected during normal onboarding talk or the weekly check-in.
+# Current admin channel: Sleep/stress may offer PSS-10 when planning without a recorded baseline; PHQ-2 only when
+# low mood / mood concern is relevant on that path and the user answers the full published items (opt-in; answers
+# go through processor/intake). No onboarding or weekly-check-in screening cadence.
+kind: plsi_map
+schema_version: 1
+id: wellbeing
+title: Stress and mood
+map_version: 0.1.1
+claim_level: designed
+summary: Perceived stress (PSS-10) and a two-question mood screen (PHQ-2), from published questionnaire answers when administered (not talk/check-in).
+tags: [stress, mood, wellbeing, mental_health]
+coordinates:
+- id: pss10
+  label: Perceived Stress Scale, 10 items (total 0-40)
+  kind: measured
+  unit: '1'
+  accepts:
+    codes:
+    - {system: loinc, code: 106860-0, display: 'Perceived stress scale-10 total score [PSS-10]'}
+  recency_days: 60
+  score_window_days: {before: 14, after: 30}
+  correspondence_type: terminology
+  sources:
+  - {kind: pmid, id: '6668417', title: Cohen S et al. 1983. A global measure of perceived stress. J Health Soc Behav}
+- id: phq2
+  label: PHQ-2 mood screen (total 0-6)
+  kind: measured
+  unit: '1'
+  accepts:
+    codes:
+    - {system: loinc, code: 55758-7, display: 'Patient Health Questionnaire 2 item (PHQ-2) total score [Reported]'}
+  recency_days: 60
+  score_window_days: {before: 14, after: 30}
+  correspondence_type: terminology
+  sources:
+  - {kind: pmid, id: '14583691', title: Kroenke K et al. 2003. The Patient Health Questionnaire-2. Med Care}
+inference_boundaries:
+  supports:
+  - tracking perceived stress and the mood screen over time and predictions on them for stress and sleep plans
+  does_not_support:
+  - diagnosing depression, anxiety or any other condition (a positive PHQ-2 means the user should see a clinician)
+  - scores estimated from conversation instead of the user's questionnaire answers
+  min_evidence_class_for_actions: hypothesis_only

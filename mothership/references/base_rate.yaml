@@ -1,0 +1,52 @@
+# Use for the no-action course and orchestrator/arrow probabilities: match age, sex, country and period; cite the table and year.
+
+un_wpp: {title: 'UN World Population Prospects - life tables and mortality by country, age and sex', url: 'https://population.un.org/wpp/',
+  notes: 'Abridged and single-age life tables (qx, ex) 1950-2100; projections are model estimates.'}
+
+who_gho_mortality: {title: 'WHO Global Health Observatory - life tables and Global Health Estimates (deaths by cause, age,
+    sex)', url: 'https://www.who.int/data/gho/data/themes/mortality-and-global-health-estimates', notes: Country life tables
+    and cause-specific death rates; also an OData API (ghoapi.azureedge.net).}
+
+human_mortality_database: {title: Human Mortality Database - period and cohort life tables for about 40 countries, url: 'https://mortality.org/',
+  notes: Highest-quality national life tables; free registration for downloads.}
+
+cdc_nchs_life_tables: {title: 'CDC NCHS - United States life tables (by age, sex, race and Hispanic origin; state tables)',
+  url: 'https://www.cdc.gov/nchs/products/life_tables.htm', notes: Annual US life tables. CDC sites may refuse automated
+    fetches (HTTP 403); open in the browser.}
+
+cdc_wonder: {title: 'CDC WONDER - US mortality, natality and cancer incidence queries', url: 'https://wonder.cdc.gov/',
+  notes: 'Death rates by cause, age, sex, year and place; cancer incidence (USCS).'}
+
+cdc_fastats:
+  title: CDC FastStats - US prevalence and mortality summaries by topic
+  url: https://www.cdc.gov/nchs/fastats/
+  notes: >-
+    Quick national figures (hypertension, diabetes, obesity, leading causes of death) with links to the source reports.
+
+cdc_mmwr: {title: CDC MMWR - Morbidity and Mortality Weekly Report, url: 'https://www.cdc.gov/mmwr/', notes: 'Surveillance
+    reports and QuickStats; cite the report, not a summary of it.'}
+
+cdc_brfss: {title: CDC BRFSS - US state prevalence of risk factors and chronic conditions, url: 'https://www.cdc.gov/brfss/',
+  notes: 'Self-reported prevalence (smoking, obesity, hypertension, diabetes) by state, age and sex.'}
+
+cdc_nhanes: {title: 'CDC NHANES - measured US population distributions of labs, blood pressure and body size', url: 'https://www.cdc.gov/nchs/nhanes/',
+  notes: Percentiles for a user's marker against age- and sex-matched peers.}
+
+ihme_gbd: {title: 'IHME Global Burden of Disease - incidence, prevalence and deaths by cause, country, age and sex', url: 'https://vizhub.healthdata.org/gbd-results/',
+  notes: Modelled estimates for 204 countries; free registration for downloads.}
+
+seer_stat_facts: {title: 'NCI SEER Cancer Stat Facts - US cancer incidence, survival and lifetime risk', url: 'https://seer.cancer.gov/statfacts/',
+  notes: Per cancer site; DevCan gives the probability of developing cancer over age intervals.}
+
+iarc_gco: {title: IARC Global Cancer Observatory - cancer incidence and mortality by country (GLOBOCAN), url: 'https://gco.iarc.who.int/'}
+
+eurostat_life_tables: {title: Eurostat - life tables by age and sex for EU and EFTA countries, url: 'https://ec.europa.eu/eurostat/databrowser/view/demo_mlifetable/default/table'}
+
+ons_life_expectancies: {title: UK ONS - national life tables and life expectancy, url: 'https://www.ons.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/lifeexpectancies'}
+
+ncd_risc: {title: 'NCD-RisC - country trends in BMI, blood pressure, diabetes and cholesterol by age and sex', url: 'https://www.ncdrisc.org/'}
+
+idf_diabetes_atlas: {title: IDF Diabetes Atlas - diabetes prevalence and projections by country, url: 'https://diabetesatlas.org/'}
+
+our_world_in_data: {title: 'Our World in Data - charts of mortality, causes of death and risk factors', url: 'https://ourworldindata.org/',
+  notes: Secondary aggregator; follow its source link and cite the original table.}

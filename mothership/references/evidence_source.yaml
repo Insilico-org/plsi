@@ -1,0 +1,52 @@
+ncbi_eutils:
+  title: NCBI E-utilities (PubMed)
+  url: https://www.ncbi.nlm.nih.gov/books/NBK25501/
+  api_base: https://eutils.ncbi.nlm.nih.gov/entrez/eutils
+  cite_url: https://pubmed.ncbi.nlm.nih.gov/{id}/
+  key_env: [NCBI_API_KEY, NCBI_EMAIL]
+  notes: >-
+    GET /esearch.fcgi?db=pubmed&term=Q&retmode=json&retmax=N&sort=relevance&tool=plsi&email=E; GET /esummary.fcgi?db=pubmed&id=P&retmode=json.
+    An invalid PMID still returns 200 with result[pmid].error, so verify needs no error and a title. 3 req/s without a key,
+    10 with NCBI_API_KEY.
+
+europepmc:
+  title: Europe PMC REST API
+  url: https://europepmc.org/RestfulWebService
+  api_base: https://www.ebi.ac.uk/europepmc/webservices/rest
+  notes: >-
+    GET /search?query=Q&format=json&pageSize=N&resultType=core (core adds abstractText); DOI lookup query=DOI:"D". Indexes
+    preprints (source PPR). No key.
+
+ctgov:
+  title: ClinicalTrials.gov API v2
+  url: https://clinicaltrials.gov/data-api/api
+  api_base: https://clinicaltrials.gov/api/v2
+  cite_url: https://clinicaltrials.gov/study/{id}
+  notes: >-
+    GET /studies?query.intr=I&query.cond=C&pageSize=N; GET /studies/{NCT} (404 = not found). No key.
+
+doi:
+  title: DOI resolution (doi.org handle API)
+  url: https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation
+  api_base: https://doi.org/api/handles
+  cite_url: https://doi.org/{id}
+  notes: >-
+    GET /{doi} -> responseCode 1 = exists, 100 (HTTP 404) = not found. Works for every registration agency.
+
+evipedia_mcp:
+  title: Evipedia MCP server
+  url: https://mcp.evipedia.ai/mcp
+  api_base: https://mcp.evipedia.ai
+  notes: >-
+    Grok connects to the MCP at /mcp (no key; stateless, SSE replies). Tools: search_reviews{query}, list_reviews{}, list_updates{days?},
+    get_conclusion{slug}, get_review{slug}, get_metadata{slug} (citations with PMIDs), suggest_review{intervention, goal?,
+    references?, email?} (sends data to the Evipedia team; ONLY on explicit user request), get_version{}. HTTP search fallback
+    used by the CLI: GET /search?q=Q -> {query, count, results:[{topic, url}]}. 60 requests per 60 s.
+
+evipedia:
+  title: Evipedia reviews (HTTP fallback)
+  url: https://evipedia.ai
+  api_base: https://evipedia.ai
+  cite_url: https://evipedia.ai/{id}
+  notes: >-
+    GET /{slug}.md returns the review as Markdown (200 = exists). Install pattern for Grok bots, https://evipedia.ai/grokbot.md.

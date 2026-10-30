@@ -1,0 +1,17 @@
+loinc:
+  title: LOINC (Logical Observation Identifiers Names and Codes)
+  url: https://loinc.org
+  licence: LOINC Terms of Use, https://loinc.org/kb/license/
+  notes: >-
+    Lab codes. Map coordinates list explicit accepts.codes; text search alone is not reliable (RDW returns only deprecated
+    codes).
+
+ucum:
+  title: UCUM (Unified Code for Units of Measure)
+  url: https://ucum.org
+  api_base: https://ucum.nlm.nih.gov/ucum-service/v1
+  licence: UCUM Terms of Use, https://ucum.org/license
+  notes: >-
+    Units are normalized locally with an alias table (K/uL, x10E3/uL -> 10*3/uL; mcg -> ug; mg/dl -> mg/dL). The NLM service
+    (GET /isValidUCUM/{unit}) is only an optional cross-check: it accepts K/uL as kelvin per microlitre and returns errors
+    as HTTP 200.

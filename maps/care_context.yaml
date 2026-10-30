@@ -1,0 +1,16 @@
+kind: plsi_map
+schema_version: 1
+id: care_context
+title: Care context
+map_version: 1.0.0
+claim_level: instantiated
+summary: 'Active medications, conditions and allergies: the context every proposed action is screened against.'
+tags: [care_context, screening]
+coordinates:
+- {id: active_medications, label: Active medications, kind: set, collects: medication, predictable: false, correspondence_type: terminology}
+- {id: active_conditions, label: Active conditions, kind: set, collects: condition, predictable: false, correspondence_type: terminology}
+- {id: allergies, label: Allergies, kind: set, collects: allergy, predictable: false, correspondence_type: terminology}
+inference_boundaries:
+  supports: ['screening proposed actions against active medications, conditions and allergies']
+  does_not_support: [dosing, medication reconciliation against pharmacy records]
+  min_evidence_class_for_actions: hypothesis_only

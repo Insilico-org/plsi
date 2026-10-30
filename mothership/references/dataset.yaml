@@ -1,0 +1,33 @@
+hagr_genage: {title: GenAge - aging-related genes (Human Ageing Genomic Resources), url: 'https://genomics.senescence.info/genes/',
+  notes: Curated human and model-organism genes linked to aging and longevity.}
+
+hagr_drugage:
+  title: DrugAge - compounds that extend lifespan in model organisms (HAGR)
+  url: https://genomics.senescence.info/drugs/
+  notes: >-
+    Lifespan-extension results per compound, species, dose and sex. Animal data; not evidence of human effect on its own.
+
+hagr_cellage: {title: CellAge - genes regulating cellular senescence (HAGR), url: 'https://genomics.senescence.info/cells/'}
+
+hagr_longevitymap: {title: LongevityMap - human genetic variants associated with longevity (HAGR), url: 'https://genomics.senescence.info/longevity/'}
+
+clockbase: {title: ClockBase - aging clock predictions across public omics datasets, url: 'https://www.clockbase.org/'}
+
+open_genes: {title: 'Open Genes - genes associated with aging and lifespan, with intervention evidence', url: 'https://open-genes.com/'}
+
+synergyage: {title: SynergyAge - genetic interventions and epistasis affecting lifespan in model organisms, url: 'https://www.synergyage.info/'}
+
+sec_edgar:
+  title: SEC EDGAR - company filings (annual, quarterly and current reports, offerings)
+  url: https://www.sec.gov/edgar/search/
+  notes: US issuers' filings and full-text search; primary source for cash, burn, debt, dilution and risk factors.
+
+google_patents:
+  title: Google Patents - patent search by assignee, with family and legal status
+  url: https://patents.google.com/
+  notes: Search by assignee and filing date for a company's recent patents; check status and expiry on the record.
+
+fda_orange_book:
+  title: FDA Orange Book - approved drugs with their patents and regulatory exclusivities
+  url: https://www.accessdata.fda.gov/scripts/cder/ob/
+  notes: Listed patents, exclusivity codes and expiry dates for approved US small-molecule drugs.

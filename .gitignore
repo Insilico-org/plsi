@@ -1,0 +1,42 @@
+# Local instances and secrets
+instances/
+.env
+.env.*
+!.env.example
+
+# Python
+*.pyc
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local test suite (the published repo is user-facing). Ignore contents, not the
+# directory itself, so MH contract tests can be re-included below.
+tests/*
+# MH contract tests (tracked): durable caution packaging
+!tests/test_mh_caution_packaging.py
+# MH answer/Sleep routing
+!tests/test_mh_routing.py
+# MH wellbeing collection (PHQ-2/PSS-10 admin channel)
+!tests/test_mh_wellbeing.py
+!tests/fixtures/
+tests/fixtures/*
+!tests/fixtures/mh_caution/
+tests/fixtures/mh_caution/*
+!tests/fixtures/mh_caution/**
+!tests/fixtures/mh_routing/
+tests/fixtures/mh_routing/*
+!tests/fixtures/mh_routing/**
+!tests/fixtures/mh_wellbeing/
+tests/fixtures/mh_wellbeing/*
+!tests/fixtures/mh_wellbeing/**

@@ -1,0 +1,42 @@
+# LOINC codes checked against the NLM Clinical Tables LOINC API on 2026-10-25. Body weight, waist and BMI stay in
+# cardiometabolic; this map adds what tells fat from muscle, so a recomposition plan is not read as "no change".
+kind: plsi_map
+schema_version: 1
+id: body_composition
+title: Body composition and strength
+map_version: 0.1.0
+claim_level: designed
+summary: Body fat percentage (scale, DEXA or impedance, one method kept per person) and grip strength.
+tags: [body_composition, adiposity, strength, muscle]
+coordinates:
+- id: body_fat_pct
+  label: Body fat percentage
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 41982-0, display: 'Percentage of body fat Measured'}
+    - {system: loinc, code: 77233-5, display: 'Percentage of body fat by Bioelectrical impedance analysis'}
+  recency_days: 90
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: grip_strength
+  label: Grip strength, stronger hand (dynamometer, best trial)
+  kind: measured
+  unit: kg
+  accepts:
+    codes:
+    - {system: loinc, code: 83174-3, display: 'Grip strength Hand - right Dynamometer'}
+    - {system: loinc, code: 83173-5, display: 'Grip strength Hand - left Dynamometer'}
+  recency_days: 180
+  score_window_days: {before: 30, after: 60}
+  correspondence_type: terminology
+  sources:
+  - {kind: pmid, id: '25982160', title: Leong DP et al. 2015. Prognostic value of grip strength (PURE). Lancet}
+inference_boundaries:
+  supports:
+  - tracking body fat percentage and grip strength over time and predictions on them for exercise and diet plans
+  does_not_support:
+  - comparing body fat across methods (DEXA, impedance, calipers) or devices
+  - grip strength from different dynamometers or with the weaker hand
+  min_evidence_class_for_actions: hypothesis_only

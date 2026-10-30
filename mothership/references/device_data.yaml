@@ -1,0 +1,52 @@
+open_wearables:
+  title: Open Wearables (self-hosted wearable data platform, MCP and REST)
+  url: https://openwearables.io/docs
+  api_base: http://localhost:8000
+  key_env: [OPEN_WEARABLES_API_URL, OPEN_WEARABLES_API_KEY]
+  licence: MIT, https://github.com/the-momentum/open-wearables
+  notes: >-
+    Self-hosted by the user (Docker Compose); one normalized API over cloud providers (Garmin, Oura, Whoop, Suunto, Polar,
+    Ultrahuman, Strava, Fitbit, Withings, Google Health), SDK sources (Apple Health, Samsung Health, Health Connect) and
+    Apple Health XML import. MCP server over stdio (env OPEN_WEARABLES_API_URL, OPEN_WEARABLES_API_KEY) with tools for users,
+    activity summary, sleep summary, workout events, time series and menstrual cycles. REST GET /api/v1/users/{user_id}/summaries/sleep?start_date&end_date
+    (header X-Open-Wearables-API-Key) returns per night duration_minutes, efficiency_percent, stages, avg_heart_rate_bpm,
+    avg_hrv_sdnn_ms, avg_hrv_rmssd_ms. Docs checked 2026-10-21; Grok Bot support for a stdio MCP is not verified. Read by
+    wearables/import only.
+google_health:
+  title: Google Health API (Google's health and fitness data, OAuth 2.0, read-only scopes)
+  url: https://developers.google.com/health
+  key_env: [GOOGLE_HEALTH_CLIENT_ID, GOOGLE_HEALTH_CLIENT_SECRET, GOOGLE_HEALTH_REFRESH_TOKEN]
+  notes: >-
+    The user's own Google Cloud project and OAuth client (Desktop, or Web with an http://127.0.0.1:<port>/ redirect);
+    authorize at https://accounts.google.com/o/oauth2/v2/auth, tokens at https://oauth2.googleapis.com/token. In
+    Testing mode refresh tokens expire after about 7 days. Daily streams (steps, sleep, resting heart rate, HRV,
+    distance, active minutes, nutrition when a linked app writes it) often reach back only about 90 days. API version,
+    scopes and paths not checked by PLSI: read them from the docs at run time. Read by wearables/google-health and
+    nutritionist/food-log only.
+pro_app:
+  title: P.R.O. (iPhone app that serves Apple Health to AI assistants as an MCP server)
+  url: https://proapp.uk/mcp-connect
+  api_base: https://mcp.proapp.uk
+  notes: >-
+    Apple Health has no API for Grok; the free P.R.O. iPhone app reads it and serves it at https://mcp.proapp.uk (OAuth;
+    in Grok a custom connector, named user-P.R.O.). The user pairs it with a one-time 6-character code from P.R.O.
+    Settings -> MCP Connect (valid 10 minutes) and picks the shared categories there. Tools seen on 2026-10-29:
+    get_daily_metrics (up to 90 days: steps, distance, active energy, flights, average and resting heart rate, HRV,
+    sleep hours, stages and score; fields_present, fields_absent, data_freshness), get_week_summary, get_workouts
+    (headers for the synced history), fetch_health_data (detail payloads kept about 48 h, the last-30-day pack about
+    7 days), get_profile, get_goals, request_sync (asks the phone to upload), plus write tools (plan proposals, coach
+    notes). No weight, blood pressure or VO2max. Privacy policy https://proapp.uk/privacy (2026-10-19): the app is run
+    by HAOTONG TECHNOLOGY (HK) CO., LIMITED, the MCP connector by an individual (Armenia). Read by
+    wearables/apple-health only.
+fatsecret:
+  title: FatSecret Platform API (food database and member food diary)
+  url: https://platform.fatsecret.com/docs
+  api_base: https://platform.fatsecret.com/rest/server.api
+  key_env: [FATSECRET_CONSUMER_KEY, FATSECRET_CONSUMER_SECRET, FATSECRET_ACCESS_TOKEN, FATSECRET_ACCESS_SECRET]
+  notes: >-
+    Keys come from a Platform (developer) account; the diary belongs to the member account of the food app, often a
+    different email. OAuth 2.0 client credentials reach only the shared food database; the diary needs 3-legged
+    OAuth 1.0 at https://authentication.fatsecret.com/oauth/request_token, /oauth/authorize, /oauth/access_token.
+    Methods food_entries.get_month.v2 (date = days since 1970-01-01) and food_entries.get.v2 (one day's entries).
+    Basic plan about 5,000 calls a day. Method versions not checked by PLSI: read them from the docs at run time.
+    Read by nutritionist/food-log only.

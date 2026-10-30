@@ -1,0 +1,7 @@
+longeclaw:
+  title: >-
+    Longeclaw (Insilico Medicine aging toolkit - clock data, compound-aging tables, hallmark annotations)
+  url: https://github.com/Insilico-org/longeclaw
+  licence: MIT
+  notes: >-
+    Toolkit and corpora for aging clocks, compound-aging evidence and hallmark annotation; cite as kind model.

@@ -1,0 +1,204 @@
+# LOINC codes checked against NLM Clinical Tables (accepted -> accepts.codes, close but different -> reject_codes).
+kind: plsi_map
+schema_version: 1
+id: routine_blood
+title: Routine blood tests
+map_version: 0.1.0
+claim_level: designed
+summary: Routine blood results no other map reads - hemoglobin, platelets, liver enzymes, lab-reported eGFR, uric acid, TSH, vitamin D, vitamin B12, ferritin and homocysteine.
+tags: [blood, liver, kidney, thyroid, vitamins, iron]
+coordinates:
+- id: hemoglobin
+  label: Hemoglobin
+  kind: measured
+  unit: g/dL
+  accepts:
+    codes:
+    - {system: loinc, code: 718-7, display: 'Hemoglobin [Mass/volume] in Blood'}
+    - {system: loinc, code: 20509-6, display: 'Hemoglobin [Mass/volume] in Blood by calculation'}
+    - {system: loinc, code: 30313-1, display: 'Hemoglobin [Mass/volume] in Arterial blood'}
+    - {system: loinc, code: 30350-3, display: 'Hemoglobin [Mass/volume] in Venous blood'}
+    - {system: loinc, code: 30352-9, display: 'Hemoglobin [Mass/volume] in Capillary blood'}
+    reject_codes:
+    - {system: loinc, code: 721-1, display: 'Free Hemoglobin [Mass/volume] in Plasma'}
+    - {system: loinc, code: 55782-7, display: 'Hemoglobin [Mass/volume] in Blood by Oximetry'}
+  correspondence_type: terminology
+- id: platelets
+  label: Platelet count
+  kind: measured
+  unit: 10*3/uL
+  accepts:
+    codes:
+    - {system: loinc, code: 777-3, display: 'Platelets [#/volume] in Blood by Automated count'}
+    - {system: loinc, code: 26515-7, display: 'Platelets [#/volume] in Blood'}
+    - {system: loinc, code: 778-1, display: 'Platelets [#/volume] in Blood by Manual count'}
+    - {system: loinc, code: 97995-5, display: 'Platelets [#/volume] in Blood by Automated count.optical'}
+    - {system: loinc, code: 74464-9, display: 'Platelets [#/volume] in Capillary blood by Manual count'}
+    reject_codes:
+    - {system: loinc, code: 49497-1, display: 'Platelets [#/volume] in Blood by Estimate'}
+    - {system: loinc, code: 47284-5, display: 'Platelets [#/volume] in Cord blood'}
+    - {system: loinc, code: 51632-8, display: 'Platelets reticulated [#/volume] in Blood'}
+    - {system: loinc, code: 96354-6, display: 'Platelets Large [#/volume] in Blood by Automated count'}
+    - {system: loinc, code: 28542-9, display: 'Platelet [Entitic mean volume] in Blood'}
+  correspondence_type: terminology
+- id: alt
+  label: Alanine aminotransferase (ALT)
+  kind: measured
+  unit: U/L
+  accepts:
+    codes:
+    - {system: loinc, code: 1742-6, display: 'Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma'}
+    - {system: loinc, code: 1743-4, display: 'Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma by With P-5''-P'}
+    - {system: loinc, code: 1744-2, display: 'Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5''-P'}
+    - {system: loinc, code: 77144-4, display: 'Alanine aminotransferase [Enzymatic activity/volume] in Serum, Plasma or Blood'}
+    reject_codes:
+    - {system: loinc, code: 1916-6, display: 'Aspartate aminotransferase/Alanine aminotransferase [Enzymatic activity ratio] in Serum or Plasma'}
+  correspondence_type: terminology
+- id: ast
+  label: Aspartate aminotransferase (AST)
+  kind: measured
+  unit: U/L
+  accepts:
+    codes:
+    - {system: loinc, code: 1920-8, display: 'Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma'}
+    - {system: loinc, code: 30239-8, display: 'Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma by With P-5''-P'}
+    - {system: loinc, code: 88112-8, display: 'Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5''-P'}
+    - {system: loinc, code: 112899-0, display: 'Aspartate aminotransferase [Enzymatic activity/volume] in Blood'}
+    reject_codes:
+    - {system: loinc, code: 1916-6, display: 'Aspartate aminotransferase/Alanine aminotransferase [Enzymatic activity ratio] in Serum or Plasma'}
+    - {system: loinc, code: 48136-6, display: 'Aspartate aminotransferase.macromolecular [Enzymatic activity/volume] in Serum or Plasma'}
+    - {system: loinc, code: 44786-2, display: 'Aspartate aminotransferase [Enzymatic activity/volume] (Maximum value during study) in Serum or Plasma'}
+  correspondence_type: terminology
+- id: ggt
+  label: Gamma-glutamyl transferase (GGT)
+  kind: measured
+  unit: U/L
+  accepts:
+    codes:
+    - {system: loinc, code: 2324-2, display: 'Gamma glutamyl transferase [Enzymatic activity/volume] in Serum or Plasma'}
+    reject_codes:
+    - {system: loinc, code: 27403-5, display: 'Gamma glutamyl transferase [Enzymatic activity/volume] in Urine'}
+    - {system: loinc, code: 96593-9, display: 'Gamma glutamyl transferase [Enzymatic activity/volume] in DBS'}
+  correspondence_type: terminology
+- id: egfr
+  label: eGFR, creatinine-based CKD-EPI, as reported by the lab
+  kind: measured
+  unit: mL/min/{1.73_m2}
+  accepts:
+    codes:
+    - {system: loinc, code: 98979-8, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI 2021)/1.73 sq M'}
+    - {system: loinc, code: 62238-1, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)/1.73 sq M'}
+    reject_codes:
+    - {system: loinc, code: 33914-3, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum or Plasma by Creatinine-based formula (MDRD)/1.73 sq M'}
+    - {system: loinc, code: 77147-7, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (MDRD)/1.73 sq M'}
+    - {system: loinc, code: 48642-3, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (MDRD)/1.73 sq M among non black population'}
+    - {system: loinc, code: 48643-1, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (MDRD)/1.73 sq M among black population'}
+    - {system: loinc, code: 88293-6, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)/1.73 sq M among black population'}
+    - {system: loinc, code: 88294-4, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)/1.73 sq M among non black population'}
+    - {system: loinc, code: 50210-4, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Cystatin C-based formula/1.73 sq M'}
+    - {system: loinc, code: 98980-6, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine and Cystatin C-based formula (CKD-EPI 2021)/1.73 sq M'}
+    - {system: loinc, code: 50384-7, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (Schwartz)/1.73 sq M'}
+    - {system: loinc, code: 69405-9, display: 'Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by based on 1.73 sq M'}
+  conversions:
+  - {from_unit: mL/min/1.73m2, factor: 1, source: &id002 {kind: rule, id: 'ucum:mL/min/{1.73_m2}', title: the same unit as lab reports print it}}
+  - {from_unit: mL/min/1.73 m2, factor: 1, source: *id002}
+  - {from_unit: ml/min/1.73m2, factor: 1, source: *id002}
+  - {from_unit: mL/min/1.73m², factor: 1, source: *id002}
+  correspondence_type: terminology
+- id: uric_acid
+  label: Uric acid
+  kind: measured
+  unit: mg/dL
+  accepts:
+    codes:
+    - {system: loinc, code: 3084-1, display: 'Urate [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14933-6, display: 'Urate [Moles/volume] in Serum or Plasma'}
+    reject_codes:
+    - {system: loinc, code: 3086-6, display: 'Urate [Mass/volume] in Urine'}
+    - {system: loinc, code: 3087-4, display: 'Urate [Mass/time] in 24 hour Urine'}
+  conversions:
+  - from_unit: umol/L
+    factor: 0.01681
+    source: &id001 {kind: doi, id: 10.7326/0003-4819-106-1-114, title: Young DS 1987. Implementation of SI units for clinical laboratory data.
+        Ann Intern Med}
+  correspondence_type: terminology
+- id: tsh
+  label: Thyroid-stimulating hormone (TSH)
+  kind: measured
+  unit: m[IU]/L
+  accepts:
+    codes:
+    - {system: loinc, code: 3016-3, display: 'Thyrotropin [Units/volume] in Serum or Plasma'}
+    - {system: loinc, code: 11580-8, display: 'Thyrotropin [Units/volume] in Serum or Plasma by Detection limit <= 0.005 mIU/L'}
+    - {system: loinc, code: 11579-0, display: 'Thyrotropin [Units/volume] in Serum or Plasma by Detection limit <= 0.05 mIU/L'}
+    reject_codes:
+    - {system: loinc, code: 3015-5, display: 'Thyrotropin [Units/volume] in Blood'}
+    - {system: loinc, code: 29575-8, display: 'Thyrotropin [Units/volume] in DBS'}
+    - {system: loinc, code: 27975-2, display: 'Thyrotropin [Mass/volume] in Serum or Plasma'}
+  correspondence_type: terminology
+- id: vitamin_d_25oh
+  label: 25-hydroxyvitamin D, total (D2 + D3)
+  kind: measured
+  unit: ng/mL
+  accepts:
+    codes:
+    - {system: loinc, code: 62292-8, display: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 83070-3, display: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma by Immunoassay'}
+    - {system: loinc, code: 68438-1, display: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 83071-1, display: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Moles/volume] in Serum or Plasma by Immunoassay'}
+    reject_codes:
+    - {system: loinc, code: 1989-3, display: '25-hydroxyvitamin D3 [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14635-7, display: '25-hydroxyvitamin D3 [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 49054-0, display: '25-hydroxyvitamin D2 [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 46269-7, display: '25-hydroxyvitamin D2 [Moles/volume] in Serum or Plasma'}
+    - {system: loinc, code: 62290-2, display: '1,25-Dihydroxyvitamin D [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 1990-1, display: 'Cholecalciferol (Vit D3) [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 35365-6, display: 'Vitamin D+Metabolites [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 95595-5, display: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Capillary blood'}
+    - {system: loinc, code: 86918-0, display: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 goal [Mass/volume] Serum or Plasma'}
+  conversions:
+  - from_unit: nmol/L
+    factor: 0.4006
+    source: *id001
+  correspondence_type: terminology
+- id: vitamin_b12
+  label: Vitamin B12 (cobalamin)
+  kind: measured
+  unit: pg/mL
+  accepts:
+    codes:
+    - {system: loinc, code: 2132-9, display: 'Cobalamin (Vitamin B12) [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 14685-2, display: 'Cobalamin (Vitamin B12) [Moles/volume] in Serum or Plasma'}
+    reject_codes:
+    - {system: loinc, code: 16695-9, display: 'Cobalamin (Vitamin B12) [Mass/volume] in Blood'}
+  conversions:
+  - from_unit: pmol/L
+    factor: 1.355
+    source: *id001
+  correspondence_type: terminology
+- id: ferritin
+  label: Ferritin
+  kind: measured
+  unit: ng/mL
+  accepts:
+    codes:
+    - {system: loinc, code: 2276-4, display: 'Ferritin [Mass/volume] in Serum or Plasma'}
+    - {system: loinc, code: 20567-4, display: 'Ferritin [Mass/volume] in Serum or Plasma by Immunoassay'}
+    reject_codes:
+    - {system: loinc, code: 24373-3, display: 'Ferritin [Mass/volume] in Blood'}
+  correspondence_type: terminology
+- id: homocysteine
+  label: Homocysteine
+  kind: measured
+  unit: umol/L
+  accepts:
+    codes:
+    - {system: loinc, code: 13965-9, display: 'Homocysteine [Moles/volume] in Serum or Plasma'}
+  correspondence_type: terminology
+inference_boundaries:
+  supports: [level of each routine blood marker and its change between draws, predictions on a single marker]
+  does_not_support: [diagnosis, eGFR computed from creatinine (the lab-reported value only), comparing eGFR across equations, combining
+      25-hydroxyvitamin D2 or D3 reported alone into the total]
+  min_evidence_class_for_actions: hypothesis_only
+sources:
+- *id001

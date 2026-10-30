@@ -1,0 +1,74 @@
+# LOINC codes checked against NLM Clinical Tables; free codes where LOINC has no code for the test.
+kind: plsi_map
+schema_version: 1
+id: physical_function
+title: Physical function tests
+map_version: 0.1.0
+claim_level: designed
+summary: Usual gait speed, five-times chair-stand time, single-leg stance time, six-minute walk distance and VO2max measured in an exercise test.
+tags: [physical_function, mobility, fitness, frailty]
+coordinates:
+- id: gait_speed
+  label: Usual gait speed, timed walk over 4 m
+  kind: measured
+  unit: m/s
+  accepts:
+    codes:
+    - {system: loinc, code: 83172-7, display: '4-Meter Walk Gait Speed Test - computed score [NIH Toolbox]'}
+    reject_codes:
+    - {system: loinc, code: 41957-2, display: 'Walking speed 24 hour mean Calculated'}
+    - {system: loinc, code: 41959-8, display: 'Walking speed in the past week mean Calculated'}
+  recency_days: 365
+  score_window_days: {before: 30, after: 90}
+  correspondence_type: terminology
+- id: chair_stand_5x
+  label: Five-times sit-to-stand time, arms crossed
+  kind: measured
+  unit: s
+  accepts:
+    codes:
+    - {system: free, code: physical_function.chair_stand_5x, display: 'Five times sit to stand test time'}
+    reject_codes:
+    - {system: loinc, code: 66247-8, display: 'Sit to stand frequency in 30 seconds'}
+    - {system: loinc, code: 93125-3, display: 'Modified 30 seconds Sit to stand --with use of upper extremities'}
+  recency_days: 365
+  score_window_days: {before: 30, after: 90}
+  correspondence_type: terminology
+- id: single_leg_stance
+  label: Single-leg stance time, eyes open
+  kind: measured
+  unit: s
+  accepts:
+    codes:
+    - {system: loinc, code: 66569-5, display: 'Time participant holds position during first one leg stand [PhenX]'}
+  recency_days: 365
+  score_window_days: {before: 30, after: 90}
+  correspondence_type: terminology
+- id: six_minute_walk
+  label: Six-minute walk distance
+  kind: measured
+  unit: m
+  accepts:
+    codes:
+    - {system: loinc, code: 64098-7, display: 'Six minute walk test'}
+  recency_days: 365
+  score_window_days: {before: 30, after: 90}
+  correspondence_type: terminology
+- id: vo2max_measured
+  label: VO2max measured in a graded exercise test with gas analysis
+  kind: measured
+  unit: mL/min/kg
+  accepts:
+    codes:
+    - {system: free, code: physical_function.vo2max_measured, display: 'VO2max per body weight by cardiopulmonary exercise test'}
+    reject_codes:
+    - {system: loinc, code: 94122-9, display: 'Oxygen consumption (VO2)/Body weight [Volume Rate Content] --peak during exercise'}
+    - {system: loinc, code: 103749-8, display: 'Oxygen consumption (VO2) --peak'}
+  recency_days: 365
+  score_window_days: {before: 30, after: 90}
+  correspondence_type: terminology
+inference_boundaries:
+  supports: [tracking each test over time and predictions on it for exercise plans]
+  does_not_support: [diagnosis of frailty or sarcopenia, comparing tests done with different protocols, VO2max estimated by a
+      wearable (sleep_activity), grip strength (body_composition)]
+  min_evidence_class_for_actions: hypothesis_only

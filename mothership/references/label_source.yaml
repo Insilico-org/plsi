@@ -1,0 +1,17 @@
+openfda_label:
+  title: openFDA drug label API
+  url: https://open.fda.gov/apis/drug/label/
+  api_base: https://api.fda.gov
+  key_env: [OPENFDA_API_KEY]
+  licence: Public domain (CC0), https://open.fda.gov/license/
+  notes: >-
+    GET /drug/label.json?search=openfda.substance_name.exact:"NAME" (then openfda.generic_name.exact, uppercase)&limit=N;
+    take the newest by effective_time. openfda.rxcui holds product rxcuis only. 404 NOT_FOUND means zero hits. Label set_id
+    equals the DailyMed setid. Without a key 1,000 req/day per IP.
+
+dailymed:
+  title: DailyMed (NLM)
+  url: https://dailymed.nlm.nih.gov
+  api_base: https://dailymed.nlm.nih.gov/dailymed/services/v2
+  cite_url: https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid={id}
+  notes: GET /spls.json?drug_name=N; full SPL is XML only.

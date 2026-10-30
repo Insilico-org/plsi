@@ -1,0 +1,103 @@
+# Continuous glucose monitor summaries for a reporting period (consensus CGM metrics); LOINC codes checked against NLM Clinical Tables.
+kind: plsi_map
+schema_version: 1
+id: cgm
+title: Continuous glucose monitoring
+map_version: 0.1.0
+claim_level: designed
+summary: Continuous glucose monitor summaries of a reporting period (usually 14 days) - mean glucose, glucose management indicator, glucose variability, time in range 70-180 mg/dL, time below range (54-69 and under 54 mg/dL) and time above range (181-250 and over 250 mg/dL).
+tags: [glucose, cgm, wearables, metabolic]
+coordinates:
+- id: mean_glucose
+  label: Mean glucose, interstitial fluid (reporting period)
+  kind: measured
+  unit: mg/dL
+  accepts:
+    codes:
+    - {system: loinc, code: 97507-8, display: 'Average glucose [Mass/volume] in Interstitial fluid during Reporting Period'}
+    - {system: loinc, code: 105273-7, display: 'Glucose [Moles/volume] in Reporting Period mean Interstitial fluid by calculation'}
+    reject_codes:
+    - {system: loinc, code: 105272-9, display: 'Glucose [Moles/volume] in Interstitial fluid'}
+  conversions:
+  - from_unit: mmol/L
+    factor: 18.016
+    source: {kind: doi, id: 10.7326/0003-4819-106-1-114, title: Young DS 1987. Implementation of SI units for clinical laboratory data. Ann Intern Med}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: gmi
+  label: Glucose management indicator, from CGM mean glucose (reporting period)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 97506-0, display: 'Glucose management indicator'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: glucose_cv
+  label: Glucose coefficient of variation, interstitial fluid (reporting period)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 104638-2, display: 'Glucose standard deviation/Glucose mean in Reporting Period Interstitial fluid by calculation'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: time_in_range
+  label: Time in range 70-180 mg/dL (reporting period)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 97510-2, display: 'Glucose measurements in range out of Total glucose measurements during reporting period'}
+    reject_codes:
+    - {system: loinc, code: 106793-3, display: 'Continuous glucose monitoring time in ranges panel'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: time_below_range_low
+  label: Time below range, 54-69 mg/dL (reporting period)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 104641-6, display: 'Time below range, low in Reporting Period Interstitial fluid by calculation'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: time_below_range_very_low
+  label: Time below range, under 54 mg/dL (reporting period)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 104642-4, display: 'Time below range, very low in Reporting Period Interstitial fluid by calculation'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: time_above_range_high
+  label: Time above range, 181-250 mg/dL (reporting period)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 104640-8, display: 'Time above range, high in Reporting Period Interstitial fluid by calculation'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+- id: time_above_range_very_high
+  label: Time above range, over 250 mg/dL (reporting period)
+  kind: measured
+  unit: '%'
+  accepts:
+    codes:
+    - {system: loinc, code: 104639-0, display: 'Time above range, very high in Reporting Period Interstitial fluid by calculation'}
+  recency_days: 45
+  score_window_days: {before: 14, after: 45}
+  correspondence_type: terminology
+inference_boundaries:
+  supports: [tracking glucose summaries between reporting periods, predictions and scores on these summaries]
+  does_not_support: [diagnosis of diabetes or hypoglycaemia, single readings, finger-stick or lab glucose, comparing devices]
+  min_evidence_class_for_actions: hypothesis_only

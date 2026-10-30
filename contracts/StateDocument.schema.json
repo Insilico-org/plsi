@@ -1,0 +1,494 @@
+{
+  "$defs": {
+    "ClinicalStatus": {
+      "enum": [
+        "active",
+        "stopped",
+        "resolved",
+        "unknown"
+      ],
+      "title": "ClinicalStatus",
+      "type": "string"
+    },
+    "Code": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "$ref": "#/$defs/CodeSystem"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "Code",
+      "type": "object"
+    },
+    "CodeSystem": {
+      "enum": [
+        "loinc",
+        "rxnorm",
+        "snomed",
+        "icd10cm",
+        "cpg",
+        "free"
+      ],
+      "title": "CodeSystem",
+      "type": "string"
+    },
+    "Comparator": {
+      "enum": [
+        "<",
+        "<=",
+        ">",
+        ">="
+      ],
+      "title": "Comparator",
+      "type": "string"
+    },
+    "CoordinateValue": {
+      "additionalProperties": false,
+      "properties": {
+        "comparator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Comparator"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "event_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^evt_[0-9a-f]{8,32}$",
+            "type": "string"
+          },
+          "title": "Event Ids",
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "series": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SeriesPoint"
+          },
+          "maxItems": 20,
+          "title": "Series",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/ValueStatus"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "items": {
+                "$ref": "#/$defs/SetItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "CoordinateValue",
+      "type": "object"
+    },
+    "Gap": {
+      "additionalProperties": false,
+      "properties": {
+        "coordinate": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Coordinate",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "suggestion": {
+          "title": "Suggestion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "coordinate",
+        "reason",
+        "suggestion"
+      ],
+      "title": "Gap",
+      "type": "object"
+    },
+    "MatchKind": {
+      "enum": [
+        "code",
+        "derived"
+      ],
+      "title": "MatchKind",
+      "type": "string"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "conversion": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversion"
+        },
+        "derivation": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Derivation"
+        },
+        "match": {
+          "$ref": "#/$defs/MatchKind"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "match",
+        "rule"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "SeriesPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "comparator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Comparator"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "event_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^evt_[0-9a-f]{8,32}$",
+            "type": "string"
+          },
+          "title": "Event Ids",
+          "type": "array"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            }
+          ],
+          "title": "T"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "t",
+        "value"
+      ],
+      "title": "SeriesPoint",
+      "type": "object"
+    },
+    "SetItem": {
+      "additionalProperties": false,
+      "description": "One active item of a set coordinate (care_context).",
+      "properties": {
+        "clinical_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClinicalStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Code"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "dose": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dose"
+        },
+        "dose_quantity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dose Quantity"
+        },
+        "dose_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dose Unit"
+        },
+        "event_id": {
+          "pattern": "^evt_[0-9a-f]{8,32}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "event_id"
+      ],
+      "title": "SetItem",
+      "type": "object"
+    },
+    "ValueStatus": {
+      "enum": [
+        "present",
+        "stale",
+        "missing",
+        "error"
+      ],
+      "title": "ValueStatus",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "as_of": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "format": "date",
+          "type": "string"
+        }
+      ],
+      "title": "As Of"
+    },
+    "coordinates": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CoordinateValue"
+      },
+      "title": "Coordinates",
+      "type": "object"
+    },
+    "gaps": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Gap"
+      },
+      "title": "Gaps",
+      "type": "array"
+    },
+    "generated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "format": "date",
+          "type": "string"
+        }
+      ],
+      "title": "Generated At"
+    },
+    "kind": {
+      "const": "plsi_state",
+      "default": "plsi_state",
+      "title": "Kind",
+      "type": "string"
+    },
+    "map_hash": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Map Hash",
+      "type": "string"
+    },
+    "map_id": {
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "title": "Map Id",
+      "type": "string"
+    },
+    "map_version": {
+      "title": "Map Version",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "state_hash": {
+      "default": "",
+      "title": "State Hash",
+      "type": "string"
+    },
+    "subject_id": {
+      "title": "Subject Id",
+      "type": "string"
+    },
+    "unmapped_observations": {
+      "default": [],
+      "items": {
+        "pattern": "^evt_[0-9a-f]{8,32}$",
+        "type": "string"
+      },
+      "title": "Unmapped Observations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "subject_id",
+    "map_id",
+    "map_version",
+    "map_hash",
+    "as_of",
+    "generated_at",
+    "coordinates"
+  ],
+  "title": "StateDocument",
+  "type": "object"
+}

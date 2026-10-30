@@ -1,0 +1,41 @@
+longevity_llm:
+  title: Longevity-LLM (L-LLM, OpenAI-compatible)
+  url: http://127.0.0.1:1234/v1
+  api_base: http://127.0.0.1:1234/v1
+  key_env: [PLSI_LLLM_MODE, PLSI_LLLM_BASE_URL, PLSI_LLLM_MODEL, PLSI_LLLM_API_KEY, HF_TOKEN, PLSI_LLLM_ENABLE_THINKING]
+  notes: >-
+    Self-hosted; deploy with the engineer/l-llm-deploy-guide skill. PLSI_LLLM_MODE local (default) uses this api_base,
+    server uses longevity_llm_server, or PLSI_LLLM_BASE_URL. Model default longevity-llm. Output is model_derived.
+
+longevity_llm_playground:
+  title: Longevity-LLM on Insilico's playground (web, model longevity-llm-0.1)
+  url: https://playground.insilico.com/?model=longevity-llm-0.1
+  notes: >-
+    Web page only (no API): sign-in by a one-time e-mail link sent to the bot's own Grok Bot address; 400 runs per
+    account, shown on the page; Temperature and Thinking controls; task text up to 4,000 characters. Topic asks only
+    (shared/l-llm). Cite answers as longevity_llm.
+
+longevity_llm_server:
+  title: Longevity-LLM on a vLLM server (PLSI_LLLM_MODE server)
+  url: http://127.0.0.1:8000/v1
+  api_base: http://127.0.0.1:8000/v1
+  notes: >-
+    The same OpenAI-compatible API served by Docker vLLM, locally or through an SSH tunnel to a GPU host
+    (engineer/l-llm-deploy-guide). Cite answers as longevity_llm.
+
+pandaclaw:
+  title: PandaOmics Agent (Insilico Medicine bioinformatics agent, MCP; formerly PandaClaw)
+  url: https://pandaomics.com/pandaclaw-mcp
+  api_base: https://pandaomics.com/pandaclaw-mcp
+  key_env: [PANDACLAW_MCP_URL, PANDACLAW_BEARER_TOKEN]
+  notes: >-
+    MCP streamable HTTP; static bearer token. Tools ask{query, session_id?} (billed, never retried) -> {session_id, baseline_event_seq,
+    web_url}; wait_for_answer{session_id, since_seq=baseline_event_seq, max_wait_seconds<=60} until answer_allowed or answer_ready;
+    read_answer{session_id}. Analyses take minutes. PANDACLAW_MCP_URL overrides api_base.
+
+pandaomics:
+  title: PandaOmics (Insilico Medicine target discovery, MCP)
+  url: https://pandaomics.com/mcp
+  api_base: https://pandaomics.com/mcp
+  key_env: [PANDAOMICS_MCP_URL, PANDAOMICS_BEARER_TOKEN]
+  notes: MCP streamable HTTP; tools/list then tools/call. PANDAOMICS_MCP_URL overrides api_base.

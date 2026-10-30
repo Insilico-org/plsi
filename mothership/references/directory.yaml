@@ -1,0 +1,11 @@
+us_npi:
+  title: CMS NPPES NPI Registry (US practitioner directory)
+  url: https://npiregistry.cms.hhs.gov/api-page
+  api_base: https://npiregistry.cms.hhs.gov
+  licence: US public data (CMS); no key
+  notes: >-
+    GET /api/?version=2.1&enumeration_type=NPI-1&taxonomy_description=T&city=C&state=S&country_code=US&limit=10 returns
+    results[] with number (the NPI), basic (name, credential, status A = active), taxonomies[] (desc, primary, state,
+    license) and addresses[]. Use physician NUCC taxonomy labels ("Cardiovascular Disease", "Endocrinology, Diabetes &
+    Metabolism", "Internal Medicine", "Family Medicine", "Geriatric Medicine"); broad words also match non-physician
+    taxonomies. A listing shows enumeration, not board certification.

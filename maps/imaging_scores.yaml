@@ -1,0 +1,82 @@
+# LOINC codes checked against NLM Clinical Tables; free codes where LOINC has no code for the score.
+kind: plsi_map
+schema_version: 1
+id: imaging_scores
+title: Imaging scores
+map_version: 0.1.0
+claim_level: designed
+summary: Coronary artery calcium score, carotid intima-media thickness, DXA bone density T-scores of the lumbar spine and femoral neck, and appendicular lean mass index.
+tags: [imaging, cardiovascular, bone, muscle]
+coordinates:
+- id: cac_agatston
+  label: Coronary artery calcium score (Agatston), non-contrast cardiac CT
+  kind: measured
+  unit: '1'
+  accepts:
+    codes:
+    - {system: free, code: imaging_scores.cac_agatston, display: 'Coronary artery calcium Agatston score'}
+    reject_codes:
+    - {system: loinc, code: 79087-3, display: 'CT Heart and Coronary arteries for calcium scoring WO contrast'}
+  recency_days: 1825
+  score_window_days: {before: 90, after: 365}
+  correspondence_type: terminology
+- id: carotid_imt
+  label: Carotid intima-media thickness, common carotid artery mean, ultrasound
+  kind: measured
+  unit: mm
+  accepts:
+    codes:
+    - {system: free, code: imaging_scores.carotid_imt, display: 'Common carotid artery intima-media thickness mean by ultrasound'}
+  recency_days: 1095
+  score_window_days: {before: 90, after: 365}
+  correspondence_type: terminology
+- id: bmd_t_lumbar_spine
+  label: Bone density T-score, lumbar spine, DXA
+  kind: measured
+  unit: '1'
+  accepts:
+    codes:
+    - {system: loinc, code: 38267-1, display: 'DXA Lumbar spine [T-score] Bone density'}
+    reject_codes:
+    - {system: loinc, code: 85394-5, display: 'DXA Lumbar spine [Z-score] Bone density'}
+    - {system: loinc, code: 24966-4, display: 'DXA Lumbar spine [Mass/Area] Bone density'}
+    - {system: loinc, code: 104938-6, display: 'DXA Spine [T-score] Bone density'}
+  recency_days: 1095
+  score_window_days: {before: 90, after: 365}
+  correspondence_type: terminology
+- id: bmd_t_femoral_neck
+  label: Bone density T-score, femoral neck, DXA
+  kind: measured
+  unit: '1'
+  accepts:
+    codes:
+    - {system: loinc, code: 38263-0, display: 'DXA Femur [T-score] Bone density'}
+    - {system: loinc, code: 80947-5, display: 'DXA Femur - right [T-score] Bone density'}
+    - {system: loinc, code: 80948-3, display: 'DXA Femur - left [T-score] Bone density'}
+    reject_codes:
+    - {system: loinc, code: 38264-8, display: 'DXA Hip [T-score] Bone density'}
+    - {system: loinc, code: 80934-3, display: 'DXA Femur [Z-score] Bone density'}
+    - {system: loinc, code: 24701-5, display: 'DXA Femur [Mass/Area] Bone density'}
+  recency_days: 1095
+  score_window_days: {before: 90, after: 365}
+  correspondence_type: terminology
+- id: almi
+  label: Appendicular lean mass index (arms and legs lean mass over height squared), DXA
+  kind: measured
+  unit: kg/m2
+  accepts:
+    codes:
+    - {system: free, code: imaging_scores.almi, display: 'Appendicular lean mass index by DXA'}
+    reject_codes:
+    - {system: loinc, code: 91557-9, display: 'Lean body weight'}
+    - {system: loinc, code: 88334-8, display: 'Lean body weight Calculated'}
+    - {system: loinc, code: 8342-8, display: 'Lean body weight estimated by Immersion method'}
+    - {system: loinc, code: 8343-6, display: 'Lean body weight estimated by Skin fold method'}
+  recency_days: 1095
+  score_window_days: {before: 90, after: 365}
+  correspondence_type: terminology
+inference_boundaries:
+  supports: [tracking each score between scans and predictions on it]
+  does_not_support: [diagnosis of osteoporosis, coronary disease or sarcopenia, comparing scanners or reference databases, total hip
+      T-score (only the femoral neck), body fat (body_composition)]
+  min_evidence_class_for_actions: hypothesis_only

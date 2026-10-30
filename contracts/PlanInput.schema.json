@@ -1,0 +1,512 @@
+{
+  "$defs": {
+    "ActionCategory": {
+      "enum": [
+        "drug",
+        "supplement",
+        "diet",
+        "exercise",
+        "sleep",
+        "test",
+        "other"
+      ],
+      "title": "ActionCategory",
+      "type": "string"
+    },
+    "ActionInput": {
+      "additionalProperties": false,
+      "properties": {
+        "acknowledged": {
+          "default": false,
+          "title": "Acknowledged",
+          "type": "boolean"
+        },
+        "acknowledgement_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acknowledgement Note"
+        },
+        "category": {
+          "$ref": "#/$defs/ActionCategory"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Code"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "description": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "dose": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dose"
+        },
+        "local_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Local Id",
+          "type": "string"
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Schedule"
+        }
+      },
+      "required": [
+        "local_id",
+        "description",
+        "category"
+      ],
+      "title": "ActionInput",
+      "type": "object"
+    },
+    "ClaimInput": {
+      "additionalProperties": false,
+      "properties": {
+        "effect": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Effect"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "local_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Local Id",
+          "type": "string"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "supports": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Supports",
+          "type": "array"
+        },
+        "unknown": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Unknown"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "local_id",
+        "statement",
+        "evidence_class"
+      ],
+      "title": "ClaimInput",
+      "type": "object"
+    },
+    "Code": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "$ref": "#/$defs/CodeSystem"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "Code",
+      "type": "object"
+    },
+    "CodeSystem": {
+      "enum": [
+        "loinc",
+        "rxnorm",
+        "snomed",
+        "icd10cm",
+        "cpg",
+        "free"
+      ],
+      "title": "CodeSystem",
+      "type": "string"
+    },
+    "Direction": {
+      "enum": [
+        "up",
+        "down",
+        "none"
+      ],
+      "title": "Direction",
+      "type": "string"
+    },
+    "Effect": {
+      "additionalProperties": false,
+      "properties": {
+        "coordinate": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Coordinate",
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/Direction"
+        },
+        "magnitude": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Magnitude"
+        }
+      },
+      "required": [
+        "coordinate",
+        "direction"
+      ],
+      "title": "Effect",
+      "type": "object"
+    },
+    "EvidenceClass": {
+      "enum": [
+        "evidence_backed",
+        "rule_derived",
+        "model_derived",
+        "hypothesis_only",
+        "unknown"
+      ],
+      "title": "EvidenceClass",
+      "type": "string"
+    },
+    "PredictionInput": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "minItems": 1,
+          "title": "Basis",
+          "type": "array"
+        },
+        "coordinate": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Coordinate",
+          "type": "string"
+        },
+        "driven_by": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Driven By",
+          "type": "array"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "expected": {
+          "title": "Expected",
+          "type": "number"
+        },
+        "high": {
+          "title": "High",
+          "type": "number"
+        },
+        "horizon_days": {
+          "maximum": 730,
+          "minimum": 1,
+          "title": "Horizon Days",
+          "type": "integer"
+        },
+        "interval_level": {
+          "default": 0.8,
+          "maximum": 0.99,
+          "minimum": 0.5,
+          "title": "Interval Level",
+          "type": "number"
+        },
+        "local_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Local Id",
+          "type": "string"
+        },
+        "low": {
+          "title": "Low",
+          "type": "number"
+        },
+        "map_id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Map Id",
+          "type": "string"
+        },
+        "method": {
+          "minLength": 1,
+          "title": "Method",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/PredictionTarget"
+        }
+      },
+      "required": [
+        "local_id",
+        "map_id",
+        "coordinate",
+        "target",
+        "horizon_days",
+        "expected",
+        "low",
+        "high",
+        "method",
+        "evidence_class",
+        "basis"
+      ],
+      "title": "PredictionInput",
+      "type": "object"
+    },
+    "PredictionTarget": {
+      "enum": [
+        "level",
+        "change_from_baseline"
+      ],
+      "title": "PredictionTarget",
+      "type": "string"
+    },
+    "RevisionRule": {
+      "additionalProperties": false,
+      "properties": {
+        "continue_if": {
+          "title": "Continue If",
+          "type": "string"
+        },
+        "modify_if": {
+          "title": "Modify If",
+          "type": "string"
+        },
+        "review_after_days": {
+          "maximum": 730,
+          "minimum": 1,
+          "title": "Review After Days",
+          "type": "integer"
+        },
+        "stop_if": {
+          "title": "Stop If",
+          "type": "string"
+        }
+      },
+      "required": [
+        "review_after_days",
+        "continue_if",
+        "modify_if",
+        "stop_if"
+      ],
+      "title": "RevisionRule",
+      "type": "object"
+    },
+    "SourceKind": {
+      "enum": [
+        "pmid",
+        "doi",
+        "nct",
+        "label",
+        "evipedia",
+        "model",
+        "rule"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "Unknown": {
+      "additionalProperties": false,
+      "properties": {
+        "searched": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Searched",
+          "type": "array"
+        }
+      },
+      "required": [
+        "searched"
+      ],
+      "title": "Unknown",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ActionInput"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "claims": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ClaimInput"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "objective": {
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "predictions": {
+      "items": {
+        "$ref": "#/$defs/PredictionInput"
+      },
+      "minItems": 1,
+      "title": "Predictions",
+      "type": "array"
+    },
+    "revision_rule": {
+      "$ref": "#/$defs/RevisionRule"
+    },
+    "supersedes": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z]+_[0-9a-f]{8,32}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes"
+    }
+  },
+  "required": [
+    "objective",
+    "predictions",
+    "revision_rule"
+  ],
+  "title": "PlanInput",
+  "type": "object"
+}
