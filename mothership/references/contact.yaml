@@ -15,6 +15,7 @@ longevity_mothership:
 longevity_mothership_research:
   title: Longevity Mothership research intake (email, WIRE §7)
   url: https://plsi-mothership-relay.pages.dev
+  email: longevity-mothership+research@mail.grokbot.com
   notes: >-
     Research notes go here and nowhere else: plsi mothership email drafts the email (subject, the note in plain words,
     the message in one plsi block) and the user's own Grok email sends it to `email`, the Mother's Grok address with
