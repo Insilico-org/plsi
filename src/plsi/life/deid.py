@@ -1,8 +1,8 @@
 """Deidentification profile `plsi-limited-v1`.
 
 Event dates are kept, so this is NOT HIPAA Safe Harbor. The profile:
-- subject.json keeps only birth_year and sex (age >= 90 -> birth_year null, age_group "90+"; see deid_subject_fields,
-  applied by plsi.life.store, which owns subject.json);
+- subject.json keeps only birth year, sex, country and relation (age >= 90 -> birth_year null, age_group "90+";
+  see deid_subject_fields, applied by plsi.life.store, which owns subject.json);
 - Origin keeps file_sha256 and page, never a path or filename;
 - FHIR allowlist: code.coding, value[x], effective[x] (Period -> effective_at + effective_end), clinicalStatus,
   component[] (one observation each), medication dose text and doseQuantity. Everything else is dropped (identifier,

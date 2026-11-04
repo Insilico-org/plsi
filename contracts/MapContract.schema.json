@@ -207,6 +207,20 @@
       "title": "DeriveEngine",
       "type": "string"
     },
+    "Ethnicity": {
+      "enum": [
+        "european",
+        "african",
+        "middle_eastern",
+        "south_asian",
+        "east_asian",
+        "southeast_asian",
+        "latin_american",
+        "other"
+      ],
+      "title": "Ethnicity",
+      "type": "string"
+    },
     "EvidenceClass": {
       "enum": [
         "evidence_backed",
@@ -308,6 +322,21 @@
           "title": "Predictable",
           "type": "boolean"
         },
+        "ranges": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Range"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ranges"
+        },
         "recency_days": {
           "default": 365,
           "minimum": 1,
@@ -368,6 +397,62 @@
       "title": "ObservationKind",
       "type": "string"
     },
+    "Range": {
+      "additionalProperties": false,
+      "properties": {
+        "ethnicity": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Ethnicity"
+          },
+          "title": "Ethnicity",
+          "type": "array"
+        },
+        "high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "High"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low"
+        },
+        "sex": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Sex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "Range",
+      "type": "object"
+    },
     "ScoreWindow": {
       "additionalProperties": false,
       "properties": {
@@ -386,6 +471,16 @@
       },
       "title": "ScoreWindow",
       "type": "object"
+    },
+    "Sex": {
+      "enum": [
+        "M",
+        "F",
+        "X",
+        "unknown"
+      ],
+      "title": "Sex",
+      "type": "string"
     },
     "SourceKind": {
       "enum": [

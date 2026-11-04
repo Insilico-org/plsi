@@ -5,7 +5,7 @@ kind: plsi_map
 schema_version: 1
 id: cardiometabolic
 title: Cardiometabolic markers
-map_version: 1.2.0
+map_version: 1.3.0
 claim_level: instantiated
 summary: Lipids, apolipoproteins, glycaemia, insulin resistance (HOMA-IR), blood pressure, adiposity and hs-CRP.
 tags: [cardiometabolic, lipids, glycaemia, blood_pressure]
@@ -286,6 +286,9 @@ coordinates:
     inputs: [height, weight]
     formula: exp(log(weight) - 2 * log(height))  # = weight / height ** 2; logs reject weight or height <= 0
     carry_forward: [height]
+  ranges:
+  - {low: 18.5, high: 25, source: {kind: pmid, id: '11234459'}}
+  - {low: 18.5, high: 23, ethnicity: [south_asian, east_asian, southeast_asian], source: {kind: pmid, id: '14726171'}}
   correspondence_type: terminology
   sources:
   - {kind: rule, id: 'expr:bmi'}
@@ -303,6 +306,10 @@ coordinates:
     - {system: loinc, code: 8281-8, display: Waist Circumference at umbilicus by US}
     - {system: loinc, code: 56086-2, display: Adult Waist Circumference Protocol}
     - {system: loinc, code: 97058-2, display: Waist circumference score for risk calculation}
+  ranges:
+  - {high: 94, sex: M, source: {kind: pmid, id: '16681555'}}
+  - {high: 80, sex: F, source: {kind: pmid, id: '16681555'}}
+  - {high: 90, sex: M, ethnicity: [south_asian, east_asian, southeast_asian, latin_american], source: {kind: pmid, id: '16681555'}}
   correspondence_type: terminology
 - id: hs_crp
   label: High-sensitivity C-reactive protein

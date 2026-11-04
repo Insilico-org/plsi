@@ -36,6 +36,9 @@ PATTERNS = {
     "url": re.compile(rf"\bhttps?://|\bwww\.|(?<![\w-])[\w-]+\.(?:{_TLDS})\b", re.I),
     "id_number": re.compile(r"\d[\d\s().-]{6,}\d"),
     "internal_id": re.compile(r"\b(?:s_[0-9a-f]{12}|evt_[0-9a-f]{8,32})\b"),
+    # a data: URI or a long base64 run mixing cases and digits (sequences and hex hashes do not)
+    "embedded_data": re.compile(r"(?i:\bdata:[a-z]+/[\w.+-]+;base64)|(?<![A-Za-z0-9+/])(?=[A-Za-z0-9+/]*[a-z])"
+                                r"(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*[0-9])[A-Za-z0-9+/]{120,}"),
 }
 # a cheap test every match of the rule contains, so the backtracking bare-domain pattern runs only where it can match
 NEEDS = {"url": re.compile(rf"https?://|www\.|\.(?:{_TLDS})\b", re.I)}
@@ -44,6 +47,7 @@ FORBIDDEN_KEYS = frozenset({"subject_id", "instance", "birth_year", "event_id", 
                             "install_id"})
 KEYED = frozenset({"states[].coordinates", "scores.by_coordinate"})  # objects keyed by coordinate ids
 Exempt = Callable[[str, str, str], bool]  # (rule, path template, shown path) -> exempt
+Mask = Callable[[str, str], str]  # (rule, text) -> the text as that rule reads it
 
 
 def flag(path: str, rule: str) -> dict[str, str]:
@@ -66,6 +70,25 @@ def hit(rule: str, text: str) -> bool:
     if rule in NEEDS and not NEEDS[rule].search(text):
         return False
     return bool(PATTERNS[rule].search(YEARS.sub(" ", text) if rule == "id_number" else text))
+
+
+# a data: picture (markdown or HTML), a data: URI with its payload, or a bare base64 run
+PICTURE = re.compile(r"(?i:!\[[^\]\n]*\]\(\s*data:[^)]*\)|<img\b[^>]*\bdata:[^>]*>|\bdata:[a-z]+/[\w.+-]+;base64,?"
+                     r"[A-Za-z0-9+/=]*)|" + PATTERNS["embedded_data"].pattern.split("|", 1)[1] + "={0,2}")
+REMOVED = "[picture removed]"
+
+
+def strip_pictures(obj: Any) -> tuple[Any, int]:
+    """`obj` with hidden pictures replaced by REMOVED, and their count; a hit string is cleaned in its normal form."""
+    if isinstance(obj, dict):
+        pairs = [(k, *strip_pictures(v)) for k, v in obj.items()]
+        return {k: v for k, v, _ in pairs}, sum(n for *_, n in pairs)
+    if isinstance(obj, list):
+        pairs = [strip_pictures(v) for v in obj]
+        return [v for v, _ in pairs], sum(n for _, n in pairs)
+    if not isinstance(obj, str) or not hit("embedded_data", normal(obj)):
+        return obj, 0
+    return PICTURE.subn(REMOVED, normal(obj))
 
 
 class _Duplicate(ValueError):
@@ -125,9 +148,30 @@ def _walk(obj: Any, names: frozenset[str], shown: str = "", plain: str = "") -> 
         yield shown, plain, obj, False
 
 
-def violations(doc: Any, exempt: Exempt, names: frozenset[str], instances: set[str]) -> list[dict[str, str]]:
+def lines(pattern: re.Pattern[str], text: str) -> list[int]:
+    """The 1-based lines where a match of `pattern` starts, each once."""
+    return list(dict.fromkeys(text.count("\n", 0, m.start()) + 1 for m in pattern.finditer(text)))
+
+
+def _lined(path: str, text: str, mask: Mask, instances: set[str]) -> list[dict[str, str]]:
+    """The identifying-pattern and instance-name rules over a masked field: one violation per line and rule, its path
+    `<path>[<line>]`."""
+    out = []
+    for rule, pattern in PATTERNS.items():
+        seen = mask(rule, text)
+        if rule not in NEEDS or NEEDS[rule].search(seen):
+            out += [flag(f"{path}[{n}]", rule) for n in lines(pattern, YEARS.sub(" ", seen) if rule == "id_number" else seen)]
+    if instances:
+        named = re.compile("|".join(rf"\b{re.escape(n)}\b" for n in instances))
+        out += [flag(f"{path}[{n}]", "instance_name") for n in lines(named, text.lower())]
+    return out
+
+
+def violations(doc: Any, exempt: Exempt, names: frozenset[str], instances: set[str],
+               limits: dict[str, int] | None = None, masks: dict[str, Mask] | None = None) -> list[dict[str, str]]:
     """The string, key and number rules over the whole document, paths showing only `names`; `instances` are the
-    instance names never sent."""
+    instance names never sent. A field in `masks` (path template -> mask) is read as each rule's mask shows it, and its
+    violations name the line (`_lined`); `limits` override MAX_STRING per path template."""
     out = []
     for path, plain, value, is_key in _walk(doc, names):
         path = path or "$"
@@ -138,8 +182,11 @@ def violations(doc: Any, exempt: Exempt, names: frozenset[str], instances: set[s
         text = normal(value)
         if is_key and text in FORBIDDEN_KEYS:
             out.append(flag(path, "forbidden_field"))
-        if len(value) > (MAX_KEY if is_key else MAX_STRING):
+        if len(value) > (MAX_KEY if is_key else (limits or {}).get(plain, MAX_STRING)):
             out.append(flag(path, "too_long"))
+            continue
+        if masks and plain in masks and not is_key:
+            out += [v for v in _lined(path, text, masks[plain], instances) if not exempt(v["rule"], plain, path)]
             continue
         out += [flag(path, rule) for rule in PATTERNS if (is_key or not exempt(rule, plain, path)) and hit(rule, text)]
         if any(re.search(rf"\b{re.escape(n)}\b", text.lower()) for n in instances):

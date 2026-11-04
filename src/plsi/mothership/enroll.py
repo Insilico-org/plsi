@@ -53,7 +53,7 @@ def install(instance: str) -> dict[str, str] | None:
     if not path.is_file():
         return None
     found = files.load_json(path)
-    for secret in ("token", "contributor_secret", "deletion_secret"):
+    for secret in ("token", "contributor_secret"):
         if secret in found:
             keys.hide(found[secret])
     return found
@@ -80,13 +80,14 @@ def _enroll(instance: str, code: str) -> dict[str, str]:
         raise ValidationError("the relay did not return an install id and token", code="ENROLL_FAILED")
     minted = {"install_id": str(reply["install_id"]), "token": str(reply["token"]), "enrolled_at": now().isoformat()}
     keys.hide(minted["token"])
-    kept = {k: v for k, v in (install(instance) or {}).items() if k == "contributor_secret"}  # a new code keeps the secret
+    # a new code keeps the secret, so the contributor stays the same
+    kept = {k: v for k, v in (install(instance) or {}).items() if k == "contributor_secret"}
     _save_install(instance, minted | kept)
     return minted | kept
 
 
 def _secret(instance: str, found: dict[str, str]) -> str:
-    """The contributor secret: 32 random bytes as hex, made at the first join (and after leave --delete)."""
+    """The contributor secret: 32 random bytes as hex, made at the first join (and after a confirmed deletion)."""
     if "contributor_secret" not in found:
         found["contributor_secret"] = secrets.token_hex(32)
         keys.hide(found["contributor_secret"])
@@ -112,13 +113,24 @@ def active(instance: str) -> dict[str, Any]:
     return found
 
 
+def deletion_waiting(instance: str) -> bool:
+    """A delete_all was asked for and its receipt is not in: the install is forgotten only when it is."""
+    return bool((enrollment(instance) or {}).get("deletion_requested")) and install(instance) is not None
+
+
 def join(instance: str, kind: list[str], consent_version: str, code: str | None = None) -> dict[str, Any]:  # noqa: A002
     """`mothership join`: record the user's consent for the kinds they picked. The first join trades the one-time
-    code from the relay's /join page for this install's id and token; later joins (other kinds) need no code."""
+    code from the relay's /join page for this install's id and token; later joins (other kinds) need no code. Never
+    while a deletion waits for its receipt: one install holds one contributor, and the deletion forgets it."""
     store = EventStore(instance)
     if store.subject.relation != Relation.SELF:
         raise ValidationError("only the user's own instance (relation self) can join", code="NOT_SELF",
                               hint="family members and sample people are never shared")
+    if deletion_waiting(instance):
+        raise ValidationError("a deletion of everything shared is waiting for the Mothership's receipt",
+                              code="DELETION_PENDING",
+                              hint=f"plsi mothership receipt --instance {instance}; once it is confirmed, join again "
+                                   f"with a new code from {address()}/join")
     if consent_version != current_consent():
         raise ValidationError(f"consent version {consent_version} is not the current text", code="CONSENT_OUTDATED",
                               hint="show the current mothership/consent.md and pass its version")
@@ -136,17 +148,20 @@ def join(instance: str, kind: list[str], consent_version: str, code: str | None 
 def leave(instance: str, delete: bool = False, anyway: bool = False) -> dict[str, Any]:
     """`mothership leave`: stop sharing; writes the withdrawal file to send. With --delete it asks to delete
     everything and carries the contributor secret as proof. It waits until the Mother's receipt is in for every sent
-    contribution (`plsi mothership receipt`), and the secret moves to `deletion_secret`: a later join is a new
-    contributor, and the proof is kept until the withdrawal's receipt says deleted. `anyway` (only after the user
-    agreed) sends the deletion while a receipt is still pending; a package that arrives after it is refused."""
+    contribution (`plsi mothership receipt`). The secret stays in the install until the deletion's receipt, so an
+    unconfirmed deletion can be sent again; the receipt forgets the install, and a later join is a new contributor.
+    `anyway` (only after the user agreed) sends the deletion while a receipt is still pending; a package that
+    arrives after it is refused."""
     record = enrollment(instance)
     if not record:
         raise NotFound(f"{instance!r} never joined the Longevity Mothership", code="NOT_ENROLLED")
-    found = install(instance) or {}
-    secret = found.get("contributor_secret")
-    if delete and (secret is None or pseudonym(secret) != record["contributor_id"]):
+    secret = (install(instance) or {}).get("contributor_secret")
+    if not (isinstance(secret, str) and pseudonym(secret) == record["contributor_id"]):
+        secret = None
+    if delete and secret is None:
         raise ValidationError("this install no longer holds the secret of its contributor id", code="NO_PROOF",
-                              hint="a deletion was already requested; otherwise ask the Mothership steward")
+                              hint="the deletion is confirmed already, or this install never joined; "
+                                   "otherwise ask the Mothership steward")
     if delete and not anyway and (waiting := pending(instance, MothershipMessage.CONTRIBUTION)):
         raise ValidationError(f"{len(waiting)} sent contribution(s) have no Mothership receipt yet",
                               code="RECEIPT_PENDING", hint=f"plsi mothership receipt --instance {instance}, then leave "
@@ -160,20 +175,17 @@ def leave(instance: str, delete: bool = False, anyway: bool = False) -> dict[str
         message["proof"] = secret
     path = folder(instance) / "outbox" / f"withdrawal-{ts_filename()}.json"
     files.atomic_write_json(path, message, private=delete)  # a delete_all carries the contributor secret
-    if delete:
-        kept = {k: v for k, v in found.items() if k != "contributor_secret"} | {"deletion_secret": secret}
-        _save_install(instance, kept)
     return {"file": str(path), "request": message["request"]}
 
 
-def drop_deletion_secret(instance: str) -> None:
-    """The deletion is confirmed: the install no longer keeps the contributor secret as proof."""
-    found = install(instance) or {}
-    if "deletion_secret" in found:
-        _save_install(instance, {k: v for k, v in found.items() if k != "deletion_secret"})
+def forget_install(instance: str) -> None:
+    """The deletion is confirmed: the install is forgotten whole (id, token and secret), so a later join needs a new
+    code and gets a new install id that the relay cannot link to the deleted contributor."""
+    _install_path(instance).unlink(missing_ok=True)
 
 
 RECEIPT_DAYS = 7  # the relay keeps an ACK this long; a ticket still open after it is never confirmed
+STALE_DELETION_H = 1  # a deletion with no receipt after this is told to the user, never left to sit
 
 
 def sends(instance: str) -> list[dict[str, Any]]:
@@ -204,6 +216,14 @@ def pending(instance: str, kind: str | None = None) -> list[dict[str, Any]]:
             if e["receipt_state"] == ReceiptState.PENDING and (kind is None or e.get("kind") == kind)]
 
 
+def unconfirmed_deletions(instance: str) -> list[dict[str, Any]]:
+    """Deletions sent over STALE_DELETION_H ago with no receipt: the user is told and can ask again."""
+    cutoff = now() - timedelta(hours=STALE_DELETION_H)
+    return [{k: e[k] for k in ("sent_at", "ticket", "request") if k in e}
+            for e in pending(instance, MothershipMessage.WITHDRAWAL)
+            if e.get("request") == WithdrawalRequest.DELETE_ALL and parse_time(e["sent_at"]) < cutoff]
+
+
 def status(instance: str) -> dict[str, Any]:
     """`mothership status`: enrollment, whether its consent is current, the address and what was sent."""
     record, found, log = enrollment(instance), install(instance), sends(instance)
@@ -212,6 +232,7 @@ def status(instance: str) -> dict[str, Any]:
             "consent_current": bool(record and record["consent_version"] == current_consent()),
             "to": address(), "join_page": f"{address()}/join", "has_install_token": found is not None,
             "has_contributor_secret": "contributor_secret" in (found or {}),
-            "deletion_proof_held": "deletion_secret" in (found or {}),
+            "deletion_pending": deletion_waiting(instance),
             "sent_count": len(log), "sent": [{k: v for k, v in e.items() if k != "reply"} for e in log[-12:]],
-            "receipts_pending": sum(e["receipt_state"] == ReceiptState.PENDING for e in log)}
+            "receipts_pending": sum(e["receipt_state"] == ReceiptState.PENDING for e in log),
+            "deletions_unconfirmed": unconfirmed_deletions(instance)}

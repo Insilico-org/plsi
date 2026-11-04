@@ -2,7 +2,7 @@
   "$defs": {
     "Block": {
       "additionalProperties": false,
-      "description": "type: a BlockType, or any other string (rendered as pretty-printed JSON). data shapes:\nmarkdown {text} (#, **, *, - lists, [t](https://...) only; never raw HTML) · kv {items:[{key,value}]} ·\ntable {columns, rows} (cell = string | number | {text, href?}) ·\ntimeseries {series:[{name, unit, points:[{t,v}], predictions:[{t,expected,low,high}]}]} · list {items:[{text, href?}]} ·\ntimeline {now?, events:[{t, label, kind: past|predicted, level?: info|watch|high, t_end?, probability?, detail?, href?}]}",
+      "description": "type: a BlockType, or any other string (rendered as pretty-printed JSON). data shapes:\nmarkdown {text} (#, **, *, - lists, [t](https://...) only; never raw HTML) · kv {items:[{key,value}]} ·\ntable {columns, rows} (cell = string | number | {text, href?}) ·\ntimeseries {series:[{name, unit, points:[{t,v,ref_low?,ref_high?,flag?}], predictions:[{t,expected,low,high}]}]} (v null = a gap; ref and flag = that report's own) · list {items:[{text, href?}]} ·\ntimeline {now?, events:[{t, label, kind: past|predicted, level?: info|watch|high, t_end?, probability?, detail?, href?}]}",
       "properties": {
         "data": {
           "additionalProperties": true,

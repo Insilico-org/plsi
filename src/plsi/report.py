@@ -33,7 +33,7 @@ class Block(Model):
     """type: a BlockType, or any other string (rendered as pretty-printed JSON). data shapes:
     markdown {text} (#, **, *, - lists, [t](https://...) only; never raw HTML) · kv {items:[{key,value}]} ·
     table {columns, rows} (cell = string | number | {text, href?}) ·
-    timeseries {series:[{name, unit, points:[{t,v}], predictions:[{t,expected,low,high}]}]} · list {items:[{text, href?}]} ·
+    timeseries {series:[{name, unit, points:[{t,v,ref_low?,ref_high?,flag?}], predictions:[{t,expected,low,high}]}]} (v null = a gap; ref and flag = that report's own) · list {items:[{text, href?}]} ·
     timeline {now?, events:[{t, label, kind: past|predicted, level?: info|watch|high, t_end?, probability?, detail?, href?}]}"""
 
     type: BlockType | str
@@ -212,7 +212,11 @@ def report(instance: str, map_id: str | None = None, payload: str | None = None,
     inst = instance_dir(instance)
     doc = parse(DashboardPayload, load_json(payload)) if payload is not None else default_payload(instance, map_id)
     fmt = ReportFormat(fmt)
-    path = safe_join(inst, "reports", f"{ts_filename()}.{fmt.value}")
+    stamp, n = ts_filename(), 1
+    path = safe_join(inst, "reports", f"{stamp}.{fmt.value}")
+    while path.exists():  # two renders in the same second each keep their own file
+        n += 1
+        path = safe_join(inst, "reports", f"{stamp}-{n}.{fmt.value}")
     if fmt == ReportFormat.PDF:
         from plsi.report_pdf import render_pdf
         atomic_write_bytes(path, render_pdf(doc))

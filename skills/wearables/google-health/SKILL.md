@@ -16,7 +16,8 @@ dashboard. The daily rows then go through `wearables/import` steps 3-6.
 - A `request` to connect Google Health, or to import a range from it (the first connect, or PLSI's check-in asking
   for a closed month not yet recorded).
 - Not when Open Wearables is connected and already links Google Health: read it there (`wearables/import`), never
-  pull the same source twice.
+  pull the same source twice. With Apple Health (P.R.O.) also connected, `wearables/import` keeps one app per
+  metric.
 
 ## Steps
 

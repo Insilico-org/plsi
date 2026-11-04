@@ -29,6 +29,11 @@ night, and predictions are scored on months. The raw data stays where it came fr
      weight, blood pressure, glucose) for the range in the request. Not connected or no user: say so in a `result`.
    - **Google Health** (no Open Wearables): pull with `wearables/google-health`, then continue here with its daily
      rows. **Apple Health** through the P.R.O. app: pull with `wearables/apple-health`, the same way. A source already linked to Open Wearables is read there only, never pulled twice.
+   - **Apple Health export** (`export.zip`, any size): never open it yourself; `plsi apple export --file <zip>
+     --out <PLSI_HOME>/work/<thread>/daily.csv` streams it into daily rows (`date,metric,value,unit,source`, the
+     source a kind: watch, phone or other, numbered when one kind has several apps) and lists the record types it
+     did not read; its `sha256` is the export's hash for step 2. Continue at step 3 with `daily.csv`, and pick one
+     source per metric there.
    - **Export file:** open only the inbox path; list metrics, units, time zone, date range and sampling. Large,
      binary or recurring formats need an `importer` extension (`plsi ext list`); none installed: ask PLSI in a
      `result` for the PLSI Engineer (`engineer/extend`), then step 5 with `--ext <id> --input <file>`.
@@ -52,10 +57,22 @@ night, and predictions are scored on months. The raw data stays where it came fr
    minutes (the device's moderate-or-harder minutes, e.g. Apple exercise time: the month's total / (days in the month
    / 7), min/wk), active days (days with 30 or more of those minutes, / (days in the month / 7), d/wk), VO2max
    estimate (mL/min/kg); `cardiometabolic` for blood pressure and weight. Sleep efficiency has no code: keep it as an uncoded row with a precise label. SDNN and RMSSD
-   are different measures: record each under its own coordinate, never one as the other. **One source per metric:** when a watch, a phone or another app report the same metric (an Apple
+   are different measures: record each under its own coordinate, never one as the other; an HRV that names neither
+   stays uncoded unless the device's documentation says which. **One source per metric:** when a watch, a phone or another app report the same metric (an Apple
    Health export usually does), use the device's own merged value if the export has one, else one source per metric
-   (for sleep the device worn at night); never add or average overlapping sources, and say which kind of source in
-   the label ("watch"). An overlap you cannot resolve is a question, not a row.
+   (for sleep the device worn at night); never add or average overlapping sources, and say the app and the kind of
+   source in the label ("Apple Health, watch"). An overlap you cannot resolve is a question, not a row.
+
+   **One app per metric across apps.** Google Health, Apple Health (P.R.O.), Open Wearables and export files often
+   carry the same device's data, and their monthly means differ a little, so `plsi ingest` does not see them as
+   duplicates. Each metric has ONE primary app, kept in your permanent memory ("Steps: Apple Health"): the app that
+   reads the device worn at night for sleep, resting heart rate and HRV, the watch's app for steps and exercise
+   minutes, else the phone's. Unclear which: put it in the step's `question` (per metric, the apps that carry it).
+   Rows of another app for that metric are not recorded; list them as skipped in the `result`. Before recording a
+   month, read what is there (`plsi events list --instance <instance> --kind measurement`): a row for that metric
+   and month from another app means skip, never a second row. Two rows already recorded for one metric and month:
+   keep the primary app's and ask PLSI in the `result` to have the Data Processor retract the other
+   (`processor/intake`, Correct or retract), naming both rows.
    **Sleep duration is time asleep:** sum only the asleep segments (Apple Health `AsleepCore`, `AsleepDeep`,
    `AsleepREM`, `AsleepUnspecified`), never `InBed` or `Awake`, and merge overlapping segments before adding them up.
    A monthly mean outside 3-11 h, or a jump of more than 2 h between months, means the parsing is wrong: fix it or
@@ -90,6 +107,10 @@ night, and predictions are scored on months. The raw data stays where it came fr
    plsi ingest --instance <instance> --csv device.csv
    ```
 
+   `conflicts` in the dry run: a metric and month that already has a value (or two in this file). Drop the row
+   unless it is the primary app's; then keep it and name the other row for retraction (step 3). Never ingest a
+   conflict you did not resolve.
+
 6. **Project and return.** Any ingest makes every saved state stale: project `sleep_activity` (and `cardiometabolic`
    for blood pressure or weight) and every map already listed in `plsi status` `states`, then ONE `result`: counts
    per metric, months covered, months skipped (fewer than 15 days), uncoded rows, every projected map in `states`
@@ -108,4 +129,5 @@ night, and predictions are scored on months. The raw data stays where it came fr
   canonical columns. Open Wearables user ids stay in PLSI's memory, never in a record.
 - Consumer devices are not diagnostic: say so in the `result` when a value looks abnormal, and flag it `uncertain`
   (`orchestrator/urgent`) instead of judging it; never treat a CGM, cuff or ring reading as a diagnosis.
-- Never compare across devices or HRV methods; a device change is a `note` ("wearable changed 2026-10").
+- Never compare across devices or HRV methods; a device change is a `note` ("wearable changed 2026-10"). A new
+  primary app for a metric starts with the next closed month; months already recorded stay.

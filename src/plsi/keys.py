@@ -21,12 +21,7 @@ UNLOCKS: dict[str, str] = {
     "PANDACLAW_BEARER_TOKEN": "plsi oracle pandaclaw",
     "PANDAOMICS_MCP_URL": "PandaOmics MCP endpoint override",
     "PANDAOMICS_BEARER_TOKEN": "plsi oracle pandaomics",
-    "PLSI_LLLM_MODE": "L-LLM endpoint preset (local | server)",
-    "PLSI_LLLM_BASE_URL": "plsi oracle l-llm (explicit endpoint)",
-    "PLSI_LLLM_MODEL": "L-LLM model name",
-    "PLSI_LLLM_API_KEY": "L-LLM endpoint auth",
-    "HF_TOKEN": "L-LLM endpoint auth fallback (Hugging Face)",
-    "PLSI_LLLM_ENABLE_THINKING": "L-LLM thinking mode",
+    "PLSI_ORACLE_DAILY_CAP": "billed PandaClaw / PandaOmics calls per oracle per UTC day (default 25)",
     "LOINC_USERNAME": "optional fhir.loinc.org enrichment (unused by default)",
     "LOINC_PASSWORD": "optional fhir.loinc.org enrichment (unused by default)",
     "NCBI_API_KEY": "PubMed E-utilities at 10 req/s",
@@ -41,6 +36,8 @@ UNLOCKS: dict[str, str] = {
     "FATSECRET_CONSUMER_SECRET": "FatSecret Platform OAuth 1.0 shared secret for nutritionist/food-log",
     "FATSECRET_ACCESS_TOKEN": "FatSecret member diary access token (3-legged OAuth 1.0) for nutritionist/food-log",
     "FATSECRET_ACCESS_SECRET": "FatSecret member diary access token secret for nutritionist/food-log",
+    "PLSI_DRIVE_CREDENTIALS": "service account key file (JSON path) for the clinic shared drive (panel/clinic)",
+    "PLSI_CLINIC_DRIVE": "the clinic shared drive id, where the service account is a Manager (panel/clinic)",
     "MOTHERSHIP_PROFESSIONAL_TOKEN": "plsi mothership whoami, release, findings, prereg, finding and professional send",
     "PLSI_HOME": "instance directory (default <repo>/instances)",
     "PLSI_DEBUG": "redacted tracebacks on stderr when 1",
@@ -131,6 +128,12 @@ def status() -> dict[str, bool]:
     file_values, mapped = load_env_file(), aliases()
     return {name: bool(_value(name, file_values) or (name in mapped and _value(mapped[name], file_values)))
             for name in UNLOCKS}
+
+
+def present(names: tuple[str, ...]) -> list[str]:
+    """Which of these variables are set in the environment or .env (names only, never values)."""
+    file_values = load_env_file()
+    return [n for n in names if _value(n, file_values)]
 
 
 def scan() -> dict[str, object]:

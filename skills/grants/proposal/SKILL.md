@@ -29,7 +29,7 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Grant Writer**. Reply o
 2. **Verify** every identifier you cite (`plsi evidence verify --kind <pmid|doi|nct> --id <id>`); drop what does not
    resolve.
 
-3. **Draft** `<PLSI_HOME>/work/<thread>/proposal.md`: summary, specific aims, background with the open questions,
+3. **Draft** `<PLSI_HOME>/work/<thread>/proposal_<topic>_<YYYYMMDD>.md`: summary, specific aims, background with the open questions,
    preliminary data (findings with effect, interval and grade, cited by id), approach with falsifiers and the
    analysis specs, risks and limits (self-selected cohort, small cells, model output), and the references.
 

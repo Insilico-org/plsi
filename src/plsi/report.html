@@ -37,6 +37,7 @@ pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflo
 .chart .grid { stroke: var(--border); }
 .chart .obs { stroke: var(--accent); fill: none; stroke-width: 2; }
 .chart .dot { fill: var(--accent); }
+.chart .dot.out { fill: #c0392b; }
 .chart .band { fill: var(--pred-soft); opacity: .7; }
 .chart .bar { stroke: var(--pred); stroke-width: 2; }
 .chart .exp { fill: #fff; stroke: var(--pred); stroke-width: 2; }
@@ -152,11 +153,21 @@ pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflo
 
   const DAY = 86400000;
   const day = (t) => new Date(t).toISOString().slice(0, 10);
-  const series = (s) => ({ name: s.name,
-    pts: (s.points || []).map((p) => ({ t: Date.parse(p.t), v: +p.v }))
-      .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.v)).sort((a, b) => a.t - b.t),
-    pr: (s.predictions || []).map((p) => ({ t: Date.parse(p.t), e: +p.expected, lo: +p.low, hi: +p.high }))
-      .filter((p) => [p.t, p.e, p.lo, p.hi].every(Number.isFinite)).sort((a, b) => a.t - b.t) });
+  const num = (v) => (v === null || v === undefined || v === "" ? NaN : +v);
+  // A point with v null is a gap: the line breaks there. ref_low/ref_high: the range printed on that point's report.
+  const series = (s) => {
+    const all = (s.points || []).map((p) => ({ t: Date.parse(p.t), v: num(p.v), lo: num(p.ref_low), hi: num(p.ref_high), flag: p.flag }))
+      .filter((p) => Number.isFinite(p.t)).sort((a, b) => a.t - b.t);
+    const segs = [[]];
+    for (const p of all) Number.isFinite(p.v) ? segs[segs.length - 1].push(p) : segs.push([]);
+    return { name: s.name, segs: segs.filter((g) => g.length), pts: all.filter((p) => Number.isFinite(p.v)),
+      pr: (s.predictions || []).map((p) => ({ t: Date.parse(p.t), e: +p.expected, lo: +p.low, hi: +p.high }))
+        .filter((p) => [p.t, p.e, p.lo, p.hi].every(Number.isFinite)).sort((a, b) => a.t - b.t) };
+  };
+  const outside = (p) => !!p.flag || p.v < p.lo || p.v > p.hi;  // the lab's own flag first; no range (NaN) -> false
+  const refText = (p) => (Number.isFinite(p.lo) || Number.isFinite(p.hi)
+    ? " (report range " + (Number.isFinite(p.lo) ? fmt(p.lo) : "") + "–" + (Number.isFinite(p.hi) ? fmt(p.hi) : "") + ")" : "")
+    + (p.flag ? " " + fmt(p.flag) : "");
   // One chart per group: series sharing a unit and a "<label>: " name prefix share one x/y axis, later ones dashed.
   const chart = (group) => {
     const box = el("div"), ss = group.map(series), unit = group[0].unit;
@@ -185,7 +196,7 @@ pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflo
     });
     const legend = el("p", "legend");
     legend.appendChild(el("span", "o", "● observed"));
-    ss.forEach(({ name, pts, pr }, i) => {
+    ss.forEach(({ name, pts, segs, pr }, i) => {
       const alt = ss.length > 1 ? (i ? " alt" : " cur") : "";
       if (pr.length > 1) {
         const band = pr.map((p) => x(p.t) + "," + y(p.hi)).concat(pr.slice().reverse().map((p) => x(p.t) + "," + y(p.lo)));
@@ -202,10 +213,10 @@ pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflo
         const c = root.appendChild(svg("circle", { cx: x(p.t), cy: y(p.e), r: 4, class: "exp" + alt }));
         c.appendChild(svg("title")).textContent = fmt(name) + " predicted " + day(p.t) + ": " + fmt(p.e) + " [" + fmt(p.lo) + ", " + fmt(p.hi) + "]";
       }
-      if (pts.length > 1) root.appendChild(line(pts, "obs"));
+      for (const g of segs) if (g.length > 1) root.appendChild(line(g, "obs"));
       for (const p of pts) {
-        const c = root.appendChild(svg("circle", { cx: x(p.t), cy: y(p.v), r: 3.5, class: "dot" }));
-        c.appendChild(svg("title")).textContent = day(p.t) + ": " + fmt(p.v);
+        const c = root.appendChild(svg("circle", { cx: x(p.t), cy: y(p.v), r: 3.5, class: outside(p) ? "dot out" : "dot" }));
+        c.appendChild(svg("title")).textContent = day(p.t) + ": " + fmt(p.v) + refText(p);
       }
       if (ss.length > 1 && pr.length) legend.appendChild(el("span", i ? "p" : "c", (i ? "   - - " : "   ── ") + fmt(name)));
     });

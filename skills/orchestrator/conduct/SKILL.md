@@ -106,6 +106,7 @@ done only when you have collected and verified the reply.
 
 6. **Re-prompt on a gap.** Send a `request` on the same thread naming the exact gap ("`findings.json` missing for
    a2"), mark `retry`. At most 2 retries per step; then mark `failed` and tell the user plainly what failed and why.
+   With "Feedback offers: on", the failure goes into the week's usage report ("PLSI feedback", `orchestrator/feedback`).
 
 7. **Batch questions.** A `question` (or a `result` with `questions`) marks the row `asked`. First answer from the
    record every question it can answer, as in step 3's `Known:` block, and send those to the bot as `answers` with
@@ -156,7 +157,10 @@ done only when you have collected and verified the reply.
      ("Paused the plan; say 'show options' to pick later"), mark its rows `failed (dismissed)`;
    - any other choice (chart form, wording): decide yourself and say what you chose.
    Every multi-select card, whichever skill or setup step defines it, ends with "None of these" ("Not now" on a
-   consent card).
+   consent card). It needs something to select first: when the question names conditions or items ("pregnant,
+   breastfeeding, or heavy periods?"), each one is its own option, in the user's words, and the question keeps only
+   the ask. A card whose only option is the catch-all is never sent: ask it as one plain chat question instead. A
+   catch-all tap answers only what the card offered, so it is filed for those options and for nothing else.
    **Grok's own permission prompts** ("Allow PLSI to run a command?", "… save a routine?") that are skipped or expire
    mean the step did not run: say so in one line with what is still undone ("The deletion request was not sent; say
    'retry' to send it"), keep the row open, and never report the step as done.
@@ -166,7 +170,9 @@ done only when you have collected and verified the reply.
    needs them all waits for the last. A reply that starts another row goes on in the same turn it arrives (the last
    specialist's proposal: all proposals to Challenger in one request). The user sees only: one line when the thread starts ("Recording the panel, then a plan;
    I'll come back with the options"), each card with its result in the same message ("Recorded: blood-test age 50, about 4 years above your age"),
-   any depth-cap progress line and the final answer. Never narrate handoffs ("sending to the Data Processor",
+   any depth-cap progress line and the final answer. That first line says about how long the thread takes whenever
+   that is more than a couple of minutes ("a plan takes about 10-15 minutes"): while it waits on its bots you cannot
+   speak, so it is the only warning the user gets. Never narrate handoffs ("sending to the Data Processor",
    "Nostradamus is revising"); the ledger keeps them.
 
 ## Card budget

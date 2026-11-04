@@ -2,7 +2,7 @@
 
 PLSI turns any health record into a deidentified, code-normalized event log, projects it through versioned **State Maps** into a hashed state document, and lets Grok Bot propose screened actions with **explicit, scored next-state predictions**, including aging clocks.
 
-On Grok Bot, PLSI is a team of Bots with separate chats, memories and contexts: **PLSI** (the orchestrator the user talks to), a core team that is always created (Data Processor, Health Consultant, Nostradamus, Challenger, Reviewer, Data Controller, Memory Hole, Visualizer) and the specialists the user picks (Wearables, Nutritionist, Coach, Sleep, Biohacker, Citizen Researcher, Explorer, Navigator, Trial Scout, Pharma Analyst, Engineer, Writer). A longevity physician also gets the section **PLSI Clinic** (Panel, Visit Prep, Clinical Evidence, Liaison) and a pro researcher the section **PLSI Lab** (Target Hunter, Landscape, Cohort Analyst, Grant Writer), chosen by role (`plsi role set`). The workers sit in the collapsible sidebar group **PLSI Workers**, the sections in **PLSI Clinic** and **PLSI Lab**; the roster is `skills/shared/team`. This repo supplies:
+On Grok Bot, PLSI is a team of Bots with separate chats, memories and contexts: **PLSI** (the orchestrator the user talks to), a core team that is always created (Data Processor, Health Consultant, Nostradamus, Challenger, Reviewer, Data Controller, Memory Hole, Visualizer) and the specialists the user picks (Wearables, Nutritionist, Coach, Sleep, Biohacker, Citizen Researcher, Research Autopilot, Explorer, Navigator, Trial Scout, Pharma Analyst, Engineer, Writer). A longevity physician also gets the section **PLSI Clinic** (Panel, Visit Prep, Clinical Evidence, Liaison) and a pro researcher the section **PLSI Lab** (Target Hunter, Landscape, Cohort Analyst, Grant Writer), chosen by role (`plsi role set`). The workers sit in the collapsible sidebar section **PLSI Workers** (the user creates it; PLSI places each new bot in it), the sections in **PLSI Clinic** and **PLSI Lab**; the roster is `skills/shared/team`. This repo supplies:
 
 - State Map contracts (`contracts/*.schema.json`, `maps/*.yaml`)
 - a deterministic CLI toolbelt (`plsi`, JSON in, one JSON envelope out)
@@ -11,12 +11,18 @@ On Grok Bot, PLSI is a team of Bots with separate chats, memories and contexts: 
 - trusted references (`mothership/references/<kind>.yaml`, indexed by id; `plsi refs list [--kind]`)
 - opt-in sharing with the Longevity Mothership, Insilico's longevity research initiative (`plsi mothership`,
   `mothership/consent.md`): a weekly deidentified package of coded fields only (codes, numbers, units, months, years;
-  no free text, no value computed from age), gate-checked, posted to Insilico's relay only after the user joins;
+  no free text, no value computed from age; the person only as sex, age band and ethnicity group), gate-checked, posted to Insilico's relay only after the user joins;
   registry updates; research notes only by the user's own Grok email, signed by their address; for invited
   physicians and researchers, the data catalog, releases and the findings ledger
-- a research graph (`<PLSI_HOME>/research/`, `plsi research index/list/retire`): projects, questions, hypotheses,
-  evidence and notes as linked Markdown (opens as an Obsidian vault), grown by optional daily research on usage the
-  user does not spend
+- usage reports for the PLSI team (`plsi feedback`): setup stages timed as they run, frustrations and suggested
+  improvements, sent only on the user's approval from their own Grok email, with no join
+- autoresearch (`<PLSI_HOME>/research/<topic>/`, `plsi research`): one folder per topic with questions, hypotheses
+  and findings as linked Markdown (opens as an Obsidian vault), a cursor and an append-only ledger. An optional
+  daily routine works the active topic one move at a time inside the share of the weekly meter the user sets; code
+  computes every verdict, and PLSI Visualizer draws a topic's dashboard from `plsi research status --full`
+- target discovery for researchers (`<PLSI_HOME>/targets/<gene>/`, `plsi targets`): dossiers gathered from free
+  sources, an assessment refused unless every claim is sourced, a dashboard drawn by PLSI Visualizer, and an
+  evidence-based target file that can go to the Longevity Mothership as a research note
 - local state storage (`instances/<name>/`)
 
 ## Triad and layering
@@ -32,7 +38,8 @@ Rules: `plsi.policy` never imports `plsi.life` and reads the world only through 
 ## The team, the protocol and the toolbelt
 
 The bots do the judgment; `plsi` does what an agent should not: calculators (clocks, risk equations, unit
-conversion), connectors (PubMed, openFDA, RxNav, oracles), the append-only log, the code gates and the scorer. Bot
+conversion), connectors (PubMed, ClinicalTrials.gov, openFDA, RxNav, Open Targets, MyGene.info, Pharos, RCSB PDB,
+AlphaFold, ChEMBL, UniProt, Open Genes, oracles), the append-only log, the code gates and the scorer. Bot
 folders and Python layers are separate axes. The Map is the protocol between the bots: Data Processor records and
 projects state documents, the other bots cite them by hash, and every handoff is a `Handoff` message checked by
 `plsi handoff check`.
@@ -49,8 +56,9 @@ projects state documents, the other bots cite them by hash, and every handoff is
    |       Challenger, Reviewer, Data Controller, Memory Hole,     |
    |       Visualizer                                              |
    | specialists (opt-in): Wearables, Nutritionist, Coach, Sleep,  |
-   |       Biohacker, Citizen Researcher, Explorer, Navigator,     |
-   |       Trial Scout, Pharma Analyst, Engineer, Writer           |
+   |       Biohacker, Citizen Researcher, Research Autopilot,      |
+   |       Explorer, Navigator, Trial Scout, Pharma Analyst,       |
+   |       Engineer, Writer                                        |
    +---------------------------------------------------------------+
    | PLSI Clinic (physician): Panel, Visit Prep, Clinical          |
    |       Evidence, Liaison                                       |
@@ -72,9 +80,9 @@ projects state documents, the other bots cite them by hash, and every handoff is
   reviews it once adopted.
 - **Egress.** Anything leaving the computer passes the code gate, then Data Controller (`controller/egress`).
 - **Opt-in specialists.** A specialist not on the team means its capability is off; PLSI offers to add it.
-- **Daily research, metered.** With Citizen Researcher, the user may give research a share of the weekly Grok limit
-  per day; the "PLSI research" routine reads this account's meter once, keeps at least 10% for the user and stops the
-  run at the share. Challenger (Note mode) decides which notes are worth sending.
+- **Daily research, metered.** With Research Autopilot, the user may give research a share of the weekly Grok limit
+  per day; on each run of the "PLSI research" routine the Autopilot reads this account's meter, keeps at least 10% of
+  the week for the user and stops at the share. Challenger (Note mode) decides which notes are worth sending.
 - **No self-grading.** Predictions are scored by `plsi score`, not by the bot that made them.
 - **Calculators, not mental arithmetic.** `plsi calc convert` and `plsi calc derive` (what-if clocks and scores from
   the published state) give every number a bot predicts or reports; absolute risks start from `base_rate` references.
@@ -97,9 +105,10 @@ Skills live in one folder per bot (`skills/<role>/<skill>/`); a bot uses only it
 | orchestrator/nudge | PLSI | one reminders file and a one-time routine per reminder: follow-ups, windows opening, plan starts; the mid-plan adherence check |
 | orchestrator/talk | PLSI (relays to processor/history) | the first "about you" talk and the weekly talk, voice or text -> the user's words recorded by Data Processor |
 | orchestrator/answer | PLSI | status, due, records, threads, approvals, keys answered without a handoff |
-| orchestrator/research | PLSI (relays to researcher/research) | topic and PandaOmics Agent budget cards -> research note shown with what next; daily research on spare usage (the "PLSI research" routine); sharing via explorer/mothership and the user's Grok email |
+| orchestrator/research | PLSI (relays to researcher/research) | topic and PandaOmics Agent budget cards -> research note or target file shown with what next; daily research on spare usage (the "PLSI research" routine); sharing via explorer/mothership and the user's Grok email |
 | orchestrator/mothership | PLSI (relays to controller/egress) | `mothership join/status/leave` -> consent, one-time join code, weekly deidentified package via the relay, stop and delete |
-| processor/intake | PLSI Data Processor | Life: `ingest`, `normalize`, `retract`; adherence and side effects; lifestyle habits and reported amounts -> `lifestyle_context`; questionnaire totals -> `wellbeing`; body fat and grip -> `body_composition` |
+| orchestrator/feedback | PLSI (relays to controller/egress) | `feedback timeline/report` -> a dated usage report (frustrations, time per setup stage, suggested improvements), sent to the PLSI team from the user's Grok email on approval; no join |
+| processor/intake | PLSI Data Processor | Life: `ingest`, `normalize`, `retract`, `revise` (a new version of a document); adherence and side effects; lifestyle habits and reported amounts -> `lifestyle_context`; questionnaire totals -> `wellbeing`; body fat and grip -> `body_composition` |
 | processor/history | PLSI Data Processor | life story -> dated events, `ingest`, `project` -> past and present for the arrow |
 | processor/add-map | PLSI Data Processor | a quantity no map has -> LOINC-coded user map, `maps validate --live`, `maps install`, `project` |
 | processor/add-score | PLSI Data Processor | Extend the triad with a formula (below) |
@@ -107,14 +116,14 @@ Skills live in one folder per bot (`skills/<role>/<skill>/`); a bot uses only it
 | nostradamus/plan | PLSI Nostradamus | specialists' proposals -> Policy: `evidence`, `screen --findings`, `plan check/record/adopt` on the published state |
 | nostradamus/trajectory | PLSI Nostradamus | `status`, `state show`, `calc derive/course/survival`, `refs list` -> current course vs with the plan, with intervals; or regimens vs a baseline for markers, weight and expected lifespan (Scenarios) |
 | nostradamus/risks | PLSI Nostradamus | `state show`, `refs list`, `evidence` -> 3-7 future events with sourced absolute risks |
-| challenger/challenge | PLSI Challenger | Map (`state show`, `project`), Life (`events list`) -> objections; Claim mode: `mothership analyze` rerun -> objections to a research claim; Note mode: worthy / not yet / not worth for a research note |
+| challenger/challenge | PLSI Challenger | Map (`state show`, `project`), Life (`events list`) -> objections; Claim mode: `mothership analyze` rerun -> objections to a research claim; Note mode: worthy / not yet / not worth for a research note or a target file's candidates |
 | reviewer/review | PLSI Reviewer | adherence and side effects, Map (`state show`), Policy (`screen`, `score`, `plan review`) |
 | controller/egress | PLSI Data Controller | `mothership check` and the deid gate, then judgment that only adds rejections -> cleared or rejected payloads (packages, notes, professional messages, oracle asks, physician and doctor-patient messages); `mothership pack/send` |
 | memoryhole/forget | PLSI Memory Hole | `export` first, then `instances delete --confirm` on the user's explicit words |
-| memoryhole/prune | PLSI Memory Hole | research items marked retire -> `research retire` (links become titles, logged in retired.md) |
-| visualizer/dashboard | PLSI Visualizer | `report --payload`: custom dashboards (trajectory brief, state now, plan review, life arrow, clinician brief, panel) |
+| memoryhole/prune | PLSI Memory Hole | research notes marked retire -> `research retire` (each removal logged in research/notes/retired.md) |
+| visualizer/dashboard | PLSI Visualizer | `report --payload`: custom dashboards (trajectory brief, state now, plan review, life arrow, clinician brief, panel, research topic, target dossier and comparison) |
 | visualizer/charts | PLSI Visualizer | `export`, `status`, `due` -> charts designed per question, with uncertainty and legends |
-| wearables/import | PLSI Wearables | Open Wearables or device exports -> calendar-month means (sleep, heart rate, HRV, steps, exercise minutes, active days) and VO2max readings, `normalize`, `ingest --csv`, `sleep_activity` map |
+| wearables/import | PLSI Wearables | Open Wearables, Apple Health exports (`apple export`) or device exports -> calendar-month means (sleep, heart rate, HRV, steps, exercise minutes, active days) and VO2max readings, `normalize`, `ingest --csv`, `sleep_activity` map |
 | wearables/google-health | PLSI Wearables | Google Health API OAuth (`refs show google_health`) -> daily rows -> wearables/import |
 | wearables/apple-health | PLSI Wearables | P.R.O. iPhone app as an MCP server (`refs show pro_app`) -> daily rows -> wearables/import |
 | wearables/devices | PLSI Wearables | map gaps -> validated home devices and their import path |
@@ -124,19 +133,22 @@ Skills live in one folder per bot (`skills/<role>/<skill>/`); a bot uses only it
 | coach/substances | PLSI Coach | smoking and alcohol: screen and refer first, dose, predict on existing coordinates -> proposal for nostradamus/plan |
 | sleep/sleep, sleep/stress | PLSI Sleep | screen and refer first, dose, predict on existing coordinates -> proposal for nostradamus/plan |
 | biohacker/stack (placeholder) | PLSI Biohacker | Map (biomarker maps, `care_context`) -> web search and evidence -> ranked stacks |
-| researcher/research | PLSI Citizen Researcher | `oracle`, `evidence` -> graded research notes on questions without personal data; daily mode up to a usage stop line |
-| researcher/graph | PLSI Citizen Researcher | the research graph in `<PLSI_HOME>/research` (projects, linked items, `research index`), dead items marked for Memory Hole |
+| researcher/research | PLSI Citizen Researcher | `oracle`, `evidence` -> graded research notes on questions without personal data; proposes what the loop should work on next |
+| autopilot/run | PLSI Research Autopilot | the unattended loop: `research next` -> one move -> `research save`, until the day's allocation is spent |
+| autopilot/deep-search, autopilot/good-hypothesis | PLSI Research Autopilot | the craft behind two of the moves, read on demand: two retrieval routes, five query shapes and three kinds of silence; what a candidate has to rule out and the three grades of falsifier |
+| autopilot/ask, gather, explain, test | PLSI Research Autopilot | the four moves: one answerable question or a split across angles; the five query families and findings with verbatim quotes; competing accounts each with its `if_false`; the evidence linked, the context question asked, the answer written with its citations |
+| shared/research-graph | Autopilot writes; PLSI, Citizen Researcher, Challenger, Memory Hole read | the node kinds and their fields, what `research save` accepts and the eight things it refuses |
 | explorer/digest | PLSI Explorer | `refs`, `evidence search/verify`, `state show` -> digest for the user, insights for Nostradamus and Reviewer |
-| explorer/mothership | PLSI Explorer | research notes and registry updates -> `mothership note` (cleared by Data Controller; a note sent by the user's Grok email, a registry update by the relay); reads its mail, the catalog and the findings ledger |
+| explorer/mothership | PLSI Explorer | research notes, target files and registry updates -> `mothership note` (cleared by Data Controller; a note sent by the user's Grok email, a registry update by the relay); reads its mail, the catalog and the findings ledger |
 | navigator/physicians | PLSI Navigator | Map (`care_context`, `personal_context`) -> specialty, official directory and licence checks (`refs show us_npi`) -> ranked physicians |
 | navigator/activities, navigator/clinics (placeholders) | PLSI Navigator | Map (`care_context`, `personal_context`, biomarker maps) -> web search -> ranked options |
 | scout/trials | PLSI Trial Scout | `evidence search --source ctgov` -> eligibility screen, ranked studies |
 | pharma/company | PLSI Pharma Analyst | filings, `evidence search --source ctgov` by sponsor, patents and exclusivity (`refs show`), market data and news -> dated, sourced company dossier |
 | pharma/outlook | PLSI Pharma Analyst | the dossier -> catalyst calendar, base rates, bull/base/bear scenarios with rough probabilities (not investment advice) |
 | engineer/extend | PLSI Engineer | Extend the triad with a code extension (below) |
-| engineer/l-llm-deploy-guide | PLSI Engineer | setup of the Longevity-LLM oracle |
 | writer/prose (placeholder) | PLSI Writer | research notes and cited states -> deidentified report or manuscript prose |
 | panel/roster | PLSI Panel | `role show`, `instances list` -> the physician's patients (the rows of `work/panel/roster.json`, each an instance created by Data Processor) and their status |
+| panel/clinic | PLSI Panel | `clinic check/setup/sync/publish` (service account on a Workspace shared drive, or Grok's Drive connector) -> each patient's Drive inbox and shared folder: uploads routed by folder to processor/intake or wearables/import, cleared and approved reports to the patient |
 | panel/overview | PLSI Panel | `due --all`, `status`, `state show` per patient -> who is due, out of range, off plan -> visualizer/dashboard (scope "panel") |
 | visitprep/brief | PLSI Visit Prep | `status`, `export`, `due`, `events list` -> pre-visit brief for one patient -> visualizer/dashboard (clinician brief) |
 | visitprep/notes | PLSI Visit Prep | the physician's visit notes -> items for processor/intake, follow-ups, plan changes, messages |
@@ -145,8 +157,11 @@ Skills live in one folder per bot (`skills/<role>/<skill>/`); a bot uses only it
 | liaison/message | PLSI Liaison | doctor-patient message drafts for the known pipe -> controller/egress -> the physician's approval |
 | liaison/education | PLSI Liaison | `refs list --kind education` -> longevity medicine courses and CME, patient handouts |
 | liaison/mothership | PLSI Liaison | `mothership whoami/catalog/findings`, `mothership note` -> the physician's professional Mothership desk |
-| targets/discover | PLSI Target Hunter | `oracle pandaomics/pandaclaw/l-llm` (cleared asks, budget), `evidence` -> ranked targets and repurposing candidates |
-| targets/hallmarks | PLSI Target Hunter | `refs list`, `evidence` -> a target framed against the hallmarks of aging, with readouts |
+| targets/discover | PLSI Target Hunter | `targets unmet/discover/dossier/assess/show`, `evidence` -> a banded shortlist for a disease, a hallmark or both, written as a target file; PandaOmics only as optional enrichment |
+| targets/evaluate | PLSI Target Hunter | `targets dossier/assess/trials/show`, `evidence` -> one target end to end on the free sources, with a verdict, three ratings and a falsifier, written as a target file |
+| targets/landscape, targets/grounding, targets/report | PLSI Target Hunter | read on demand: harvesting every asset against a gene; what a claim must cite and what each refusal checks; the dossier file for the dashboard, and the target file the Mothership can receive |
+| targets/pandaomics | PLSI Target Hunter | read on demand: using the user's own PandaOmics or PandaClaw token (capped per day, never a citation) |
+| targets/hallmarks | PLSI Target Hunter | `targets hallmarks/dossier/brief`, `clocks list`, `evidence` -> a target framed against the twelve hallmarks of aging, with readouts and falsifiers |
 | landscape/literature | PLSI Landscape | `evidence search/verify` -> field map: key papers, trials, open questions, contradictions |
 | landscape/kol | PLSI Landscape | public publication and trial records -> key opinion leaders and groups |
 | analyst/hypothesize | PLSI Cohort Analyst | `mothership whoami/catalog/findings` -> testable hypotheses with exact analysis specs |
@@ -161,9 +176,19 @@ Skills live in one folder per bot (`skills/<role>/<skill>/`); a bot uses only it
 | `plsi mothership join/status/leave` | PLSI | consent kinds `states`, `life_events`, `scores`; the one-time enrollment code; stop, or stop and delete |
 | `plsi mothership receipt` | PLSI | the Mother's receipt for each sent message, by the relay ticket (`acks.jsonl`); `leave --delete` waits for them, and a deleted receipt drops the proof |
 | `plsi mothership pack/check/send` | Data Controller | the weekly package; the gate on every message; the only sender (`--instance` given: that instance's install token; omitted: the professional token) |
-| `plsi mothership note` | Explorer, Liaison | a research note or registry update -> its wire message, gate-checked |
-| `plsi mothership email` | PLSI, Data Controller | a research note's email (to, subject, body with the message in one `plsi` block), gate-checked; the user's Grok email sends it (`send` refuses research notes) |
-| `plsi research index/list/retire` | PLSI, Citizen Researcher, Memory Hole (`retire`), Challenger (`list`) | check the research graph and rewrite its `index.md`; filter items; remove an item marked retire |
+| `plsi mothership note` | Explorer, Liaison | a research note or registry update -> its wire message, gate-checked; a note's data files checked and zipped |
+| `plsi mothership email` | PLSI, Data Controller | a research note's email (to, subject, body in plain words, the message as a JSON attachment, the report as markdown and the data files as one zip), gate-checked and only for the approved `--hash`; the user's Grok email sends it (`send` refuses research notes) |
+| `plsi research propose` | PLSI | candidate topics, each pointing at something in the record (a medication, a condition, a State Map gap, a moving marker); it chooses nothing |
+| `plsi research discover` | PLSI, Citizen Researcher, Research Autopilot | what is well studied about a subject and where questions are still open, from PubTator3 annotations with their PMIDs; reads no store and chooses nothing |
+| `plsi research topic/reframe/budget` | PLSI | create, switch or park a topic (its kind, what it rests on, how thorough it should be); reword its question and keep why; the daily share of the meter all research may spend |
+| `plsi research next/save` | Research Autopilot | everything one move needs; then record the move, charge the meter and recompute the verdicts and the frontier |
+| `plsi research status` | PLSI, Challenger | the answer so far with its verdict, the frontier and the budget; `--full` adds the log rows, the evidence lines and the source ids a dashboard is drawn from |
+| `plsi research notes/retire` | PLSI, Challenger, Memory Hole (`retire`) | research notes, filtered; remove one marked retire |
+| `plsi targets unmet/discover/dossier` | Target Hunter | what an indication already has; candidates for a disease banded `clinical`, `grounded` or `novel` by what has been tried, or the aging genes under a hallmark; one target gathered from the free sources into `<PLSI_HOME>/targets/<gene>/` |
+| `plsi targets assess` | Target Hunter | the bot's judgment on a target, refused whole unless every claim cites a verified identifier and every superlative its source |
+| `plsi targets trials` | Target Hunter | hand-harvested asset names -> their ClinicalTrials.gov records: phase, status and sponsor per indication, synonyms and near-misses |
+| `plsi targets brief/hallmarks` | Target Hunter (PLSI carries a brief) | the citable rows of a dossier for a research move (database records, not quotes; writes nothing); the hallmark frame of a stored dossier |
+| `plsi targets show/list` | Target Hunter | a stored dossier's identity, computed reads and assessment, offline (what its dashboard is drawn from); every stored dossier |
 | `plsi mothership whoami` | PLSI, Data Controller, Liaison, Cohort Analyst, Grant Writer | the professional token's role, scopes and expiry, decoded locally (never printed) |
 | `plsi mothership catalog`, `plsi mothership findings` | Explorer, Liaison, Cohort Analyst (Grant Writer: `findings` only) | the public data catalog; the findings ledger (professional, or public when published) |
 | `plsi mothership release` | Cohort Analyst | a data release: aggregate cells of at least the minimum size |
@@ -249,12 +274,15 @@ maps/*.yaml                         shipped State Maps
 mothership/references/<kind>.yaml  trusted references by id; API base URLs; the Mothership address (contact)
 mothership/consent.md               what joining the Longevity Mothership means (versioned)
 skills/<role>/<skill>/SKILL.md      shared/team (the roster); one folder per bot (orchestrator/, processor/, ...)
-src/plsi/                           the toolbelt: cli + commands (the command table), vocab, models, events and one module per concern;
-                                    life/ map/ policy/ (each with its models.py); mothership/ (enroll, pack, gate, send, relay, research,
-                                    professional and public access, stats)
+src/plsi/                           the toolbelt: cli + commands (the command table), vocab/ (every enum), models, events and one
+                                    module per concern; life/ map/ policy/ (each with its models.py); mothership/ research/ targets/
+                                    (each with its commands.py; its __init__.py docstring maps its modules)
 instances/<name>/                   subject.json, events.jsonl, maps/user/, states/, reports/, exports/, artifacts/, mothership/
                                     (gitignored; under PLSI_HOME when set)
-research/<project>/<id>.md          the research graph, index.md and retired.md (under PLSI_HOME)
+research/<topic>/                   one research topic: topic.md, log.jsonl, questions/ hypotheses/ findings/,
+                                    with day.json and notes/ beside the topics (under PLSI_HOME)
+targets/<gene>/dossier.json         one target dossier: facts gathered from the free sources, and the bot's
+                                    assessment once it passes the refusals (under PLSI_HOME)
 ```
 
 Contributor and agent rules: [AGENTS.md](AGENTS.md).

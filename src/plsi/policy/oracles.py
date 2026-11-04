@@ -1,7 +1,7 @@
-"""Model-derived oracles: PandaClaw / PandaOmics over MCP-HTTP, L-LLM OpenAI-compatible.
+"""Model-derived oracles: PandaClaw / PandaOmics over MCP-HTTP.
 
-URLs from env with defaults from plsi.references; HTTP only via plsi.net.post_json. The bearer token goes only to the
-configured URL (net drops it on scheme or host changes); HF_TOKEN only to Hugging Face endpoints over https. With
+URLs from env with defaults from plsi.references; HTTP via plsi.policy.mcp. Each service uses the user's own bearer
+token (<SERVICE>_BEARER_TOKEN), which goes only to the configured URL (net drops it on scheme or host changes). With
 instance + map_id the outbound text is built in code from states/<map>/latest.json only: months, values and codes, no
 item text, never a local map (personal_context); a code only when valid in its system (plsi.codes) and a free or cpg
 code only when a map declares it, any other item counted as "n uncoded". The exact string sent (for an MCP tool, its
@@ -13,99 +13,25 @@ from __future__ import annotations
 
 import json
 import time
-import urllib.parse
+from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
-from plsi import codes, files, keys, net, paths, references
+from plsi import codes, files, keys, paths, references
 from plsi.clock import now
-from plsi.errors import NetworkError, NotFound, ValidationError
-from plsi.files import load_json, loads_json, sha256_hex
+from plsi.errors import EnvironmentProblem, GateFailed, NetworkError, NotFound, ValidationError, violation
+from plsi.files import load_json, sha256_hex
 from plsi.map import mapper, registry
 from plsi.models import CAP_REPLY, parse, sanitize_external
+from plsi.policy.mcp import McpClient, external
 from plsi.policy.models import OracleInput
+from plsi.vocab import PandaclawCatalog
 
-PANDACLAW_DEADLINE_S = 900
+PANDACLAW_DEADLINE_S = 1800
 PANDACLAW_FAILED = {"failed", "error", "cancelled", "canceled"}
 MAX_WAIT_SECONDS = 60
-LLLM_MODES = {"local": "longevity_llm", "server": "longevity_llm_server"}  # PLSI_LLLM_MODE preset -> reference id
-HF_HOSTS = (".huggingface.cloud", ".hf.space")  # where the HF_TOKEN fallback may go (https only)
-CAP_ERROR = 500
 CAP_TOOL = 4_000
-LLLM_SYSTEM = (
-    "You are a helpful assistant with expertise in aging biology. Ground every claim in established literature. "
-    "If a gene symbol, CpG identifier or finding is not one you recognise from the literature, say so explicitly and do "
-    "not speculate about its function. Never invent effect sizes. When given a personal state profile, stay within it "
-    "and state uncertainty and missing data."
-)
-
-
-class McpClient:
-    """Minimal MCP streamable-HTTP JSON-RPC client: initialize, then tools/list and tools/call."""
-
-    def __init__(self, url: str, token: str | None, *, deadline_s: float = 120.0) -> None:
-        self.url, self._token = url, token
-        self._deadline = time.monotonic() + deadline_s
-        self._session: str | None = None
-        self._next_id = 0
-        self._ready = False
-
-    def _post(self, payload: dict[str, Any], timeout: float) -> list[dict[str, Any]]:
-        remaining = self._deadline - time.monotonic()
-        if remaining <= 0:
-            raise NetworkError(f"MCP deadline exceeded for {net.strip_query(self.url)}", code="NETWORK_TIMEOUT")
-        headers = {"mcp-session-id": self._session} if self._session else {}
-        reply = net.post_json(self.url, payload, headers, token=self._token, timeout=min(timeout, remaining))
-        self._session = reply.headers.get("mcp-session-id") or self._session
-        text = reply.text.strip()
-        try:
-            if text.startswith("{"):
-                return [loads_json(text)]
-            return [loads_json(line[5:]) for line in text.splitlines() if line.startswith("data:") and line[5:].strip()]
-        except ValueError:
-            raise NetworkError(f"unparseable MCP reply from {net.strip_query(self.url)}", code="BAD_RESPONSE") from None
-
-    def _rpc(self, method: str, params: dict[str, Any], timeout: float = 60.0) -> dict[str, Any]:
-        if not self._ready and method != "initialize":
-            self._ready = True
-            self._rpc("initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
-                                     "clientInfo": {"name": "plsi", "version": "1"}})
-            try:
-                self._post({"jsonrpc": "2.0", "method": "notifications/initialized"}, 30.0)
-            except NetworkError:
-                pass  # some servers answer notifications with an error status; the session still works
-        self._next_id += 1
-        msgs = self._post({"jsonrpc": "2.0", "id": self._next_id, "method": method, "params": params}, timeout)
-        msg = next((m for m in msgs if m.get("id") == self._next_id), msgs[0] if msgs else None)
-        if msg is None:
-            raise NetworkError(f"empty MCP reply to {method}", code="BAD_RESPONSE")
-        if "error" in msg:
-            raise NetworkError(f"MCP error on {method}", code="MCP_ERROR", remote=self._remote(json.dumps(msg["error"])))
-        return msg.get("result") or {}
-
-    def _remote(self, text: str) -> dict[str, Any]:
-        return _external(text, net.strip_query(self.url))
-
-    def list_tools(self) -> list[dict[str, Any]]:
-        tools, cursor = [], None
-        while True:
-            result = self._rpc("tools/list", {"cursor": cursor} if cursor else {})
-            tools += result.get("tools", [])
-            if not (cursor := result.get("nextCursor")):
-                return tools
-
-    def call_tool(self, name: str, arguments: dict[str, Any], *, timeout: float = 60.0) -> Any:
-        """structuredContent if present, else parsed content text JSON, else the text."""
-        result = self._rpc("tools/call", {"name": name, "arguments": arguments}, timeout)
-        texts = "\n".join(p.get("text", "") for p in result.get("content") or [] if p.get("type") == "text").strip()
-        if result.get("isError"):
-            raise NetworkError(f"tool {name} failed", code="MCP_TOOL_ERROR", remote=self._remote(texts))
-        sc = result.get("structuredContent")
-        if sc is not None:
-            return sc["result"] if isinstance(sc, dict) and set(sc) == {"result"} else sc
-        try:
-            return json.loads(texts)
-        except ValueError:
-            return texts
+CAP_SAVED = 500_000  # the --out file: the whole answer, still capped
 
 
 def build_outbound(inp: OracleInput) -> str:
@@ -137,15 +63,84 @@ def build_outbound(inp: OracleInput) -> str:
     return f"{prompt}\n\n" + "\n".join(lines)
 
 
-def _external(text: str, origin: str) -> dict[str, Any]:
-    return sanitize_external(keys.redact(text), CAP_ERROR, origin).model_dump(mode="json")
+# Paid calls per oracle family per UTC day, counted off the egress ledgers before anything is sent. The default
+# is not a judgment about anybody's plan; PLSI_ORACLE_DAILY_CAP changes it.
+DAILY_CALL_CAP = 25
+CAP_ENV = "PLSI_ORACLE_DAILY_CAP"
 
 
-def _egress(oracle: str, text: str, instance: str | None = None) -> None:
-    """Keep the exact string about to leave, so the user can see it: <instance or PLSI_HOME>/egress/oracles.jsonl."""
+def _cap() -> int:
+    """PLSI_ORACLE_DAILY_CAP as a whole number of calls (0 or more), else DAILY_CALL_CAP when unset."""
+    raw = (keys.get(CAP_ENV) or "").strip()
+    if not raw:
+        return DAILY_CALL_CAP
+    if not raw.isdecimal():
+        raise EnvironmentProblem(f"{CAP_ENV} must be a whole number of calls, 0 or more", code="BAD_ORACLE_CAP",
+                                 hint=f"set {CAP_ENV}=<n> in {keys.env_file().name}, or unset it for {DAILY_CALL_CAP}")
+    return int(raw)
+
+
+def _family(oracle: str) -> str:
+    """`pandaomics:<tool>` calls spend one subscription, so they count as `pandaomics`."""
+    return str(oracle or "").split(":", 1)[0]
+
+
+def _ledger(instance: str | None) -> Path:
     home = paths.instance_dir(instance) if instance else paths.plsi_home()
-    files.append_jsonl(home / "egress" / "oracles.jsonl",
-                       {"at": now().isoformat(), "oracle": oracle, "sha256": sha256_hex(text), "text": text})
+    return home / "egress" / "oracles.jsonl"
+
+
+def _billed_rows() -> list[dict[str, Any]]:
+    """Every billed row in every egress ledger: <PLSI_HOME>/egress and each <instance>/egress. The cap is the
+    user's, so calls made with and without an instance count together."""
+    ledgers = [_ledger(None), *sorted(paths.plsi_home().glob("*/egress/oracles.jsonl"))]
+    return [row for path in ledgers for row in files.read_jsonl(path)
+            if isinstance(row, dict) and row.get("billed") is not False]
+
+
+def spent_today() -> dict[str, int]:
+    """Billed outbound calls made this UTC day, per oracle family."""
+    today, counts = now().date().isoformat(), {}
+    for row in _billed_rows():
+        if str(row.get("at") or "").startswith(today):
+            name = _family(row.get("oracle"))
+            counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
+def asked(family: str, tool: str | None = None, days: int | None = None) -> bool:
+    """Whether a billed call to this oracle family (and this tool, when the ledger row names one) was sent, within
+    the last `days` days when given."""
+    since = (now() - timedelta(days=days)).isoformat() if days is not None else ""
+    for row in _billed_rows():
+        name, _, called = str(row.get("oracle") or "").partition(":")
+        if name == family and (not called or not tool or called == tool) and str(row.get("at") or "") >= since:
+            return True
+    return False
+
+
+def budget() -> dict[str, Any]:
+    """This UTC day's paid-call allowance per oracle family: the cap, what was spent and what remains."""
+    cap, spent = _cap(), spent_today()
+    return {"cap_per_oracle_per_day": cap, "spent_today": spent,
+            "remaining": {name: max(0, cap - count) for name, count in spent.items()},
+            "raise_it": f"set {CAP_ENV} to change the cap"}
+
+
+def _egress(oracle: str, text: str, instance: str | None = None, *, billed: bool = True) -> None:
+    """Refuse a billed call once the UTC day's cap is spent, then keep the exact string about to leave in
+    <instance or PLSI_HOME>/egress/oracles.jsonl. An unbilled call (a catalogue listing) is logged and not capped."""
+    if billed:
+        cap, family = _cap(), _family(oracle)
+        already = spent_today().get(family, 0)
+        if already >= cap:
+            raise GateFailed(
+                [violation(family, "oracle-daily-cap",
+                           f"{already} {family} call(s) already went out this UTC day and the cap is {cap}",
+                           f"nothing was sent. Raise it with {CAP_ENV}=<n>, or wait for the next UTC day")],
+                f"the UTC day's {family} allowance is spent")
+    row = {"at": now().isoformat(), "oracle": oracle, "sha256": sha256_hex(text), "text": text}
+    files.append_jsonl(_ledger(instance), row if billed else {**row, "billed": False})
 
 
 def _sent(text: str) -> dict[str, Any]:
@@ -158,21 +153,35 @@ def _reply(text: str, origin: str, sent: str, **extra: Any) -> dict[str, Any]:
     return {**extra, "reply": reply, "sent": _sent(sent)}
 
 
+def token_env(service: str) -> str:
+    """The env name holding a service's bearer token."""
+    return f"{service.upper()}_BEARER_TOKEN"
+
+
 def _client(service: str, deadline_s: float = 120.0) -> McpClient:
     """MCP client for a service; env <SERVICE>_MCP_URL overrides the reference api_base, <SERVICE>_BEARER_TOKEN is required."""
-    prefix = service.upper()
-    url = keys.get(f"{prefix}_MCP_URL") or references.api_base(service)
-    return McpClient(url, keys.require(f"{prefix}_BEARER_TOKEN"), deadline_s=deadline_s)
+    url = keys.get(f"{service.upper()}_MCP_URL") or references.api_base(service)
+    return McpClient(url, keys.require(token_env(service)), deadline_s=deadline_s)
+
+
+def _work_file(out: str) -> Path:
+    path, work = Path(out).resolve(), (paths.plsi_home() / "work").resolve()
+    if not path.is_relative_to(work) or path.suffix != ".md":
+        raise ValidationError("--out must be a .md file under <PLSI_HOME>/work/", code="BAD_PATH")
+    return path
 
 
 def _input(file: str) -> OracleInput:
     return parse(OracleInput, load_json(file), "oracle input")
 
 
-def pandaclaw(file: str | None = None, session_id: str | None = None, client: McpClient | None = None) -> dict[str, Any]:
+def pandaclaw(file: str | None = None, session_id: str | None = None, out: str | None = None,
+              client: McpClient | None = None) -> dict[str, Any]:
     """`oracle pandaclaw --file F`: ask once (never retried), wait with the SAME since_seq until answer_allowed, then
     read_answer only when the run did not fail. `--session S` follows a run that is still going (after a timeout or
-    interruption) without asking again."""
+    interruption) without asking again. `--out` keeps the whole answer in a work file, sanitized, its first line
+    marking it external_text."""
+    target = _work_file(out) if out else None
     args: dict[str, Any] = {"query": ""}
     instance = None
     if file:
@@ -183,10 +192,11 @@ def pandaclaw(file: str | None = None, session_id: str | None = None, client: Mc
     resuming, web_url, since = bool(session_id), None, 0
     if not resuming:
         _egress("pandaclaw", text, instance)
-        asked = client.call_tool("ask", args, timeout=120)
-        if not isinstance(asked, dict) or "session_id" not in asked:
+        opened = client.call_tool("ask", args, timeout=120)
+        if not isinstance(opened, dict) or "session_id" not in opened:
             raise NetworkError("PandaClaw ask returned no session_id", code="BAD_RESPONSE")
-        session_id, web_url, since = str(asked["session_id"]), asked.get("web_url"), int(asked.get("baseline_event_seq") or 0)
+        session_id, web_url = str(opened["session_id"]), opened.get("web_url")
+        since = int(opened.get("baseline_event_seq") or 0)
     base = {"session_id": session_id, "web_url": web_url, "resume": f"plsi oracle pandaclaw --session {session_id}"}
     deadline, error = time.monotonic() + PANDACLAW_DEADLINE_S, None
     try:
@@ -198,7 +208,7 @@ def pandaclaw(file: str | None = None, session_id: str | None = None, client: Mc
             state = client.call_tool("wait_for_answer", {"session_id": session_id, "since_seq": since, "max_wait_seconds": wait},
                                      timeout=wait + 30)
             if not isinstance(state, dict):
-                continue
+                raise NetworkError("PandaClaw wait_for_answer returned no state", code="BAD_RESPONSE")
             base["web_url"] = base["web_url"] or state.get("web_url")
             error = next((e for e in reversed(state.get("events") or []) if e.get("type") == "error"), error)
             if state.get("answer_allowed") or state.get("answer_ready"):
@@ -207,23 +217,35 @@ def pandaclaw(file: str | None = None, session_id: str | None = None, client: Mc
         if run_status in PANDACLAW_FAILED:  # the run ended without an answer; its last words are not one
             info = (error or {}).get("payload") or error or {}
             return {"status": "failed", **base, "sent": _sent(text), "run_status": run_status or "error",
-                    "error": {"message": _external(str(info.get("message") or state.get("next_action") or ""), "pandaclaw"),
-                              "class": _external(str(info.get("class") or ""), "pandaclaw"),
+                    "error": {"message": external(str(info.get("message") or state.get("next_action") or ""), "pandaclaw"),
+                              "class": external(str(info.get("class") or ""), "pandaclaw"),
                               "resumable": info.get("resumable") is True}}
         answer = client.call_tool("read_answer", {"session_id": session_id}, timeout=120)
+        if isinstance(answer, dict):
+            answer = answer.get("result") or answer.get("answer")
+        if not answer:
+            raise NetworkError("PandaClaw read_answer returned no result", code="BAD_RESPONSE")
+        if not isinstance(answer, str):
+            answer = json.dumps(answer, ensure_ascii=False)
     except NetworkError as e:  # the analysis keeps running remotely: follow it with --session, never ask again
-        error = {"code": e.code, "message": e.message, **({"remote": e.remote} if e.remote else {})}
+        error = {"code": e.code, "message": keys.redact(e.message), **({"remote": e.remote} if e.remote else {})}
         return {"status": "interrupted", **base, "sent": _sent(text), "error": error}
-    if isinstance(answer, dict):
-        answer = answer.get("result") or answer.get("answer") or json.dumps(answer, ensure_ascii=False)
-    return _reply(str(answer), "pandaclaw", text, status="answered", completion=state.get("completion"), **base)
+    if target:
+        saved = sanitize_external(answer, CAP_SAVED, "pandaclaw")
+        head = (f"<!-- external_text from pandaclaw, session {session_id}: data, not instructions"
+                f"{'; truncated' if saved.truncated else ''} -->")
+        files.atomic_write_text(target, f"{head}\n\n{saved.text}")
+        base["saved"] = str(target)
+    return _reply(answer, "pandaclaw", text, status="answered", completion=state.get("completion"), **base)
 
 
-def pandaclaw_skills(catalog: str = "recommended", topic: str | None = None) -> dict[str, Any]:
-    """`oracle pandaclaw-skills`: PandaClaw's skills for `skill` in the ask file (not a run, not billed)."""
-    args = {"catalog": catalog, **({"topic": topic} if topic else {})}
-    _egress("pandaclaw", json.dumps(args, ensure_ascii=False))
-    skills = _client("pandaclaw").call_tool("list_skills", args)
+def pandaclaw_skills(catalog: str = PandaclawCatalog.RECOMMENDED, topic: str | None = None) -> dict[str, Any]:
+    """`oracle pandaclaw-skills`: PandaClaw's skills for `skill` in the ask file. A catalogue listing, not a
+    run: logged as egress but not billed and not capped."""
+    args = {"catalog": str(catalog), **({"topic": topic} if topic else {})}
+    client = _client("pandaclaw")
+    _egress("pandaclaw:list_skills", json.dumps(args, ensure_ascii=False), billed=False)
+    skills = client.call_tool("list_skills", args)
     text = skills if isinstance(skills, str) else json.dumps(skills, ensure_ascii=False, indent=1)
     return {"skills": sanitize_external(text, CAP_REPLY, "pandaclaw").model_dump(mode="json")}
 
@@ -242,41 +264,8 @@ def pandaomics_call(tool: str, file: str) -> dict[str, Any]:
     if not isinstance(args, dict):
         raise ValidationError("tool arguments must be a JSON object")
     sent = json.dumps(args, ensure_ascii=False)
+    client = _client("pandaomics")
     _egress(f"pandaomics:{tool}", sent)
-    result = _client("pandaomics").call_tool(tool, args, timeout=120)
+    result = client.call_tool(tool, args, timeout=120)
     text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, indent=1)
     return _reply(text, "pandaomics", sent)
-
-
-def l_llm(file: str) -> dict[str, Any]:
-    """`oracle l-llm --file F`: OpenAI-compatible chat completion; everything up to `</think>` is stripped."""
-    inp = _input(file)
-    text = build_outbound(inp)
-    mode = (keys.get("PLSI_LLLM_MODE") or "local").strip().lower()
-    if not (base := keys.get("PLSI_LLLM_BASE_URL")):
-        if mode not in LLLM_MODES:
-            raise ValidationError(f"unknown PLSI_LLLM_MODE {mode!r}", hint="local | server, or set PLSI_LLLM_BASE_URL")
-        base = references.api_base(LLLM_MODES[mode])
-    thinking = (keys.get("PLSI_LLLM_ENABLE_THINKING") or "").strip().lower() in ("1", "true", "yes", "on")
-    model = keys.get("PLSI_LLLM_MODEL") or "longevity-llm"
-    body = {
-        "model": model,
-        "messages": [{"role": "system", "content": LLLM_SYSTEM}, {"role": "user", "content": text}],
-        "temperature": 0, "top_p": 0.8, "top_k": 20, "repetition_penalty": 1.1,
-        "max_tokens": 2200 if thinking else 700,
-        "chat_template_kwargs": {"enable_thinking": thinking},  # must be nested; a top-level flag is ignored
-    }
-    key = keys.get("PLSI_LLLM_API_KEY") or (keys.get("HF_TOKEN") if _hugging_face(base) else None)
-    _egress("l-llm", text, inp.instance)
-    reply = net.post_json(f"{base.rstrip('/')}/chat/completions", body, token=key, timeout=300)
-    try:
-        content = reply.json()["choices"][0]["message"]["content"] or ""
-    except (ValueError, KeyError, IndexError, TypeError):
-        raise NetworkError(f"unexpected L-LLM reply from {net.strip_query(base)}", code="BAD_RESPONSE") from None
-    return _reply(content.split("</think>")[-1].strip(), "l-llm", text, model=model)
-
-
-def _hugging_face(base: str) -> bool:
-    """HF_TOKEN goes only to a Hugging Face endpoint over https (*.huggingface.cloud, *.hf.space)."""
-    parts = urllib.parse.urlsplit(base)
-    return parts.scheme == "https" and (parts.hostname or "").endswith(HF_HOSTS)

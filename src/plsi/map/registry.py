@@ -16,7 +16,7 @@ from plsi.map import biolearn, derive
 from plsi.map.models import Derive, MapContract, MapCoordinate
 from plsi.models import SourceRef, parse
 from plsi.paths import REPO_ROOT
-from plsi.vocab import ClaimLevel, CodeSystem, CoordinateKind, CorrespondenceType, DeriveEngine, SourceKind
+from plsi.vocab import ClaimLevel, CodeSystem, CoordinateKind, CorrespondenceType, DeriveEngine, Ethnicity, Sex, SourceKind
 
 SHIPPED_DIR = REPO_ROOT / "maps"
 LIVE_BATCH = 50
@@ -46,6 +46,12 @@ def _rule_violations(m: MapContract, user: bool, checked: frozenset[DeriveEngine
             continue
         rule, message, hint = derive.ENGINES[d.engine].unknown  # type: ignore[misc]
         out.append(violation(f"coordinates.{i}.derive.model", rule, message.format(d.model), hint))
+    for i, c in enumerate(m.coordinates):
+        if c.ranges and (tie := next(((sex, e) for sex in (Sex.F, Sex.M, Sex.UNKNOWN) for e in (*Ethnicity, None)
+                                      if len(c.best_ranges(sex, e)) > 1), None)):
+            out.append(violation(f"coordinates.{i}.ranges", "map.range_tie",
+                                 f"two {c.id} ranges fit sex {tie[0]}, ethnicity {tie[1]} equally",
+                                 "give one range both sex and ethnicity, or drop one"))
     return out
 
 

@@ -16,7 +16,9 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Data Processor**. Reply
   reached or dropped gets a new observation with `clinical_status: "resolved"`. They feed the `personal_context` map.
 - Lifestyle habits and exposures (alcohol, smoking or vaping, shift work, abstinence): kind `lifestyle`. They stay in
   the event log and feed the `lifestyle_context` map when active (see Lifestyle below). Do not use `preference` for
-  these.
+  these. An occupation, job title or employment status is never recorded; a work exposure (shift or night work) is
+  `lifestyle` without the job. Ethnicity, race or ethnic group is never an observation either: it is only the
+  subject's field (`plsi init --ethnicity`, PLSI's setup).
 - A recorded value is wrong or must be withdrawn.
 
 ## Steps
@@ -35,6 +37,12 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Data Processor**. Reply
    `mg`, `g`, `ug`, `mL`, `[iU]`, `U`, `mmol`, or an annotation for counted forms such as `{tablet}`, `{capsule}`,
    `{puff}`, `{drop}`). Both or neither; leave them out when the amount is unclear, a range, or only a frequency.
    Only this amount and unit may be shared with the Mothership, never the wording or the schedule.
+   A result printed with its reference range gets `ref_low` and/or `ref_high` in the result's unit, exactly as
+   printed on that report (it changes between labs and years; never fill it from elsewhere; "<5.2" is `ref_high`
+   only), and the lab's own mark (H, L, HH or LL, critical, A or *) goes to `flag` (`high`, `low`, `critical`,
+   `abnormal`).
+   A file from the clinic sync (`panel/clinic`) gets `origin.document` = the Drive file id the request names, on
+   every item.
 
    ```json
    [{"kind": "measurement", "original_text": "Hemoglobin A1c", "value_quantity": 5.4, "unit": "%",
@@ -131,6 +139,29 @@ plsi ingest --instance <instance> --csv results.csv --dry-run
 plsi ingest --instance <instance> --csv results.csv
 ```
 
+### Clinic tables
+
+A CSV or spreadsheet from a doctor, clinic or lab, in its own layout (one row per test, or one column per test and
+one row per visit; labels in its own words, abbreviations or another language). Rewrite it as the canonical CSV
+above, or as `obs.json` when it has doses, statuses or reference ranges:
+- one row per result: date, the label as printed, the value and unit as printed (never convert; the map converts);
+  a range column goes to `ref_low`/`ref_high` and an H/L column to `flag`, never into `text`; the same result printed
+  twice (same test, date and value) is one row;
+- only the patient in the request: a column naming patients (an id, a name, a record number) that holds more than
+  one person means only that patient's rows, and only when the column clearly says which, else ask; the column's
+  values never go into any item;
+- no unit printed for a test reported in more than one common unit (mmol/L or mg/dL): ask once per test, never
+  guess the unit from the size of the value;
+- a result in words ("positive", "trace", "see note") is `value_text`, never a number; an empty cell or "n/a" is no
+  row;
+- dates as printed: a day-month order you cannot tell from the file (03/04) goes in the step's ONE `question`, once
+  for the whole file;
+- a label that could mean two tests (glucose in serum or by meter, fasting or not) needs the specimen, fasting,
+  method or body-site column (step 3 picks the code that carries it), else the question; a lab's or physician's own shorthand ("metx") is coded only once the physician confirmed
+  it, and the confirmed meaning stays in your permanent memory per source;
+- then step 3 (codes) and steps 4-5 as usual; with `origin.document`, a later version of the same file goes through
+  `revise` below.
+
 ### Methylation betas
 
 Needs the clocks extra (`plsi doctor` shows `extras.clocks`). First column CpG id, one column per sample.
@@ -199,6 +230,19 @@ plsi retract --instance <instance> --event <evt_id> --file reason.json --replace
 ```
 
 Omit `--replacement` to withdraw without a replacement. Then step 5.
+
+**A new version of a document** (a lab re-issued a report, a clinic table was shared again: `revised: true` from the
+clinic sync, or the user says so): extract the **whole** new version as usual, then let `revise` compare it with
+what that document said before. Unchanged rows are skipped, changed ones retracted and replaced, rows the new version
+no longer has retracted, new ones added; a row of the new version that fails validation stops it (the dry run
+lists it under `rejected`), so a value is never withdrawn by mistake. An amended-result notice that lists only the
+changed results is not a new version: use Correct or retract above. Its dry run goes in the ONE `question` like any ingest ("The new version of
+the lipid report changes triglycerides 1.5 -> 1.8 mmol/L and drops HDL. Apply?").
+
+```bash
+plsi revise --instance <instance> --document <file id> --file obs.json --dry-run
+plsi revise --instance <instance> --document <file id> --file obs.json
+```
 
 ## Rules
 

@@ -49,7 +49,8 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Memory Hole**. Reply on
 
 4. Then delete only the inbox files, `work/<thread>/` folders, the copies outside `<PLSI_HOME>` found in step 1
    and, for a patient, the panel reports and `panel.json`
-   files counted in the confirmed question, and drop the instance from your memory. Never edit `roster.json` or
+   files counted in the confirmed question, `<PLSI_HOME>/inbox/<label>/` and the label's lines in
+   `work/panel/synced.jsonl` (rewrite the file without them), and drop the instance from your memory. Never edit `roster.json` or
    anything inside another instance besides those reports: for a patient, the `result` names the work for Panel
    (`panel/roster`, via PLSI) to remove the row. Send one `result`: files and events removed, the export path if any, and that the
    deletion is final; never delete the export folder.

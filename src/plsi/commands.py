@@ -1,55 +1,18 @@
 """The `plsi` command table: every command, the ONE library function ("module:function") it calls,
-its arguments, help and the next commands to suggest. plsi.cli parses and dispatches it."""
+its arguments, help and the next commands to suggest. A package with its own commands keeps them in
+`<package>/commands.py` (research, targets, mothership); `COMMANDS` merges them with the core table below.
+plsi.cli parses and dispatches it."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date, datetime
-from enum import StrEnum
-from typing import Any
+from plsi.cmdspec import FILE, INSTANCE, MAP, MAP_OPT, PLAN, A, Cmd, MX, V, iso_date, iso_datetime, merge
+from plsi.mothership.commands import COMMANDS as MOTHERSHIP
+from plsi.research.commands import COMMANDS as RESEARCH
+from plsi.targets.commands import COMMANDS as TARGETS
+from plsi.vocab import (Ethnicity, EventType, ExportFormat, FeedbackMark, FeedbackStage, ObservationKind,
+                        PandaclawCatalog, ReferenceKind, Relation, ReportFormat, SearchSource, Sex, SourceKind, UserRole)
 
-from plsi import clock
-from plsi.vocab import (ContributionKind, EventType, ExportFormat, ObservationKind, ReferenceKind, Relation, ReportFormat, ResearchItemKind,
-                        ResearchStatus, SearchSource, Sex, SourceKind, UserRole)
-
-def iso_datetime(value: str) -> datetime:
-    return clock.parse_time(value)
-
-
-def iso_date(value: str) -> date:
-    return date.fromisoformat(value)
-
-
-def A(*flags: str, **kw: Any) -> tuple[tuple[str, ...], dict[str, Any]]:
-    return flags, kw
-
-
-def V(enum: type[StrEnum]) -> list[str]:
-    """argparse choices as plain values (Python 3.11 shows enum members as reprs in usage errors)."""
-    return [m.value for m in enum]
-
-
-def MX(*args: tuple[tuple[str, ...], dict[str, Any]], required: bool = True) -> tuple[str, tuple, bool]:
-    return "__mx__", args, required
-
-
-INSTANCE = A("--instance", required=True, help="instance name")
-FILE = A("--file", required=True, help="input path ('-' = stdin)")
-PLAN = A("--plan", dest="plan_id", required=True, help="plan id")
-MAP = A("--map", dest="map_id", required=True)
-MAP_OPT = A("--instance", help="include this instance's user maps")
-SENDER = A("--instance", help="the contributor's instance (install token); omit for professional files")
-
-
-@dataclass(frozen=True)
-class Cmd:
-    target: str
-    args: tuple = ()
-    help: str = ""
-    next: tuple[str, ...] = ()
-
-
-COMMANDS: dict[str, Cmd] = {
+CORE: dict[str, Cmd] = {
     # system
     "doctor": Cmd("plsi.doctor:doctor", (A("--online", action="store_true", help="also check reachability of references"),),
                   "versions, extras, PLSI_HOME, keys and fixes", ("plsi keys status",)),
@@ -74,7 +37,8 @@ COMMANDS: dict[str, Cmd] = {
     "init": Cmd("plsi.life.store:init_instance",
                 (INSTANCE, A("--birth-year", type=int), A("--sex", choices=V(Sex)),
                  A("--relation", choices=V(Relation), help="who this person is to the user"),
-                 A("--country", help="ISO 3166 alpha-3 country of residence (life tables, base rates)"), A("--update", action="store_true")),
+                 A("--country", help="ISO 3166 alpha-3 country of residence (life tables, base rates)"),
+                 A("--ethnicity", choices=V(Ethnicity)), A("--update", action="store_true")),
                 "create an instance (existing -> created false)", ("plsi ingest --instance {instance} --file obs.json --dry-run",)),
     "status": Cmd("plsi.cli:instance_status", (INSTANCE,), "instance overview"),
     "instances list": Cmd("plsi.life.store:list_instances", (), "every instance (one per person) with its relation"),
@@ -94,6 +58,9 @@ COMMANDS: dict[str, Cmd] = {
                    A("--update", action="store_true", help="let FHIR Patient fields change subject.json"),
                    A("--dry-run", action="store_true")),
                   "ingest observations", ("plsi maps select --instance {instance}",)),
+    "apple export": Cmd("plsi.life.apple:export",
+                        (A("--file", required=True, help="Apple Health export.zip (any size; streamed)"), A("--out", required=True, help="daily.csv path")),
+                        "daily rows (date,metric,value,unit,source) from an Apple Health export, for wearables/import step 3"),
     "normalize observations": Cmd("plsi.life.normalize:normalize_observations",
                                   (A("--in", dest="in_path", required=True, help="ObservationInput JSON list ('-' = stdin)"),
                                    A("--out", dest="out_path", required=True, help="output JSON path")),
@@ -101,6 +68,34 @@ COMMANDS: dict[str, Cmd] = {
     "retract": Cmd("plsi.life.ingest:retract",
                    (INSTANCE, A("--event", dest="event_id", required=True), FILE, A("--replacement", help="ObservationInput JSON")),
                    "retract an event (events.jsonl is never edited)"),
+    "revise": Cmd("plsi.life.revise:revise",
+                  (INSTANCE, A("--document", required=True, help="the source document's stable id (e.g. its Drive file id)"),
+                   MX(A("--file", help="ObservationInput JSON list: the whole new version"), A("--csv", help="canonical long CSV")),
+                   A("--dry-run", action="store_true")),
+                  "apply a new version of one document: skip unchanged rows, retract and replace changed or dropped ones"),
+    "clinic check": Cmd("plsi.clinic:check", (A("--drive", action="store_true", help="also ask Drive who can open each folder (network)"),),
+                        "patients' Drive folders, the sharing each needs, files waiting for intake, roster problems"),
+    "clinic setup": Cmd("plsi.clinic_drive:setup", (A("--patient", required=True, help="roster label"),),
+                        "create a patient's inbox and shared folder on the clinic shared drive, shared with nobody yet (network)",
+                        ("plsi clinic share --patient <label> --email <address>",)),
+    "clinic share": Cmd("plsi.clinic_drive:share", (A("--patient", required=True, help="roster label"),
+                                                    A("--email", required=True, help="the patient's Google account (used for the share only, never kept)")),
+                        "invite the patient to their two folders and check nobody else can open them (network)",
+                        ("plsi clinic check --drive",)),
+    "clinic link": Cmd("plsi.clinic:link", (A("--patient", required=True, help="roster label"),
+                                            A("--inbox", help="the inbox folder id"), A("--shared", help="the shared folder id"),
+                                            A("--patient-id", help="the Drive permission id of the person the folders were shared with"),
+                                            A("--reviewed", help="YYYY-MM-DD, as-of date of the last report the patient received")),
+                       "write a patient's folders into the roster (connector or by hand); refuses another patient's folder"),
+    "clinic sharing": Cmd("plsi.clinic:sharing", (A("--patient", required=True, help="roster label"),
+                                                  A("--folder", required=True, choices=["inbox", "shared"]),
+                                                  A("--file", help="Drive's permissions list as the connector returned it ('-' = stdin, the default)")),
+                          "check one folder's permissions against the patient's row (connector); keeps nothing"),
+    "clinic sync": Cmd("plsi.clinic:sync", (A("--file", help="[{folder, file, path, size?}] files the agent downloaded (size: Drive's, checked); omit to pull with the service account"),),
+                       "route patients' uploads into <PLSI_HOME>/inbox/<label>/ (skips duplicates)"),
+    "clinic publish": Cmd("plsi.clinic_drive:publish", (A("--patient", required=True), A("--file", required=True, help="the approved PDF in the patient's reports folder"),
+                                                        A("--as-of", required=True, help="YYYY-MM-DD, the report's as-of date (becomes the row's reviewed)")),
+                          "put a report the physician approved into the patient's shared folder (network)"),
     # map
     "maps list": Cmd("plsi.map.registry:list_maps", (MAP_OPT,), "list State Maps"),
     "maps show": Cmd("plsi.map.registry:show", (A("map_id", metavar="ID"), MAP_OPT), "show one map"),
@@ -127,6 +122,8 @@ COMMANDS: dict[str, Cmd] = {
                         A("--set", dest="set_values", action="append", help="coordinate=value override (repeatable)"),
                         A("--birth-year", type=int), A("--sex", choices=V(Sex)), A("--at", type=iso_datetime)),
                        "a derived coordinate from published or what-if inputs (writes nothing)"),
+    "calc range": Cmd("plsi.map.ranges:range_for", (MAP, A("--coordinate", required=True), INSTANCE),
+                      "the range for a coordinate that fits the subject (sex, ethnicity)"),
     "calc survival": Cmd("plsi.map.survival:survival", (FILE,),
                          "remaining lifespan per scenario from a life table and cited hazard ratios (writes nothing)"),
     "calc course": Cmd("plsi.map.course:course", (FILE,),
@@ -135,7 +132,7 @@ COMMANDS: dict[str, Cmd] = {
     # policy
     "evidence search": Cmd("plsi.policy.evidence:search",
                            (A("--source", required=True, help=f"{', '.join(s.value for s in SearchSource)} or ext:<extension id>"), A("--query", required=True),
-                            A("--limit", type=int, default=10)),
+                            A("--limit", type=int)),
                            "search literature, trials, labels or Evipedia (network)", ("plsi evidence verify --kind <kind> --id <id>",)),
     "evidence verify": Cmd("plsi.policy.evidence:verify",
                            (A("--kind", required=True, choices=V(SourceKind)), A("--id", required=True)),
@@ -157,77 +154,33 @@ COMMANDS: dict[str, Cmd] = {
                  ("plsi report --instance {instance}",)),
     "oracle pandaclaw": Cmd("plsi.policy.oracles:pandaclaw",
                             (MX(A("--file", help="OracleInput JSON (asks once)"),
-                                A("--session", dest="session_id", help="resume a session without asking again")),),
+                                A("--session", dest="session_id", help="resume a session without asking again")),
+                             A("--out", help="keep the whole answer in this .md file under <PLSI_HOME>/work/")),
                             "ask PandaClaw (model_derived); --session follows a timed-out or interrupted run"),
     "oracle pandaclaw-skills": Cmd("plsi.policy.oracles:pandaclaw_skills",
-                                          (A("--catalog", choices=["recommended", "all"], default="recommended"), A("--topic")),
-                                          "list PandaClaw skills for the ask file's skill (not a run)"),
+                                          (A("--catalog", choices=V(PandaclawCatalog)), A("--topic")),
+                                          "list PandaClaw skills for the ask file's skill (not a run; not counted against the daily cap)"),
     "oracle pandaomics tools": Cmd("plsi.policy.oracles:pandaomics_tools", (), "list PandaOmics tools"),
     "oracle pandaomics call": Cmd("plsi.policy.oracles:pandaomics_call", (A("--tool", required=True), FILE), "call a PandaOmics tool"),
-    "oracle l-llm": Cmd("plsi.policy.oracles:l_llm", (FILE,), "ask the Longevity-LLM (model_derived)"),
     # output
     "report": Cmd("plsi.report:report", (INSTANCE, MX(A("--map", dest="map_id"), A("--payload", help="DashboardPayload JSON"), required=False),
-                                         A("--format", dest="fmt", choices=V(ReportFormat), default="html")),
+                                         A("--format", dest="fmt", choices=V(ReportFormat))),
                   "render the self-contained HTML dashboard, or a static PDF for e-mail"),
     "export": Cmd("plsi.export:export",
-                  (INSTANCE, A("--format", choices=V(ExportFormat), default="json"), A("--out", help="output folder")),
+                  (INSTANCE, A("--format", choices=V(ExportFormat)), A("--out", help="output folder")),
                   "save the instance as one JSON bundle or CSV tables"),
     "refs list": Cmd("plsi.references:list_refs", (A("--kind", choices=V(ReferenceKind)),),
                      "trusted references, grouped by kind"),
     "refs show": Cmd("plsi.references:show", (A("id", metavar="ID"),), "one reference"),
-    # research graph (<PLSI_HOME>/research)
-    "research index": Cmd("plsi.research_graph:index", (), "check every research item and rewrite research/index.md",
-                          ("plsi research list --status ready",)),
-    "research list": Cmd("plsi.research_graph:list_items",
-                         (A("--project"), A("--kind", choices=V(ResearchItemKind)), A("--status", choices=V(ResearchStatus))),
-                         "research items with their links, filtered"),
-    "research retire": Cmd("plsi.research_graph:retire",
-                           (A("--id", required=True, help="item marked status: retire"),
-                            A("--reason", required=True, help="one line, logged in research/retired.md")),
-                           "remove a retired item; links to it become its title"),
-    # Longevity Mothership
-    "mothership join": Cmd("plsi.mothership.enroll:join",
-                           (INSTANCE, A("--kind", action="append", required=True, choices=V(ContributionKind)),
-                            A("--consent-version", required=True, help="version marker of mothership/consent.md shown to the user"),
-                            A("--code", help="one-time enrollment code from the relay's /join page (first join only)")),
-                           "record the user's consent to share the chosen kinds", ("plsi mothership pack --instance {instance}",)),
-    "mothership status": Cmd("plsi.mothership.enroll:status", (INSTANCE,), "enrollment, consent, address and what was sent"),
-    "mothership pack": Cmd("plsi.mothership.pack:pack", (INSTANCE, A("--out", help="output file")),
-                           "build the deidentified package (gate-checked, not sent)"),
-    "mothership check": Cmd("plsi.mothership.send:check", (FILE, SENDER), "gate-check a file before sending"),
-    "mothership send": Cmd("plsi.mothership.send:send", (FILE, SENDER),
-                           "gate-check, POST to the Mothership relay with the sender's token and log"),
-    "mothership receipt": Cmd("plsi.mothership.send:receipt",
-                              (SENDER, A("--wait", type=int, default=0, help="seconds to keep asking while pending (max 300)")),
-                              "fetch the Mother's receipts for sent messages from the relay (network)"),
-    "mothership note": Cmd("plsi.mothership.research:note",
-                           (INSTANCE, A("--file", required=True, help="Explorer contribution.json (research_note | registry_update)")),
-                           "build a research note or registry update (gate-checked, not sent)",
-                           ("plsi mothership send --instance {instance} --file <file> (registry update)",
-                            "plsi mothership email --file <file> (research note)")),
-    "mothership email": Cmd("plsi.mothership.research:email", (FILE,),
-                            "draft the email for a research note: to, subject, body (gate-checked, not sent)"),
-    "mothership whoami": Cmd("plsi.mothership.professional:whoami", (), "role, scopes and expiry of the professional token"),
-    "mothership catalog": Cmd("plsi.mothership.public:catalog", (), "the Mothership's public catalog of pooled data (network)"),
-    "mothership release": Cmd("plsi.mothership.public:release",
-                              (A("--version", required=True, help="release version or latest"), A("--out", help="output file")),
-                              "download a data release (professional token; network)",
-                              ("plsi mothership analyze --release <file> --spec spec.json",)),
-    "mothership findings": Cmd("plsi.mothership.public:findings", (), "the findings ledger (network)"),
-    "mothership analyze": Cmd("plsi.mothership.stats:analyze",
-                              (A("--release", required=True, help="downloaded release JSON"),
-                               A("--spec", required=True, help="analysis spec JSON (compare_groups | age_trend)")),
-                              "run an analysis on a data release (local; writes nothing)"),
-    "mothership prereg": Cmd("plsi.mothership.professional:prereg", (A("--spec", required=True, help="preregistration JSON"),),
-                             "preregister a hypothesis and its analysis (gate-checked, not sent)",
-                             ("plsi mothership send --file <file>",)),
-    "mothership finding": Cmd("plsi.mothership.professional:finding",
-                              (A("--prereg", required=True, help="the preregistration message file"),
-                               A("--release", required=True, help="downloaded release JSON"),
-                               A("--summary", required=True, help="plain-language summary of the result")),
-                              "run the preregistered analysis and build the finding (gate-checked, not sent)",
-                              ("plsi mothership send --file <file>",)),
-    "mothership leave": Cmd("plsi.mothership.enroll:leave", (INSTANCE, A("--delete", action="store_true", help="also ask to delete everything"),
-                                                              A("--anyway", action="store_true", help="delete while a receipt is pending (user agreed)")),
-                            "stop sharing; writes the withdrawal file for plsi mothership send"),
+    # feedback for the PLSI team (<PLSI_HOME>/feedback)
+    "feedback mark": Cmd("plsi.feedback:mark",
+                         (A("--stage", required=True, choices=[*V(FeedbackStage), *V(FeedbackMark)], help="the stage that starts now"),
+                          A("--at", type=iso_datetime, help="when it started (ISO), if not now")),
+                         "mark the start of a setup stage; install starts a new run"),
+    "feedback timeline": Cmd("plsi.feedback:timeline", (), "measured minutes per stage of the last setup"),
+    "feedback report": Cmd("plsi.feedback:report", (A("--file", required=True, help="PLSI's draft: frustrations, suggestions, stages"),),
+                           "build the usage report (gate-checked, dated) and draft its email (not sent)"),
+    "feedback check": Cmd("plsi.feedback:check", (FILE,), "gate-check a written usage report and draft its email (not sent)"),
 }
+
+COMMANDS: dict[str, Cmd] = merge(CORE, RESEARCH, TARGETS, MOTHERSHIP)

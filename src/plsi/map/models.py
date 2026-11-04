@@ -15,9 +15,11 @@ from plsi.vocab import (
     CoordinateKind,
     CorrespondenceType,
     DeriveEngine,
+    Ethnicity,
     EvidenceClass,
     MatchKind,
     ObservationKind,
+    Sex,
     TimeBasis,
     ValueStatus,
 )
@@ -35,6 +37,24 @@ class Conversion(Model):
     from_unit: str
     factor: float = Field(gt=0)
     source: SourceRef
+
+
+class Range(Model):
+    low: float | None = None  # inclusive
+    high: float | None = None  # exclusive
+    sex: Sex | None = None  # F or M
+    ethnicity: list[Ethnicity] = []
+    source: SourceRef
+
+    @model_validator(mode="after")
+    def _bounds(self) -> Range:
+        if self.sex not in (None, Sex.F, Sex.M):
+            raise ValueError("a range's sex is F or M")
+        if self.low is None and self.high is None:
+            raise ValueError("a range needs low or high")
+        if self.low is not None and self.high is not None and self.low >= self.high:
+            raise ValueError("low must be below high")
+        return self
 
 
 class Derive(Model):
@@ -76,6 +96,7 @@ class MapCoordinate(Model):
     recency_days: int = Field(default=365, ge=1)
     predictable: bool = True
     score_window_days: ScoreWindow = ScoreWindow()
+    ranges: list[Range] | None = None  # None, not [], so maps without ranges keep their hash
     correspondence_type: CorrespondenceType
     sources: list[SourceRef] = []
 
@@ -92,6 +113,12 @@ class MapCoordinate(Model):
         if both:
             raise ValueError(f"codes both accepted and rejected: {sorted(c for _, c in both)}")
         return self
+
+    def best_ranges(self, sex: Sex, ethnicity: Ethnicity | None) -> list[Range]:
+        """The ranges that fit the subject with the most specific match (sex, ethnicity); more than one is a tie."""
+        fits = [r for r in self.ranges or [] if r.sex in (None, sex) and (not r.ethnicity or ethnicity in r.ethnicity)]
+        top = max(((r.sex is not None) + bool(r.ethnicity) for r in fits), default=0)
+        return [r for r in fits if (r.sex is not None) + bool(r.ethnicity) == top]
 
 
 class ClockExpansion(Model):

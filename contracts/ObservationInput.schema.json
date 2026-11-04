@@ -64,6 +64,17 @@
       "title": "Comparator",
       "type": "string"
     },
+    "LabFlag": {
+      "description": "The lab's own mark on a result, as printed (H, L, HH/LL or critical, A or *).",
+      "enum": [
+        "high",
+        "low",
+        "critical",
+        "abnormal"
+      ],
+      "title": "LabFlag",
+      "type": "string"
+    },
     "ObservationKind": {
       "enum": [
         "measurement",
@@ -85,6 +96,19 @@
       "additionalProperties": false,
       "description": "Provenance of an observation. Never a path or filename (deid profile plsi-limited-v1).",
       "properties": {
+        "document": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document"
+        },
         "file_sha256": {
           "anyOf": [
             {
@@ -268,6 +292,17 @@
       "default": null,
       "title": "Fasting"
     },
+    "flag": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LabFlag"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "kind": {
       "$ref": "#/$defs/ObservationKind"
     },
@@ -279,6 +314,30 @@
       "minLength": 1,
       "title": "Original Text",
       "type": "string"
+    },
+    "ref_high": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ref High"
+    },
+    "ref_low": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ref Low"
     },
     "repeat": {
       "default": false,

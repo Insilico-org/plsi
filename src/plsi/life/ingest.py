@@ -5,21 +5,59 @@ No network calls. Writes only through plsi.life.store.EventStore (never edits ev
 
 from __future__ import annotations
 
-import hashlib
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from plsi.events import NewEvent
 from plsi.life.models import Observation, ObservationInput, Retraction, RetractionInput
 from plsi.models import parse
 from plsi.life import importers
-from plsi.life.normalize import normalize_unit
+from plsi.life.normalize import MAPS_DIR, normalize_unit
 from plsi.life.store import EventStore
 from plsi.errors import NotFound, UsageError, ValidationError
-from plsi.files import canonical_json, decode_input, load_json, parse_input_json, read_input_bytes, sha256_hex
+from plsi.files import canonical_json, decode_input, load_json, parse_input_json, read_input_bytes, sha256_file, sha256_hex
 from plsi.vocab import EventType, OriginKind
+
+MONTHLY_MAP = MAPS_DIR / "sleep_activity.yaml"  # raw YAML: plsi.life never imports plsi.map
+MONTHLY_LABEL = "calendar-month mean"  # coordinates labelled so hold one mean per closed month (wearables/import step 3)
+MONTHLY_ORIGINS = (OriginKind.DEVICE, OriginKind.CSV, OriginKind.EXTENSION)  # the wearables/import paths
+
+
+def _monthly_codes() -> dict[tuple[str, str], str]:
+    """(system, code) -> coordinate id of every code a calendar-month-mean coordinate accepts (not vo2_max)."""
+    doc = yaml.safe_load(MONTHLY_MAP.read_text(encoding="utf-8")) or {}
+    return {(str(k["system"]), str(k["code"])): c["id"] for c in doc.get("coordinates") or []
+            if MONTHLY_LABEL in c.get("label", "") for k in (c.get("accepts") or {}).get("codes") or []}
+
+
+def _month(obs: ObservationInput, codes: dict[tuple[str, str], str]) -> tuple[str, str] | None:
+    """(coordinate id, YYYY-MM) of a device or CSV-imported monthly mean, else None."""
+    if obs.code is None or obs.origin.kind not in MONTHLY_ORIGINS:
+        return None
+    coordinate = codes.get((obs.code.system.value, obs.code.code))
+    return (coordinate, obs.effective_at.strftime("%Y-%m")) if coordinate else None
+
+
+def _conflicts(store: EventStore, fresh: list[tuple[int, Observation, str]]) -> list[dict[str, str | int]]:
+    """New monthly means for a metric and month that already has a value (recorded or earlier in this input)."""
+    codes = _monthly_codes()
+    taken: dict[tuple[str, str], str] = {}
+    for e in store.observations():
+        if (k := _month(e.payload, codes)) is not None:
+            taken.setdefault(k, e.id)
+    out = []
+    for i, obs, _ in fresh:
+        if (k := _month(obs, codes)) is None:
+            continue
+        if k in taken:
+            out.append({"index": i, "with": taken[k], "coordinate": k[0], "month": k[1]})
+        else:
+            taken[k] = f"index {i}"
+    return out
 
 
 def dedupe_key(obs: ObservationInput) -> str:
@@ -66,14 +104,6 @@ def _from_extension(ext_id: str, path: str) -> importers.Imported:
     return importers.Imported.from_items([{**item, "origin": item.get("origin") or origin} if isinstance(item, dict) else item for item in items])
 
 
-def _file_sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        while chunk := fh.read(1 << 20):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def ingest(
     instance: str,
     file: str | None = None,
@@ -90,7 +120,8 @@ def ingest(
     """Validate, normalize unit strings, assign ids and append observations (exactly one source; '-' = stdin).
 
     Returns {counts: {accepted, duplicate, rejected}, accepted: [event_id], duplicates: [event_id],
-             rejected: [{index, error}], warnings: ["UNCODED: <index>", ...], dropped_columns?, subject_updated?}
+             rejected: [{index, error}], conflicts: [{index, with, coordinate, month}],
+             warnings: ["UNCODED: <index>", "CONFLICT: <index>", ...], dropped_columns?, subject_updated?}
     (dry_run writes nothing; accepted then holds indexes).
     """
     sources = {k: v for k, v in {"file": file, "fhir": fhir, "csv": csv, "methylation": methylation, "ext": ext}.items() if v is not None}
@@ -105,7 +136,7 @@ def ingest(
         if not path.is_file():
             raise NotFound(f"input file not found: {path.name}", code="FILE_NOT_FOUND")
         with tempfile.TemporaryDirectory() as scratch:  # dry run: the artifact is written to a throwaway dir
-            imported = importers.from_methylation(path, Path(scratch) if dry_run else store.dir, sample, _file_sha256(path), effective_at)
+            imported = importers.from_methylation(path, Path(scratch) if dry_run else store.dir, sample, sha256_file(path), effective_at)
     elif ext is not None:
         imported = _from_extension(ext, input)  # type: ignore[arg-type]
     else:
@@ -134,6 +165,8 @@ def ingest(
         else:
             seen.setdefault(key, len(fresh))
             fresh.append((i, obs, key))
+    conflicts = _conflicts(store, fresh)  # reported, never refused
+    warnings += [f"CONFLICT: {c['index']}" for c in conflicts]
     if dry_run:
         ids: list[str] = [f"index {i}" for i, _, _ in fresh]
         accepted: list[Any] = [i for i, _, _ in fresh]
@@ -149,6 +182,7 @@ def ingest(
         "accepted": accepted,
         "duplicates": duplicates,
         "rejected": imported.rejected,
+        "conflicts": conflicts,
         "warnings": warnings,
         "dry_run": dry_run,
         **result,

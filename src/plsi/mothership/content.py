@@ -12,7 +12,7 @@ from typing import Any
 
 from plsi import codes
 from plsi.mothership.scan import HEX64, ID, MAX_NUMBER, MONTH, flag
-from plsi.vocab import Comparator, ContributionKind, Sex
+from plsi.vocab import ClinicalStatus, Comparator, ContributionKind, Ethnicity, Sex, ValueStatus
 
 CONSENT_VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 MAP_VERSION = re.compile(r"[0-9A-Za-z.+-]{1,32}")
@@ -99,23 +99,37 @@ _month = _match(MONTH)
 _unit = _match(UNIT)
 _summary = _object(set(), dict.fromkeys(SCORE_KEYS, _rate))
 DOSE = _object({"value", "unit"}, {"value": _positive, "unit": _unit})
+def _count(v: Any, at: str) -> list[dict[str, str]]:
+    """How many values a mean covers: an integer of at least 1."""
+    return [] if isinstance(v, int) and not isinstance(v, bool) and v >= 1 else [flag(at, "bad_number")]
+
+
+def _series(v: Any, at: str) -> list[dict[str, str]]:
+    """Points of {t, value}, at most one per month: a month is the finest grain a package carries."""
+    out = _list(_object({"t", "value"}, {"t": _month, "value": _num, "n": _count}))(v, at)
+    months = [p.get("t") for p in v if isinstance(p, dict)] if isinstance(v, list) else []
+    return out + [flag(f"{at}[{n}]", "repeat_month") for n, m in enumerate(months) if m in months[:n]]
+
+
 COORDINATE = _object(set(), {
-    "status": _id, "value": _num, "unit": _unit, "comparator": _one_of(frozenset(Comparator)), "observed": _month,
-    "series": _list(_object({"t", "value"}, {"t": _month, "value": _num})),
-    "items": _list(_object({"code"}, {"code": _code, "clinical_status": _id, "dose": DOSE}))})
+    "status": _one_of(frozenset(ValueStatus)), "value": _num, "unit": _unit, "comparator": _one_of(frozenset(Comparator)), "observed": _month,
+    "series": _series,
+    "items": _list(_object({"code"}, {"code": _code, "clinical_status": _one_of(frozenset(ClinicalStatus)), "dose": DOSE}))})
 STATE = _object({"map_id", "coordinates"}, {
     "map_id": _id, "map_version": _match(MAP_VERSION), "map_hash": _match(HEX64), "as_of": _month,
     "gaps": _list(_id), "coordinates": _keyed(COORDINATE)})
 EVENT = _object({"kind", "year", "basis", "code"}, {
     "kind": _id, "year": _year, "until": _year, "basis": _id, "code": _code, "value": _num, "unit": _unit,
-    "clinical_status": _id, "dose": DOSE})
+    "clinical_status": _one_of(frozenset(ClinicalStatus)), "dose": DOSE})
 SECTIONS = {ContributionKind.STATES: _list(STATE), ContributionKind.LIFE_EVENTS: _list(EVENT),
             ContributionKind.SCORES: _object(set(), {"overall": _summary, "by_coordinate": _keyed(_summary)})}
-SUBJECT = _object(set(), {"sex": _one_of(frozenset(Sex)), "age_band": _one_of(AGE_BANDS)})
+SUBJECT = _object(set(), {"sex": _one_of(frozenset(Sex)), "age_band": _one_of(AGE_BANDS),
+                          "ethnicity": _one_of(frozenset(Ethnicity))})
 # every field name above: the only key text a path shows
 NAMES = frozenset({"map_id", "map_version", "map_hash", "as_of", "gaps", "coordinates", "status", "value", "unit",
-                   "comparator", "observed", "series", "t", "items", "code", "system", "clinical_status", "kind",
-                   "year", "until", "basis", "dose", "overall", "by_coordinate", "sex", "age_band", *SCORE_KEYS})
+                   "comparator", "observed", "series", "t", "n", "items", "code", "system", "clinical_status", "kind",
+                   "year", "until", "basis", "dose", "overall", "by_coordinate", "sex", "age_band", "ethnicity",
+                   *SCORE_KEYS})
 
 
 def code_objects(doc: dict[str, Any]) -> dict[str, tuple[Any, Any]]:

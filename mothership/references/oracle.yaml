@@ -1,11 +1,9 @@
 longevity_llm:
-  title: Longevity-LLM (L-LLM, OpenAI-compatible)
-  url: http://127.0.0.1:1234/v1
-  api_base: http://127.0.0.1:1234/v1
-  key_env: [PLSI_LLLM_MODE, PLSI_LLLM_BASE_URL, PLSI_LLLM_MODEL, PLSI_LLLM_API_KEY, HF_TOKEN, PLSI_LLLM_ENABLE_THINKING]
+  title: Longevity-LLM (L-LLM, Insilico's aging-biology model)
+  url: https://huggingface.co/insilicomedicine/longevity-llm
   notes: >-
-    Self-hosted; deploy with the engineer/l-llm-deploy-guide skill. PLSI_LLLM_MODE local (default) uses this api_base,
-    server uses longevity_llm_server, or PLSI_LLLM_BASE_URL. Model default longevity-llm. Output is model_derived.
+    Asked only on Insilico's playground (longevity_llm_playground, shared/l-llm). Output is model_derived; cite
+    answers as longevity_llm.
 
 longevity_llm_playground:
   title: Longevity-LLM on Insilico's playground (web, model longevity-llm-0.1)
@@ -14,14 +12,6 @@ longevity_llm_playground:
     Web page only (no API): sign-in by a one-time e-mail link sent to the bot's own Grok Bot address; 400 runs per
     account, shown on the page; Temperature and Thinking controls; task text up to 4,000 characters. Topic asks only
     (shared/l-llm). Cite answers as longevity_llm.
-
-longevity_llm_server:
-  title: Longevity-LLM on a vLLM server (PLSI_LLLM_MODE server)
-  url: http://127.0.0.1:8000/v1
-  api_base: http://127.0.0.1:8000/v1
-  notes: >-
-    The same OpenAI-compatible API served by Docker vLLM, locally or through an SSH tunnel to a GPU host
-    (engineer/l-llm-deploy-guide). Cite answers as longevity_llm.
 
 pandaclaw:
   title: PandaOmics Agent (Insilico Medicine bioinformatics agent, MCP; formerly PandaClaw)

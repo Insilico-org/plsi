@@ -40,7 +40,7 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Clinical Evidence**. Re
    plsi evidence verify --kind <pmid|doi|nct> --id <id>
    ```
 
-4. **Write** `<PLSI_HOME>/work/<thread>/evidence-review.md`: the question; the bottom line in one sentence; grade and
+4. **Write** `<PLSI_HOME>/work/<thread>/evidence-review_<topic>_<YYYYMMDD>.md`: the question; the bottom line in one sentence; grade and
    EvidenceClass (persona.md); key studies (design, n, effect with interval, identifier); harms and who should avoid
    it; the guideline position with its source, or "no guideline found" with the queries; what would change the grade;
    with a patient, what in their care context bears on it.

@@ -9,6 +9,19 @@ ncbi_eutils:
     An invalid PMID still returns 200 with result[pmid].error, so verify needs no error and a title. 3 req/s without a key,
     10 with NCBI_API_KEY.
 
+pubtator3:
+  title: PubTator 3.0 (NCBI) - biomedical entity and relation annotations
+  url: https://www.ncbi.nlm.nih.gov/research/pubtator3/
+  api_base: https://www.ncbi.nlm.nih.gov/research/pubtator3-api
+  licence: public domain (NCBI/NLM, US government work; acknowledge NLM); the annotated articles keep their own terms
+  notes: >-
+    GET /relations?e1=@TYPE_Name[&type=R][&e2=TYPE] -> [{type, source, target, publications}], [] for an id that
+    does not resolve. GET /search/?text=relations:R|@A|@B -> {count, results:[{pmid, title, journal, doi}]}, which
+    is where a candidate's own evidence comes from. GET /entity/autocomplete/?query=Q resolves free text to an id
+    and can fail with HTTP 5xx, so callers fall back to constructing @TYPE_Name and treating an empty /relations as
+    "did not resolve". Entity ids are name-based and case-sensitive (@CHEMICAL_<Preferred_Name>, not a synonym): a
+    wrong one answers 200 with nothing rather than erroring. Three requests a second, no key. **Every relation is a model prediction, not curation**, and `publications` is an evidence count.
+
 europepmc:
   title: Europe PMC REST API
   url: https://europepmc.org/RestfulWebService

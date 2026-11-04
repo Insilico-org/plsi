@@ -1,7 +1,8 @@
 """The deidentified package for the Longevity Mothership, built from published states, recorded life events and
 prediction scores, gate-checked (plsi.mothership.gate) into the instance's outbox; plsi.mothership.send sends it.
 Coded fields only (WIRE §2): set items and life events go as their code, never their text, and a free or cpg code
-only when a shipped or installed map declares it; a unit only when it is a map's canonical unit or a form of the
+only when a shipped or installed map declares it, never an ethnicity, race or occupation code (plsi.codes.NEVER_SHARED:
+the subject carries the ethnicity group, sex and a five-year age band); a unit only when it is a map's canonical unit or a form of the
 unit table (plsi.life.normalize), else the value stays too. A structured dose goes as {value, unit} only when its
 unit is in DOSE_UNITS or a map's canonical unit; the dose as written never leaves.
 
@@ -15,6 +16,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from statistics import fmean
 from typing import Any
 
 from plsi import codes, files
@@ -41,6 +43,14 @@ DOSE_UNITS = frozenset({"mg", "g", "ug", "ng", "mL", "L", "uL", "[iU]", "[IU]", 
 
 def _month(t: datetime | None) -> str | None:
     return t.strftime("%Y-%m") if t else None
+
+
+def _monthly(series: list[Any]) -> list[dict[str, Any]]:
+    """One point per month: its mean and `n`, how many recorded values the mean covers."""
+    by: dict[str, list[float]] = {}
+    for p in series:
+        by.setdefault(str(_month(p.t)), []).append(p.value)
+    return [{"t": m, "value": float(f"{fmean(vals):.6g}"), "n": len(vals)} for m, vals in sorted(by.items())]
 
 
 class _Wire:
@@ -73,7 +83,10 @@ class _Wire:
                                           "comparator": v.comparator.value if v.comparator else None,
                                           "observed": _month(v.observed_at)}.items() if val is not None}
         if v.series:
-            out["series"] = [{"t": _month(p.t), "value": p.value} for p in v.series]
+            out["series"] = _monthly(v.series)
+            month = [p["value"] for p in out["series"] if p["t"] == out.get("observed")]
+            if "value" in out and v.comparator is None and month:  # the headline value is that month's mean too
+                out["value"] = month[0]
         return out
 
     def states(self, store: EventStore) -> list[dict[str, Any]]:
@@ -127,7 +140,8 @@ def pack(instance: str, out: str | None = None) -> dict[str, Any]:
                            "contributor_id": record["contributor_id"], "consent_version": record["consent_version"],
                            "packed": _month(now()), "kinds": sorted(kinds),
                            "subject": {k: v for k, v in {"sex": store.subject.sex.value,
-                                                         "age_band": _age_band(store.subject.birth_year, store.subject.age_group)}.items() if v}}
+                                                         "age_band": _age_band(store.subject.birth_year, store.subject.age_group),
+                                                         "ethnicity": store.subject.ethnicity}.items() if v}}
     wire = _Wire(instance)
     build = {ContributionKind.STATES: wire.states, ContributionKind.LIFE_EVENTS: wire.life_events,
              ContributionKind.SCORES: _scores}

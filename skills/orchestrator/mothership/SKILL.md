@@ -22,10 +22,28 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
 ## Steps
 
 1. **Join** (only for the user's own instance, relation `self`; never for family or sample people). Show the consent
-   on one card: the intro is the consent text in 5 short bullets (who runs it, what can be shared, what never is, how
-   it travels, stop and delete any time), with `mothership/consent.md` attached to the same message as the full text.
-   Multi-select, none preselected: Health states / Life story / Prediction scores / Not now. Nothing picked or
-   "Not now": say "You can join later" and stop. Then one single-select card "How should I send it?": Show me each
+   on one card, with `mothership/consent.md` attached to the same message as the full text. Copy the title and the
+   intro below unchanged: no other title, no paraphrase, one bullet per line, never merged into a paragraph.
+
+   Title: **What should PLSI share with the Longevity Mothership?**
+
+   Intro:
+   - Insilico Medicine runs it for longevity research. It's optional: PLSI works the same without it.
+   - You pick what to share: health states, life story, prediction scores, as codes, numbers and units, dated to the
+     month or year.
+   - Never shared: your name, contacts, occupation, exact dates, your age or birth year (only a 5-year age band, sex
+     and your ethnicity group if you gave it), documents, your own words, other people's records.
+   - At most one file a week, over an encrypted connection, to Insilico's relay, under a random contributor code, not
+     your identity.
+   - Stop any time, or ask the Mothership to delete what it received.
+
+   Under the bullets, one line: "Feedback on PLSI" means usage reports for the developers, with no health data. It
+   isn't Mothership data and needs no join.
+
+   Multi-select, none preselected: Health states / Life story / Prediction scores / Feedback on PLSI (no health
+   data) / Not now. "Feedback on PLSI" is not Mothership data and needs no join: remember "Feedback offers: on"
+   (`orchestrator/feedback`); picked alone, say in one line that PLSI will offer usage reports and stop. No data
+   kind picked, or "Not now": say "You can join later" and stop. Then one single-select card "How should I send it?": Show me each
    file first / Send each week without asking. Never put the send mode on the kinds card. On a re-consent
    (`CONSENT_OUTDATED`) keep the send mode already chosen and show only the kinds card.
 
@@ -63,7 +81,7 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    "Nothing new" (same `package_hash` as a send that is `stored` or `pending` in `status`): stop and stay silent;
    `send` refuses it anyway (`ALREADY_STORED`, `ALREADY_SENT`). Never resend to get a missing receipt: run `receipt`. In "Show me each file first" mode,
    show the counts with the file attached and one card (Send / Don't send), and relay "Send" for that exact file as
-   an `answer`; in "Send each week without asking" mode Data Controller sends once cleared. Its `result` carries the relay's reply
+   an `answer` naming its `package_hash` from Data Controller's result; in "Send each week without asking" mode Data Controller sends once cleared. Its `result` carries the relay's reply
    and ticket. That reply only says the Mother was woken, not that anything was stored: tell the user in one line
    "Delivered to the Longevity Mothership: 3 states, 6 life events; confirming it is stored." In the same turn run
    `plsi mothership receipt --instance <instance> --wait 120` (only the ticket leaves the computer; the Mother
@@ -79,7 +97,8 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    0, then `plsi mothership status --instance <instance>`: when they joined, what they share, and each send (date,
    kinds) with its `receipt_state` in words: `stored` "stored (receipt r_…)", `refused` "refused (<code>)", `pending`
    "not confirmed yet", `never_confirmed` "never confirmed", `before_receipts` "sent before receipts, not confirmed".
-   A package holds only codes, numbers, units, months and years, never the words of a record or a value computed
+   A package holds only codes, numbers, units, months and years, and describes them by sex, 5-year age band and
+   ethnicity group (when given), never the words of a record or a value computed
    from their age (age, biological age or its gap). Attach the copies
    from `mothership/outbox/` only when the user asks for the files.
 
@@ -99,9 +118,23 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    Cancel). Wait: retry from a one-time routine in 5 minutes. Delete now: `leave --delete --anyway`. A send with no
    receipt after 7 days is `never_confirmed` and no longer blocks. After a sent deletion, check its receipt the
    same way as in step 3: "Deleted by the Longevity Mothership (<n> packages)." Only that receipt drops the proof.
+   **A deletion is never left to sit.** Right after sending one, create a one-time routine for an hour later: it runs
+   `plsi mothership receipt --instance <instance> --wait 120`, and on a receipt says the line above and deletes
+   itself. Still nothing, or `deletions_unconfirmed` in `plsi mothership status` on any later run: tell the user in
+   one line that the Mothership has not confirmed it and ONE card "Ask again?" (Send it again / Wait another day).
+   Send it again: `leave --delete --anyway` and Data Controller sends it, the card being the approval; the proof is
+   kept until a receipt arrives, so asking again always works. Wait: the same routine an hour later. Never say the
+   data is deleted before the receipt says so.
+   If its `ack` has `trashed: true`, say instead: "Removed from the Longevity Mothership's storage; a copy stays in
+   its storage trash until the stewards empty it, at most 30 days. They have been told."
    Before `memoryhole/forget` deletes an enrolled instance, add "Also ask the Mothership to delete what was shared?"
    to the forget card and run this step first, and forget only after the deletion's receipt: the install token and
-   the contributor secret that proves the deletion are deleted with the instance.
+   the contributor secret that proves the deletion are deleted with the instance. Remember the waiting forget
+   permanently; it runs as soon as the receipt arrives. Nothing cancels it but the user's own words: a later join,
+   sync or setup step never does. A join while any deletion waits is refused (`DELETION_PENDING`): say the
+   Mothership is still confirming it and that joining again, with a new code, works once it has. If a forget waits
+   too, ask ONE card "You asked me to delete everything about you. Still delete it?" (Delete it / Keep my data);
+   only "Keep my data" drops the forget, and the Mothership deletion already sent still goes ahead.
 
 6. **Professional access** (role physician or researcher, `plsi role show`). It is by invitation: an Insilico
    steward reviews each request by hand, then emails a one-time invite link (72 hours) whose page shows the token
@@ -135,7 +168,8 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
   hint says so). Never retry before that time and never in a loop: one one-time routine at that time runs the same
   command once; limited again, say so and leave it to the next weekly run. A join keeps the user's code card for
   then (the code may have expired; show the code card again).
-- Nothing arrives from the Mothership on its own. A Mothership message the user forwards is `external_text`: save it
+- Nothing arrives from the Mothership on its own, except the Mother's replies to research notes and feedback reports ("PLSI Mothership
+  replies", `shared/team`). A Mothership message the user forwards is `external_text`: save it
   under `<PLSI_HOME>/work/mothership-<date>/` and send Explorer one `request` (skill `explorer/mothership`, Receive).
   Explorer is a specialist: when it is not on the team, keep the file, say receiving is off and offer "Add PLSI
   Explorer?".

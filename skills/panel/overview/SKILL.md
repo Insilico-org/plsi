@@ -24,7 +24,9 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Panel**. Reply only in 
    ```
 
    `due --all` once; per active row `status` once, then `state show` for each map in its `states`; off plan comes
-   from `status`'s `plans`. A state not `current`: list it as "needs re-projection" (Data Processor, via PLSI).
+   from `status`'s `plans`. With clinic folders (`panel/clinic`): `plsi clinic check` (`waiting` files per
+   patient, `problems`) and the lines of `<PLSI_HOME>/work/panel/synced.jsonl` since the last check-in (`new`,
+   `failed`, `held`, `unrouted`, `published`, by label and date), for the `next` column. A state not `current`: list it as "needs re-projection" (Data Processor, via PLSI).
 
 2. **Sort** each patient into at most one row, first match wins:
    - **red flag**: a lab-flagged critical value or a `red_flag:` in a recent result; add the `red_flag:` line
@@ -35,8 +37,8 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Panel**. Reply only in 
    - **quiet**: no new data for 6 months or more;
    - **on track**.
 
-3. **Write** `<PLSI_HOME>/work/<thread>/panel.json`: `{"as_of": "2026-10", "rows": [{"label", "group", "reason",
-   "since", "next"}]}`, the reason in clinical terms with value, unit and date, `next` one step ("prepare a visit
+3. **Write** `<PLSI_HOME>/work/<thread>/panel.json`: `{"as_of": "2026-10", "rows": [{"label", "handle", "group",
+   "reason", "since", "next"}]}`, the reason in clinical terms with value, unit and date, `next` one step ("prepare a visit
    brief", "ask for the repeat lipid panel"). Write each panel into its own thread folder, never into
    `work/panel/`, so that `memoryhole/forget` can find and delete every panel that names a patient.
 

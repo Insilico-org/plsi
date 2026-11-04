@@ -1,6 +1,7 @@
-"""The analyses of a Mothership data release, the same maths as the Mother's: cells pooled by n, Welch's
-t-test between two groups (compare_groups) or a weighted least-squares slope on the age-band midpoint (age_trend);
-the Student t CDF from the regularized incomplete beta (continued fraction). Results are rounded to 6 significant digits."""
+"""The analyses of a Mothership data release, the same maths as the Mother's: cells pooled by n over every key a
+group does not name (age band, sex, ethnicity), Welch's t-test between two groups (compare_groups) or a weighted
+least-squares slope on the age-band midpoint (age_trend); the Student t CDF from the regularized incomplete beta
+(continued fraction). Results are rounded to 6 significant digits."""
 
 from __future__ import annotations
 
@@ -9,10 +10,13 @@ from typing import Any
 
 from plsi import files
 from plsi.errors import ValidationError
-from plsi.vocab import AnalysisOp, Sex
+from plsi.vocab import AnalysisOp, Ethnicity, Sex
 
-GROUP_KEYS = ("age_band", "sex")
+GROUP_KEYS = ("age_band", "sex", "ethnicity")
 WIRE_SEXES = (Sex.F.value, Sex.M.value)  # the wire's sexes (§5); X and unknown are never in a release cell
+# a release cell's ethnicity (§5): a subject's group, or "unspecified" for contributors who gave none
+WIRE_ETHNICITIES = (*(e.value for e in Ethnicity), "unspecified")
+TREND_KEYS = ("sex", "ethnicity")  # what an age_trend may filter on; it pools each band over the rest
 
 
 def _betacf(a: float, b: float, x: float) -> float:
@@ -92,15 +96,18 @@ def check_spec(spec: Any) -> AnalysisOp:
     if not isinstance(spec, dict) or spec.get("op") not in tuple(AnalysisOp):
         raise ValidationError(f"the analysis op must be one of {', '.join(AnalysisOp)}", code="BAD_SPEC")
     op = AnalysisOp(spec["op"])
-    allowed = {"op", "map_id", "coordinate"} | ({"group_a", "group_b"} if op == AnalysisOp.COMPARE_GROUPS else {"sex"})
+    allowed = {"op", "map_id", "coordinate"} | ({"group_a", "group_b"} if op == AnalysisOp.COMPARE_GROUPS else set(TREND_KEYS))
     groups = [spec.get(g) for g in ("group_a", "group_b")] if op == AnalysisOp.COMPARE_GROUPS else []
     if (set(spec) - allowed or not all(isinstance(spec.get(k), str) and spec[k] for k in ("map_id", "coordinate"))
             or any(not isinstance(g, dict) or set(g) - set(GROUP_KEYS) for g in groups)):
         raise ValidationError(f"a {op} spec has {', '.join(sorted(allowed))} only", code="BAD_SPEC",
-                              hint="groups filter by age_band and/or sex")
-    sexes = [g.get("sex") for g in groups] if groups else [spec.get("sex")]
-    if any(s is not None and s not in WIRE_SEXES for s in sexes):
+                              hint="groups filter by age_band, sex and/or ethnicity")
+    groups = groups or [spec]
+    if any(g.get("sex") is not None and g["sex"] not in WIRE_SEXES for g in groups):
         raise ValidationError(f"sex must be {' or '.join(WIRE_SEXES)}", code="BAD_SPEC", hint="null or absent = both")
+    if any(g.get("ethnicity") is not None and g["ethnicity"] not in WIRE_ETHNICITIES for g in groups):
+        raise ValidationError(f"ethnicity must be one of {', '.join(WIRE_ETHNICITIES)}", code="BAD_SPEC",
+                              hint="null or absent = every group pooled")
     return op
 
 
@@ -127,7 +134,7 @@ def analyze_release(release: dict[str, Any], spec: dict[str, Any]) -> dict[str, 
             raise ValidationError("the cells have no spread to test against", code="DEGENERATE_CELLS")
         df = (va + vb) ** 2 / (va * va / (na - 1) + vb * vb / (nb - 1))
         return _result(ma - mb, math.sqrt(va + vb), na + nb, df)
-    cells = [c for c in cells if _matches(c, {"sex": spec.get("sex")})]
+    cells = [c for c in cells if _matches(c, {k: spec.get(k) for k in TREND_KEYS})]
     bands = sorted({c["age_band"] for c in cells}, key=_midpoint)
     if len(bands) < 3:
         raise ValidationError(f"an age trend needs at least 3 age bands, the release has {len(bands)}", code="TOO_FEW_CELLS")

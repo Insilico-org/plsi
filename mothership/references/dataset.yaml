@@ -13,7 +13,122 @@ hagr_longevitymap: {title: LongevityMap - human genetic variants associated with
 
 clockbase: {title: ClockBase - aging clock predictions across public omics datasets, url: 'https://www.clockbase.org/'}
 
-open_genes: {title: 'Open Genes - genes associated with aging and lifespan, with intervention evidence', url: 'https://open-genes.com/'}
+open_targets:
+  title: Open Targets Platform - target-disease associations, tractability, safety and clinical candidates
+  url: https://platform.opentargets.org/
+  api_base: https://api.platform.opentargets.org/api/v4/graphql
+  cite_url: https://platform.opentargets.org/target/{id}
+  licence: CC0 1.0 for the Platform data; individual sources keep their own terms
+  notes: >-
+    One GraphQL endpoint, no key. POST {query, variables}; a reply with a top-level `errors` array is a failure even
+    with HTTP 200. `search(queryString, entityNames)` resolves a disease name to an EFO/MONDO id and a gene symbol
+    to an Ensembl id; `disease.associatedTargets` ranks targets with a per-datatype breakdown (the datatypes in
+    targets.opentargets.TARGET_DATATYPES); `target` carries tractability buckets, safety liabilities, genetic
+    constraint, chemical probes, mouse phenotypes and `drugAndClinicalCandidates` with their ClinicalTrials.gov
+    records. A crowded target returns megabytes, so callers cap rows rather than paging.
+
+mygene:
+  title: MyGene.info - gene identifier resolution, aliases and cross-references
+  url: https://mygene.info/
+  api_base: https://mygene.info/v3
+  cite_url: https://www.ncbi.nlm.nih.gov/gene/{id}
+  licence: Apache 2.0; underlying annotations keep their sources' terms
+  notes: >-
+    No key. GET /query?q=Q&species=human&fields=F&size=N -> {total, hits:[...]}; `q=symbol:EGFR` is the exact search
+    and a bare term also matches aliases and names, which is what resolves `KLOTHO` to `KL` and `HER1` to `EGFR`.
+    GET /gene/{entrez} is the full record. Fields worth asking for: symbol, name, alias, summary, entrezgene,
+    ensembl.gene, uniprot.Swiss-Prot, HGNC, type_of_gene. Zero hits answer 200 with total 0, never an error.
+    Advised limit ~1000 requests/hour per IP without a key.
+
+rcsb_pdb:
+  title: RCSB Protein Data Bank - experimental structures
+  url: https://www.rcsb.org/
+  api_base: https://search.rcsb.org/rcsbsearch/v2
+  cite_url: https://www.rcsb.org/structure/{id}
+  licence: CC0 1.0
+  notes: >-
+    No key. POST /query with a JSON query object -> {total_count, result_set:[{identifier}]}; a search with no hits
+    answers **HTTP 204 with an empty body**, which a JSON parser must be told about rather than discover. Search
+    structures for a protein by UniProt accession on
+    rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession, paired with an
+    exact match on database_name = UniProt. Entry detail comes from rcsb_data (below), not from here.
+
+rcsb_data:
+  title: RCSB PDB data API - entry detail, resolution and bound ligands
+  url: https://data.rcsb.org/
+  api_base: https://data.rcsb.org/graphql
+  cite_url: https://www.rcsb.org/structure/{id}
+  licence: CC0 1.0
+  notes: >-
+    No key. POST {query} to the GraphQL endpoint; `entries(entry_ids:[...])` takes many ids in one call, which is how
+    a set of structures is read without one request each. `rcsb_entry_info.resolution_combined` and
+    `experimental_method` describe the experiment; `nonpolymer_entities.nonpolymer_comp.chem_comp` names every bound
+    non-polymer component, which is what decides apo from holo - crystallisation additives (glycerol, sulfate,
+    ethanediol, ions) are components too, so a ligand state read off the presence of any component is wrong.
+
+alphafold:
+  title: AlphaFold Protein Structure Database (EMBL-EBI)
+  url: https://alphafold.ebi.ac.uk/
+  api_base: https://alphafold.ebi.ac.uk/api
+  cite_url: https://alphafold.ebi.ac.uk/entry/{id}
+  licence: CC-BY 4.0
+  notes: >-
+    No key. GET /prediction/{uniprot accession} -> a list of models with `globalMetricValue` (mean pLDDT, 0-100),
+    `latestVersion` and file URLs. An unknown accession answers HTTP 400. A prediction is a model, never an
+    experiment: it says where a fold is confident, not that a pocket exists.
+
+chembl:
+  title: ChEMBL - bioactivity data for drug-like molecules (EMBL-EBI)
+  url: https://www.ebi.ac.uk/chembl/
+  api_base: https://www.ebi.ac.uk/chembl/api/data
+  cite_url: https://www.ebi.ac.uk/chembl/compound_report_card/{id}/
+  licence: CC-BY-SA 3.0
+  notes: >-
+    No key. GET /target.json?target_components__accession=<UniProt>&limit=N resolves a protein to its ChEMBL targets
+    (prefer target_type SINGLE PROTEIN over PROTEIN FAMILY, which pools paralogues). GET
+    /activity.json?target_chembl_id=T&standard_type__in=IC50,Ki,Kd&pchembl_value__gte=P&order_by=-pchembl_value
+    gives measured potencies; `page_meta.total_count` is the count without paging through it. pChEMBL is
+    -log10(molar activity), so 7 is 100 nM and 9 is 1 nM. Zero hits answer 200 with total_count 0.
+
+pharos:
+  title: Pharos - target development levels from the NIH Illuminating the Druggable Genome programme
+  url: https://pharos.nih.gov/
+  api_base: https://pharos-api.ncats.io/graphql
+  cite_url: https://pharos.nih.gov/targets/{id}
+  licence: public domain (NIH NCATS); underlying sources keep their own terms
+  notes: >-
+    No key. POST {query, variables} to the GraphQL endpoint. `target(q: {sym: "EGFR"})` gives `tdl` - the target
+    development level, one of Tclin, Tchem, Tbio, Tdark - plus `fam`, a `novelty` score (higher = less published)
+    and a description. An unrecognised symbol answers `{"data": {"target": null}}` with NO error, so absence is read
+    off the null. Pharos and ChEMBL can disagree about chemistry (different thresholds): both are reported, never
+    reconciled.
+
+uniprot:
+  title: UniProt - protein sequence, domains, binding sites and active sites
+  url: https://www.uniprot.org/
+  api_base: https://rest.uniprot.org/uniprotkb
+  cite_url: https://www.uniprot.org/uniprotkb/{id}
+  licence: CC-BY 4.0
+  notes: >-
+    No key. GET /{accession}?fields=F&format=json. Ask for `ft_domain,ft_binding,ft_act_site,ft_transmem,ft_signal`
+    to get annotated ranges with start/end positions - the residue numbers a target report otherwise states from
+    memory. An unknown accession answers HTTP 400, not 404. Use the reviewed (Swiss-Prot) accession Open Targets
+    returns under `proteinIds`, not a TrEMBL one.
+    **`plsi doctor --online` reports this one `unreachable` and the API is fine.** A bare GET on the api_base
+    301-redirects to `http://rest.uniprot.org:8080/uniprotkb/` - an https-to-http downgrade, which plsi.net
+    refuses by design. Every real path (`/{accession}`, `/search?query=`) answers 200 with no redirect, so the
+    client works; only the reachability check, which fetches the base itself, trips over it.
+
+open_genes:
+  title: Open Genes - genes associated with aging and lifespan, with intervention evidence
+  url: https://open-genes.com/
+  api_base: https://open-genes.com/api
+  licence: MPL-2.0 for the Open Genes code (github.com/open-genes); no separate data licence is stated - check before redistributing
+  notes: >-
+    No key. GET /gene/{symbol} returns the curated record: `confidenceLevel`, `commentCause` (why the gene is called
+    aging-related), `agingMechanisms`, and `researches` - lifespan-extension experiments, longevity associations and
+    age-related expression changes, most carrying a `doi` or `pmid`. Animal and association data: evidence about
+    aging biology, never evidence of a human effect. 404 = the gene is not curated, which is not an error.
 
 synergyage: {title: SynergyAge - genetic interventions and epistasis affecting lifespan in model organisms, url: 'https://www.synergyage.info/'}
 

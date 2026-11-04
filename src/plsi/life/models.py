@@ -9,7 +9,10 @@ from pydantic import Field, model_validator
 from plsi.events import register_payload
 from plsi.life.deid import AGE_GROUP_90, PROFILE
 from plsi.models import Code, EventId, Model, Sha256Hex, UtcTime
-from plsi.vocab import ClinicalStatus, Comparator, EventType, ObservationKind, OriginKind, Relation, Sex, TimeBasis
+from plsi.vocab import ClinicalStatus, Comparator, Ethnicity, EventType, LabFlag, ObservationKind, OriginKind, Relation, Sex, TimeBasis
+
+
+DOCUMENT_RE = r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
 
 
 class Origin(Model):
@@ -19,6 +22,7 @@ class Origin(Model):
     file_sha256: Sha256Hex | None = None
     page: int | None = Field(default=None, ge=1)
     record_id: str | None = Field(default=None, max_length=128)
+    document: Annotated[str, Field(pattern=DOCUMENT_RE)] | None = None  # one source document across its versions (plsi revise), e.g. its Drive file id
 
 
 ORIGINAL_TEXT_MAX = 200
@@ -42,6 +46,9 @@ class ObservationInput(Model):
     dose_quantity: float | None = Field(default=None, gt=0)  # structured dose, with dose_unit (UCUM); may be shared
     dose_unit: str | None = Field(default=None, min_length=1, max_length=64)
     fasting: bool | None = None
+    ref_low: float | None = None  # the reference range printed on this report, in `unit`; never leaves
+    ref_high: float | None = None
+    flag: LabFlag | None = None  # the lab's own mark on this result; never leaves
     repeat: bool = False
     origin: Origin
 
@@ -54,6 +61,8 @@ class ObservationInput(Model):
             raise ValueError("value_comparator requires value_quantity")
         if (self.dose_quantity is None) != (self.dose_unit is None):
             raise ValueError("dose_quantity and dose_unit go together")
+        if self.ref_low is not None and self.ref_high is not None and self.ref_low > self.ref_high:
+            raise ValueError("ref_low is above ref_high")
         if self.effective_end is not None and self.effective_end < self.effective_at:
             raise ValueError("effective_end is before effective_at")
         return self
@@ -82,6 +91,7 @@ class Subject(Model):
     sex: Sex = Sex.UNKNOWN
     relation: Relation | None = None  # to the user; None when not given
     country: Annotated[str, Field(pattern=r"^[A-Z]{3}$")] | None = None  # ISO 3166 alpha-3 of residence: life tables, base rates
+    ethnicity: Ethnicity | None = None
     deid_profile: Literal[PROFILE] = PROFILE
     created_at: UtcTime
 

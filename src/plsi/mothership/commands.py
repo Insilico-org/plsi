@@ -1,0 +1,53 @@
+"""The `plsi mothership` command table: enrollment, packages, research notes, the relay and professional releases."""
+
+from __future__ import annotations
+
+from plsi.cmdspec import FILE, HASH, INSTANCE, SENDER, A, Cmd, V
+from plsi.vocab import ContributionKind
+
+COMMANDS: dict[str, Cmd] = {
+    "mothership join": Cmd("plsi.mothership.enroll:join",
+                           (INSTANCE, A("--kind", action="append", required=True, choices=V(ContributionKind)),
+                            A("--consent-version", required=True, help="version marker of mothership/consent.md shown to the user"),
+                            A("--code", help="one-time enrollment code from the relay's /join page (first join only)")),
+                           "record the user's consent to share the chosen kinds", ("plsi mothership pack --instance {instance}",)),
+    "mothership status": Cmd("plsi.mothership.enroll:status", (INSTANCE,), "enrollment, consent, address and what was sent"),
+    "mothership pack": Cmd("plsi.mothership.pack:pack", (INSTANCE, A("--out", help="output file")),
+                           "build the deidentified package (gate-checked, not sent)"),
+    "mothership check": Cmd("plsi.mothership.send:check", (FILE, SENDER, A("--hash", dest="expected", help="package_hash it must have")), "gate-check a file before sending"),
+    "mothership send": Cmd("plsi.mothership.send:send", (FILE, HASH, SENDER),
+                           "gate-check, POST to the Mothership relay with the sender's token and log"),
+    "mothership receipt": Cmd("plsi.mothership.send:receipt",
+                              (SENDER, A("--wait", type=int, help="seconds to keep asking while pending (max 300)")),
+                              "fetch the Mother's receipts for sent messages from the relay (network)"),
+    "mothership note": Cmd("plsi.mothership.research:note",
+                           (INSTANCE, A("--file", required=True, help="Explorer contribution.json (research_note | registry_update)")),
+                           "build a research note or registry update (gate-checked, not sent)",
+                           ("plsi mothership send --instance {instance} --file <file> --hash <package_hash> (registry update)",
+                            "plsi mothership email --file <file> --hash <package_hash> (research note)")),
+    "mothership email": Cmd("plsi.mothership.research:email", (FILE, HASH),
+                            "draft the email for a research note: to, subject, body (gate-checked, not sent)"),
+    "mothership whoami": Cmd("plsi.mothership.professional:whoami", (), "role, scopes and expiry of the professional token"),
+    "mothership catalog": Cmd("plsi.mothership.public:catalog", (), "the Mothership's public catalog of pooled data (network)"),
+    "mothership release": Cmd("plsi.mothership.public:release",
+                              (A("--version", required=True, help="release version or latest"), A("--out", help="output file")),
+                              "download a data release (professional token; network)",
+                              ("plsi mothership analyze --release <file> --spec spec.json",)),
+    "mothership findings": Cmd("plsi.mothership.public:findings", (), "the findings ledger (network)"),
+    "mothership analyze": Cmd("plsi.mothership.stats:analyze",
+                              (A("--release", required=True, help="downloaded release JSON"),
+                               A("--spec", required=True, help="analysis spec JSON (compare_groups | age_trend)")),
+                              "run an analysis on a data release (local; writes nothing)"),
+    "mothership prereg": Cmd("plsi.mothership.professional:prereg", (A("--spec", required=True, help="preregistration JSON"),),
+                             "preregister a hypothesis and its analysis (gate-checked, not sent)",
+                             ("plsi mothership send --file <file>",)),
+    "mothership finding": Cmd("plsi.mothership.professional:finding",
+                              (A("--prereg", required=True, help="the preregistration message file"),
+                               A("--release", required=True, help="downloaded release JSON"),
+                               A("--summary", required=True, help="plain-language summary of the result")),
+                              "run the preregistered analysis and build the finding (gate-checked, not sent)",
+                              ("plsi mothership send --file <file>",)),
+    "mothership leave": Cmd("plsi.mothership.enroll:leave", (INSTANCE, A("--delete", action="store_true", help="also ask to delete everything"),
+                                                              A("--anyway", action="store_true", help="delete while a receipt is pending (user agreed)")),
+                            "stop sharing; writes the withdrawal file for plsi mothership send"),
+}

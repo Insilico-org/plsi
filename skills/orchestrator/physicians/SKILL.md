@@ -86,6 +86,9 @@ message to a patient Liaison (`liaison/message`), as in `shared/team` Flows.
      needs them, the rest stays in the attached summary;
    - attachments: the summary's PDF copy and PNG charts, never HTML (mail filters often treat an HTML attachment as
      spam); no links. In chat the user sees the HTML summary;
+   - never the user's own imaging (MRI, ultrasound, X-ray, CT or DICOM files): when they want to share it, say in one
+     line "Imaging is best sent through your clinic's own portal or as your doctor asks; the files often carry your
+     name and hospital inside." Findings from an imaging report that Data Processor recorded can be in the summary;
    - the first message to a new address: tell the user in one line to let the doctor know it comes from their Grok
      e-mail and to mark it "Not spam" if it lands there.
 9. **Doctor's replies.** An e-mail wakes PLSI only through a routine with an e-mail trigger; never poll the inbox on

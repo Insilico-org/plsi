@@ -25,7 +25,8 @@ Handing off costs a bot turn and minutes (`shared/team` rule 8); these answers c
 | A key the user already has under another name (setup, or a worker names it) | `plsi keys scan`, then `plsi keys map --name <VAR> --from <their name>` | names only; map only a clear match, ask in one card when unsure |
 | Which sources PLSI trusts | `plsi refs list` | titles and links |
 | How PLSI works, what it can do | `shared/team` (the team table and Flows) | 3-5 bullets; consent only for recording, plans, cautions, sending data off and deleting (persona.md) |
-| What have I researched | the first line and grade of each `<PLSI_HOME>/work/*/research-note.md` | question, date, how sure; the note attached on request |
+| How long setup took | `plsi feedback timeline` | minutes per stage; a full report or sending it is `orchestrator/feedback` |
+| What have I researched | `plsi research notes` (title, grade, status, `updated`) | question, date, how sure; the note attached on request |
 | Show my dashboard | a `request` to Visualizer (`visualizer/dashboard`) on the last results | the picture and the HTML report attached |
 
 ```bash
@@ -62,7 +63,7 @@ Route by the bot that owns the work (`shared/team`); anything that needs consent
 | A trial to join | Trial Scout (`scout/trials`) |
 | A pharma or biotech company or its stock: potential, pipeline, patents, finances, "what will its share price do" | Pharma Analyst (`pharma/company`, with `pharma/outlook` for a horizon, in one request); never answered by PLSI's own search |
 | Track something PLSI does not track yet, or a bot's map gap | Data Processor (`processor/add-map`), then the bot's work again |
-| A new score, importer or local model | Engineer (`engineer/extend`, `engineer/l-llm-deploy-guide`); a new score from a paper: Data Processor (`processor/add-score`) |
+| A new score or importer | Engineer (`engineer/extend`); a new score from a paper: Data Processor (`processor/add-score`) |
 | Show X over time, a chart | Visualizer (`visualizer/charts`) |
 | Role physician (`plsi role show`): patients, a patient's visit, a message to a patient | the Clinic flows in `shared/team` (Panel review, Visit prep, Doctor-patient message) |
 | Role physician: what the evidence says on X; courses, CME | Clinical Evidence (`clinev/review`); Liaison (`liaison/education`) |

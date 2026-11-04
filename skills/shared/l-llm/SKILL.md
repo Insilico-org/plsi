@@ -1,6 +1,6 @@
 ---
 name: l-llm
-description: Read before asking Longevity-LLM if you are PLSI or a PLSI bot whose commands include `oracle l-llm` (Nostradamus, Citizen Researcher, Target Hunter, Engineer) - the two routes (the API through `plsi oracle l-llm`, and Insilico's playground, run only by PLSI in its browser), which asks each route may carry, the prompt layout, the run budget and how the answer is kept.
+description: Read before asking Longevity-LLM if you are PLSI or a PLSI bot that asks it (Nostradamus, Citizen Researcher, Target Hunter) - Insilico's playground, run only by PLSI in its browser, topic asks only, the prompt layout, the run budget and how the answer is kept.
 ---
 
 # PLSI Longevity-LLM
@@ -14,9 +14,7 @@ L-LLM was trained on aging data (methylation, gene expression, plasma proteomics
 results, clinical cohorts) and reads structured data better than it recalls the literature. Ask it only for:
 
 - **Targets and genes** (Citizen Researcher, Target Hunter): candidate aging targets per hallmark, whether a gene's
-  expression rises or falls with age, which gene perturbation extends lifespan more. Topic asks: either route.
-- **Omics profiles** (methylation, proteomics, gene expression) as a second opinion after PLSI's own clocks: the
-  user's data, so the API route only, after oracle consent.
+  expression rises or falls with age, which gene perturbation extends lifespan more.
 
 Not for general explanations (the literature and your own knowledge recall better), trial results, study findings
 or papers (it states invented ones with confidence), clinical numbers, mortality, risk or a person's exact age
@@ -25,8 +23,7 @@ or papers (it states invented ones with confidence), clinical numbers, mortality
 ## System prompt
 
 The grounding prompt from the model card (`huggingface.co/insilicomedicine/longevity-llm`, Prompting), which stops
-most confident inventions about identifiers the model does not know. The API route sends it with every ask
-(`plsi oracle l-llm`, with the card's settings); on the playground it goes in the page's system prompt field, or
+most confident inventions about identifiers the model does not know. It goes in the page's system prompt field, or
 as the first line of the task box when the page has none:
 
 ```text
@@ -35,17 +32,13 @@ gene symbol, CpG identifier, or finding is not one you recognise from the litera
 speculate about its function. Never invent effect sizes.
 ```
 
-## Routes
+## Route
 
-1. **API** (`plsi oracle l-llm --file ask.json`): when `plsi keys status` shows `PLSI_LLLM_BASE_URL` set, or a local
-   or server deployment (`engineer/l-llm-deploy-guide`). The only route for an ask with personal data (`instance`
-   and `map_id`): `plsi` builds that text from the saved state, after the user's oracle consent and Data Controller's
-   clearance (`controller/egress`).
-2. **Playground** (`plsi refs show longevity_llm_playground`): Insilico's web page, when no API is set. **Topic asks
-   only**: the question and the background it needs, never a value, date, plan or anything else from the user's
-   record, because nothing on this route passes through `plsi`. **Only PLSI runs it**: the browser session is
-   PLSI's, and workers do not share it. A worker writes the cleared ask to `<PLSI_HOME>/work/<thread>/ask.json` and
-   puts "L-LLM playground run: <path>" in its step's ONE `question`; PLSI runs it and answers with the reply file.
+Insilico's playground (`plsi refs show longevity_llm_playground`), a web page. **Topic asks only**: the question and
+the background it needs, never a value, date, plan or anything else from the user's record. **Only PLSI runs it**:
+the browser session is PLSI's, and workers do not share it. A worker writes the cleared ask to
+`<PLSI_HOME>/work/<thread>/ask.json` and puts "L-LLM playground run: <path>" in its step's ONE `question`; PLSI runs
+it and answers with the reply file.
 
 ## Playground steps
 
@@ -79,6 +72,6 @@ speculate about its function. Never invent effect sizes.
 
 - The playground allows 400 runs per account (the count on the page). At most 3 runs per request unless the request
   names more; write each run in the thread's ledger.
-- At 350 runs or more, PLSI tells the user once; at the limit, the playground route is off.
+- At 350 runs or more, PLSI tells the user once; at the limit, L-LLM is off.
 - One retry for a page that fails to load; then a `result` naming the failure. Never use the page's other models or
   forms.

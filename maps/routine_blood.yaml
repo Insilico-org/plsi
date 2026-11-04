@@ -3,7 +3,7 @@ kind: plsi_map
 schema_version: 1
 id: routine_blood
 title: Routine blood tests
-map_version: 0.1.0
+map_version: 0.2.0
 claim_level: designed
 summary: Routine blood results no other map reads - hemoglobin, platelets, liver enzymes, lab-reported eGFR, uric acid, TSH, vitamin D, vitamin B12, ferritin and homocysteine.
 tags: [blood, liver, kidney, thyroid, vitamins, iron]
@@ -22,6 +22,9 @@ coordinates:
     reject_codes:
     - {system: loinc, code: 721-1, display: 'Free Hemoglobin [Mass/volume] in Plasma'}
     - {system: loinc, code: 55782-7, display: 'Hemoglobin [Mass/volume] in Blood by Oximetry'}
+  ranges:
+  - {low: 13, sex: M, source: {kind: pmid, id: '38493792'}}
+  - {low: 12, sex: F, source: {kind: pmid, id: '38493792'}}
   correspondence_type: terminology
 - id: platelets
   label: Platelet count

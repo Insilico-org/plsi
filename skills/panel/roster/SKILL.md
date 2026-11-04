@@ -27,11 +27,21 @@ chose to send the physician their data.
    The panel is `<PLSI_HOME>/work/panel/roster.json` alone, one row per patient (each patient's instance has relation
    `other`, but an `other` instance with no row, such as a friend the physician tracks, is not a patient):
    `{"label": "patient-07", "status": "active|paused|closed", "shared": ["labs", "plans"], "since": "2026-10",
-   "last_update": "2026-10"}`. Labels are neutral (`patient-07`), never names, initials or record numbers; the
-   physician keeps the link to the person in their own records.
+   "last_update": "2026-10"}`, plus `"inbox"` and `"shared_folder"` Drive folder ids once `panel/clinic` set them
+   up (`"shared"` stays the list of what the patient shared), `"patient_access"` (`none` until the patient is invited,
+   then `shared`) with `"patient_id"` (the invited person's Drive permission id, never their address), and
+   `"reviewed"` (the as-of date of the last report the patient received); `plsi clinic` commands write these.
+   Labels are neutral (`patient-07`), never names, initials or record numbers: the patient sees theirs in their
+   Drive folders. The optional `"handle"` is the physician's own name for the patient, shown to the physician as
+   "JD (patient-07)": a first name, initials or nickname, at most 40 characters, never a full name, record number or
+   birth date, and never another patient's handle or label (`plsi clinic check` refuses a roster where two
+   patients could be confused, ignoring case, spaces and dots). It stays in the roster and the physician's chat:
+   never in a Drive folder name, a report, a message,
+   a handoff to another bot or anything that leaves.
 
-2. **New patient.** Never open the shared files. Put in ONE `question`: the label to use, sex and birth year (or
-   none), and the physician's confirmation that the patient agreed to share exactly what was sent. After the
+2. **New patient.** Never open the shared files. Put in ONE `question`: the label to use, a handle if the physician
+   wants one (with three random two-word suggestions such as "amber fox"), sex and birth year (or none), and the
+   physician's confirmation that the patient agreed to share exactly what was sent. After the
    `answer`, return a `result` with the work for Data Processor (via PLSI): `init` with `--relation other` for the
    new label, then `processor/intake` with the file paths. Add the row once Data Processor's `result` arrives.
 

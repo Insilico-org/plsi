@@ -14,12 +14,12 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _WINDOWS_RESERVED = {"con", "prn", "aux", "nul"} | {f"{p}{i}" for p in ("com", "lpt") for i in range(1, 10)}
 
 
-def _reserved(name: str) -> bool:
+def is_reserved(name: str) -> bool:
     return name.split(".")[0].lower() in _WINDOWS_RESERVED
 
 
 def is_valid_id(value: str) -> bool:
-    return bool(ID_RE.match(value)) and not _reserved(value)
+    return bool(ID_RE.match(value)) and not is_reserved(value)
 
 
 def validate_id(value: str, what: str = "id") -> str:
@@ -53,7 +53,7 @@ def safe_join(base: Path | str, *parts: str) -> Path:
         segs = re.split(r"[\\/]", p)
         if ".." in segs:
             raise ValidationError(f"unsafe path component: {p!r}")
-        if any(_reserved(s) for s in segs if s):
+        if any(is_reserved(s) for s in segs if s):
             raise ValidationError(f"reserved name in path: {p!r}")
     joined = base_path.joinpath(*parts).resolve()
     if joined != base_path and base_path not in joined.parents:

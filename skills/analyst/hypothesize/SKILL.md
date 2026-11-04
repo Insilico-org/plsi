@@ -29,12 +29,14 @@ loop); `analyst/run` preregisters and runs the picked one.
 
 2. **Pick what is testable.** Only coordinates whose `contributors` is a number (not `"<10"`), with months recent
    enough; the release keeps only cells of at least `min_cell` contributors, so groups must be broad (an age band,
-   a sex, both sexes pooled).
+   a sex, both sexes pooled). Cells are split by ethnicity group too (`unspecified` for contributors who gave none);
+   a group that names no ethnicity pools them all.
 
 3. **Propose 1-3 hypotheses.** Each with:
    - the hypothesis in one sentence and why it matters (a parent finding, a landscape gap, a target);
    - the exact analysis spec, one of `{"op": "compare_groups", "map_id", "coordinate", "group_a": {"age_band",
-     "sex"}, "group_b": {...}}` or `{"op": "age_trend", "map_id", "coordinate", "sex"}` (at least 3 age bands);
+     "sex", "ethnicity"}, "group_b": {...}}` or `{"op": "age_trend", "map_id", "coordinate", "sex", "ethnicity"}` (at
+     least 3 age bands; every group key optional);
    - the outcome, `alpha`, `direction` (`positive`, `negative` or `two_sided`) and the `parents` (finding ids);
    - how many earlier preregistrations in the ledger tested the same coordinate (the multiple-testing load).
 

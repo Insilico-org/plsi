@@ -20,4 +20,33 @@ longevity_mothership_research:
     Research notes go here and nowhere else: plsi mothership email drafts the email (subject, the note in plain words,
     the message in one plsi block) and the user's own Grok email sends it to `email`, the Mother's Grok address with
     the +research postfix. The sender's address signs the note; the Mother replies to it with a receipt and, after
-    review, the decision. Set `email` when the Mother bot exists.
+    review, the decision.
+
+longevity_mothership_drive:
+  title: Longevity Mothership Drive reader (research note files, WIRE §7)
+  url: https://plsi-mothership-relay.pages.dev
+  email: mothership-mother@plsi-mothership-au.iam.gserviceaccount.com
+  notes: >-
+    The Mother's service account. A research note's data file too large for email stays in the user's Google Drive,
+    in a folder shared with this address as Viewer; the note names the file's Drive id and sha256, and the Mother
+    reads it only when its bytes match; a copy is kept only when a steward accepts the note with one.
+
+longevity_mothership_feedback:
+  title: Longevity Mothership feedback intake (email, WIRE §8)
+  url: https://plsi-mothership-relay.pages.dev
+  email: longevity-mothership+feedback@mail.grokbot.com
+  notes: >-
+    Usage reports for the PLSI team go here: plsi feedback report drafts the email (subject, the report in plain words,
+    the message in one plsi block) and the user's own Grok email sends it to `email`, the Mother's Grok address with
+    the +feedback postfix. No join is needed. The Mother replies with a receipt.
+
+google_drive:
+  title: Google Drive API v3 (the physician's clinic shared drive, through a service account)
+  url: https://developers.google.com/workspace/drive/api/guides/about-shareddrives
+  api_base: https://www.googleapis.com
+  key_env: [PLSI_DRIVE_CREDENTIALS, PLSI_CLINIC_DRIVE]
+  notes: >-
+    plsi clinic setup, sync and publish (skill panel/clinic). Service accounts have no storage of their own, so the
+    folders live in a Google Workspace shared drive where the account is a Manager. Sharing a folder with a patient's
+    personal Google account needs the Workspace settings "Allow users outside your organization to access files in
+    shared drives" and "Allow people who aren't shared drive members to be added to files".

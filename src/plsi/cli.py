@@ -1,7 +1,7 @@
 """`plsi` CLI: one COMMANDS table (plsi.commands), one JSON envelope on stdout, fixed exit codes.
 
 Each command names ONE library function ("module:function"); it is called with the parsed arguments whose names
-match its parameters. Exit codes: 0 ok, 1 refused (gate/validation/not found), 2 usage, 3 environment.
+match its parameters; an absent flag passes nothing, so the function's own default applies. Exit codes: 0 ok, 1 refused (gate/validation/not found), 2 usage, 3 environment.
 """
 
 from __future__ import annotations
@@ -22,7 +22,8 @@ from typing import Any
 import pydantic
 
 from plsi import __version__, errors, keys
-from plsi.commands import COMMANDS, Cmd
+from plsi.cmdspec import Cmd
+from plsi.commands import COMMANDS
 from plsi.models import Model, validation_error
 
 
@@ -65,7 +66,7 @@ def _resolve(target: str) -> Callable[..., Any]:
 def _call(cmd: Cmd, ns: argparse.Namespace) -> Any:
     func = _resolve(cmd.target)
     params = inspect.signature(func).parameters
-    return func(**{k: getattr(ns, k) for k in params if hasattr(ns, k)})
+    return func(**{k: getattr(ns, k) for k in params if getattr(ns, k, None) is not None})
 
 
 def _next(cmd: Cmd, ns: argparse.Namespace) -> list[str]:

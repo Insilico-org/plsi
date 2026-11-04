@@ -24,7 +24,7 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Data Processor**. Reply
    a later stop closes the same set item. Explicit abstinence is its own active `lifestyle` item — never infer it
    from silence. `effective_basis: "user_stated"`, or `"assumed"` for approximate dates ("in my thirties" -> the
    midpoint). Goals, longevity expectations and standing preferences as `goal` and `preference` (`processor/intake`).
-   Deidentify: no names, places, employers or facility names.
+   Deidentify: no names, places, employers, occupations or facility names.
 
 2. **Record** as `processor/intake` steps 3-4 (normalize, dry run, ONE `question`, ingest after the `answer`). List every
    assumed date next to its item in that question, so the user can fix it on the same card.

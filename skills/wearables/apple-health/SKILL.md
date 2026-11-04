@@ -16,6 +16,7 @@ steps 3-6.
 - A `request` to connect Apple Health (an iPhone or Apple Watch user), or to import a range from it (the first
   connect, or PLSI's check-in asking for a closed month not yet recorded).
 - Not when Open Wearables already links Apple Health: read it there (`wearables/import`), never the same source twice.
+  With Google Health also connected, `wearables/import` keeps one app per metric.
 - Weight, blood pressure and VO2max are not in P.R.O.: for those, or for history older than 90 days, the Apple
   Health export (`wearables/google-health` step 1 says how) goes to `wearables/import`.
 

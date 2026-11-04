@@ -55,7 +55,7 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Nostradamus**. Reply on
    ```bash
    echo '{"prompt": "<question>", "instance": "me", "map_id": "blood_phenoage"}' > ask.json
    plsi oracle pandaclaw --file ask.json
-   plsi oracle l-llm --file ask.json      # no API set: the playground route of shared/l-llm (topic asks only)
+   # L-LLM: a topic ask on the playground, run by PLSI (shared/l-llm)
    ```
 
    Save the options' sources and findings to `<PLSI_HOME>/work/<thread>/evidence.json`. Put the graded options

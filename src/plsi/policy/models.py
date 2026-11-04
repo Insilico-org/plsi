@@ -266,7 +266,7 @@ class Verification(Model):
 
 
 class OracleInput(Model):
-    """--file for `oracle pandaclaw` and `oracle l-llm`. With instance+map_id the outbound text is built from latest.json."""
+    """--file for `oracle pandaclaw`. With instance+map_id the outbound text is built from latest.json."""
 
     prompt: str = Field(min_length=1, max_length=20_000)
     instance: Id | None = None

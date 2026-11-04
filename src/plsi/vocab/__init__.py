@@ -1,9 +1,17 @@
-"""Every enum in PLSI. Nothing is enumerated inline elsewhere."""
+"""Every enum in PLSI, nothing enumerated inline elsewhere: the shared ones here, research and target
+discovery in `vocab.research` and `vocab.targets`."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from enum import StrEnum
+from typing import Any
+
+
+def fold(text: Any) -> str:
+    """Lower-case letters and digits only, so `ABC-123`, `abc 123` and `abc123` compare equal."""
+    return re.sub(r"[^a-z0-9]+", "", str(text or "").lower())
 
 
 class EvidenceClass(StrEnum):
@@ -59,6 +67,7 @@ class BotRole(StrEnum):
     SLEEP = "sleep"
     BIOHACKER = "biohacker"
     RESEARCHER = "researcher"
+    AUTOPILOT = "autopilot"  # runs the research loop unattended
     EXPLORER = "explorer"
     NAVIGATOR = "navigator"
     SCOUT = "scout"
@@ -156,6 +165,48 @@ class Sex(StrEnum):
     F = "F"
     X = "X"
     UNKNOWN = "unknown"
+
+
+class NoteTopic(StrEnum):
+    TARGET = "target"
+    REPURPOSING = "repurposing"
+    METHOD = "method"
+    HALLMARK = "hallmark"
+
+
+class Ethnicity(StrEnum):
+    EUROPEAN = "european"
+    AFRICAN = "african"
+    MIDDLE_EASTERN = "middle_eastern"
+    SOUTH_ASIAN = "south_asian"
+    EAST_ASIAN = "east_asian"
+    SOUTHEAST_ASIAN = "southeast_asian"
+    LATIN_AMERICAN = "latin_american"
+    OTHER = "other"
+
+
+class LabFlag(StrEnum):
+    """The lab's own mark on a result, as printed (H, L, HH/LL or critical, A or *)."""
+
+    HIGH = "high"
+    LOW = "low"
+    CRITICAL = "critical"
+    ABNORMAL = "abnormal"
+
+
+class PatientAccess(StrEnum):
+    """Whether a patient's clinic folders are shared with the patient yet (roster row `patient_access`)."""
+
+    NONE = "none"  # the physician's own folders so far: nobody else may open them
+    SHARED = "shared"  # exactly the invited patient, inbox Editor and shared folder Viewer
+
+
+class RosterStatus(StrEnum):
+    """A patient's row on the physician's panel (<PLSI_HOME>/work/panel/roster.json, skill panel/roster)."""
+
+    ACTIVE = "active"
+    PAUSED = "paused"
+    CLOSED = "closed"
 
 
 class Relation(StrEnum):
@@ -323,6 +374,13 @@ class ContributionKind(StrEnum):
     SCORES = "scores"  # calibration of scored predictions, cells of at least 5 scores
 
 
+class PandaclawCatalog(StrEnum):
+    """Which PandaClaw skill list `plsi oracle pandaclaw-skills` reads."""
+
+    RECOMMENDED = "recommended"
+    ALL = "all"
+
+
 class SearchSource(StrEnum):
     PUBMED = "pubmed"
     EUROPEPMC = "europepmc"
@@ -376,14 +434,15 @@ class ReceiptState(StrEnum):
 
 
 class MothershipMessage(StrEnum):
-    """The `kind` of a file sent to the Longevity Mothership (plsi-mothership contracts/WIRE.md)."""
+    """The `kind` of a file sent to the Longevity Mothership."""
 
     CONTRIBUTION = "plsi_contribution"  # install token
     WITHDRAWAL = "plsi_withdrawal"  # install token
-    RESEARCH_NOTE = "plsi_research_note"  # by email only (WIRE §7), never the relay
+    RESEARCH_NOTE = "plsi_research_note"  # by email only, never the relay
     REGISTRY_UPDATE = "plsi_registry_update"  # install token
     PREREGISTRATION = "plsi_preregistration"  # professional token
     FINDING = "plsi_finding"  # professional token
+    FEEDBACK = "plsi_feedback"  # by email only, never the relay
 
 
 class NoteKind(StrEnum):
@@ -406,28 +465,6 @@ class ProfessionalScope(StrEnum):
     FINDINGS_SUBMIT = "findings:submit"
 
 
-class ResearchItemKind(StrEnum):
-    """The `kind` of an item in the research graph (<PLSI_HOME>/research, `plsi research index`)."""
-
-    PROJECT = "project"  # the project's own page: its question, why it matters, what done looks like
-    QUESTION = "question"
-    HYPOTHESIS = "hypothesis"
-    EVIDENCE = "evidence"  # one source or result read, with its identifier
-    NOTE = "note"  # a research note in the researcher/research shape, the unit sent to the Mothership
-
-
-class ResearchStatus(StrEnum):
-    OPEN = "open"  # not worked on yet
-    ACTIVE = "active"
-    PARKED = "parked"  # waits for something named in the item
-    SUPPORTED = "supported"
-    REFUTED = "refuted"  # kept: a refuted idea is not tried again
-    READY = "ready"  # a note complete enough for PLSI Challenger (Note mode)
-    SUBMITTED = "submitted"  # emailed to the Mothership
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
-    RETIRE = "retire"  # duplicate, off-topic or obsolete: PLSI Memory Hole removes it (`plsi research retire`)
-
 
 class AnalysisOp(StrEnum):
     """Analyses of a Mothership data release (`plsi mothership analyze`)."""
@@ -447,3 +484,34 @@ class HypothesisDirection(StrEnum):
 class WithdrawalRequest(StrEnum):
     DELETE_ALL = "delete_all"
     STOP = "stop"
+
+
+class FeedbackStage(StrEnum):
+    """Setup stages of plsi.md, then use."""
+
+    INSTALL = "install"
+    TEAM = "team"
+    CHOICES = "choices"
+    INTERVIEW = "interview"
+    SPECIALISTS = "specialists"
+    CONNECTORS = "connectors"
+    INSTANCE = "instance"
+    ROUTINES = "routines"
+    MOTHERSHIP = "mothership"
+    WELCOME = "welcome"
+    RECORDS = "records"
+    PLANS = "plans"
+    RESEARCH = "research"
+    OTHER = "other"
+
+
+class FeedbackMark(StrEnum):
+    """A `feedback mark` that is not a stage."""
+
+    DONE = "done"  # ends the last setup stage
+
+
+class FeedbackSeverity(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"

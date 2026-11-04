@@ -146,6 +146,7 @@ class _Doc:
         name = _plain(series.get("name", ""))
         unit = _plain(series.get("unit", ""))
         pts = [(d, p.get("v")) for p in series.get("points", []) if (d := _date(p.get("t"))) is not None]
+        out = [(d, p["v"]) for p in series.get("points", []) if (d := _date(p.get("t"))) is not None and _outside(p)]
         preds = [(d, p) for p in series.get("predictions", []) if (d := _date(p.get("t"))) is not None]
         self.gap(0.08)
         if not pts and not preds:
@@ -155,8 +156,11 @@ class _Doc:
         self.lines(f"{name} ({unit})" if unit else name, SMALL_PT, bold=True)
         ax = self.fig.add_axes([(MARGIN + 0.45) / PAGE_W, (self.y - height) / PAGE_H, (self.width - 0.5) / PAGE_W,
                                 (height - 0.3) / PAGE_H])
-        if pts:
-            ax.plot([d for d, _ in pts], [v for _, v in pts], marker="o", markersize=3, linewidth=1.2, color="#1f5f8b")
+        if pts:  # v null is a gap: NaN breaks the line there
+            pts.sort(key=lambda p: p[0])
+            ax.plot([d for d, _ in pts], [float("nan") if v is None else v for _, v in pts], marker="o", markersize=3, linewidth=1.2, color="#1f5f8b")
+        if out:  # outside the range printed on that point's own report
+            ax.plot([d for d, _ in out], [v for _, v in out], "o", markersize=4, color="#c0392b")
         for d, p in preds:
             ax.errorbar([d], [p["expected"]], yerr=[[p["expected"] - p["low"]], [p["high"] - p["expected"]]],
                         fmt="s", markersize=4, color="#c0622f", capsize=3, linewidth=1)
@@ -170,6 +174,13 @@ class _Doc:
                                                label="predicted (interval)")], fontsize=6.5, frameon=False)
         self.fig.autofmt_xdate(rotation=0, ha="center")
         self.y -= height + 0.25  # room for the date labels under the axes
+
+
+def _outside(p: dict[str, Any]) -> bool:
+    """The lab's own flag first, then the range printed on that point's report."""
+    v, lo, hi = p.get("v"), p.get("ref_low"), p.get("ref_high")
+    num = (int, float)
+    return isinstance(v, num) and (bool(p.get("flag")) or (isinstance(lo, num) and v < lo) or (isinstance(hi, num) and v > hi))
 
 
 def _markdown(doc: _Doc, text: str) -> None:

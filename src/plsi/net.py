@@ -1,10 +1,12 @@
 """Plain HTTP client. The only module that opens network connections.
 
-- 10 s connect / per-read timeout, 60 s total, 10 MB response cap.
+- 10 s connect / per-read timeout, 60 s total, 10 MB response cap; `download` streams any size to a file (1 h).
 - GET retries once on a connection error or 5xx; POST is never retried.
 - Authorization is dropped on any redirect that changes scheme or host; a POST is never redirected to another scheme
   or host, and no request follows an https -> http downgrade.
-- Non-2xx -> NetworkError(status=..., body=...) so callers can treat e.g. 404 as "not found".
+- Non-2xx -> NetworkError(status=..., body=...); `get_json` and `get_text` answer None for a status listed in
+  `missing` (e.g. 404: the record does not exist).
+- `graphql`: a reply that is not JSON or carries `errors` raises NetworkError even at HTTP 200.
 - openFDA 404 NOT_FOUND counts as an empty result.
 - Error messages are redacted and carry URLs without query strings.
 """
@@ -19,17 +21,20 @@ import time
 import urllib.parse
 from dataclasses import dataclass, field
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from plsi import __version__
 from plsi.keys import redact
 from plsi.errors import NetworkError
 from plsi.files import loads_json
+from plsi.models import CAP_FIELD, sanitize_external
 
 CONNECT_TIMEOUT_S = 10.0
 TOTAL_TIMEOUT_S = 60.0
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 MAX_REDIRECTS = 5
+DOWNLOAD_TIMEOUT_S = 3600.0  # a multi-GB export over a slow link
 USER_AGENT = f"plsi/{__version__}"
 
 
@@ -95,7 +100,7 @@ def request(
     raise AssertionError("unreachable")
 
 
-def _once(method: str, url: str, headers: dict[str, str], body: bytes | None, timeout: float) -> Reply:
+def _once(method: str, url: str, headers: dict[str, str], body: bytes | None, timeout: float, sink: Path | None = None) -> Reply:
     deadline = time.monotonic() + timeout
     for _ in range(MAX_REDIRECTS + 1):
         parts = urllib.parse.urlsplit(url)
@@ -109,6 +114,9 @@ def _once(method: str, url: str, headers: dict[str, str], body: bytes | None, ti
             target = urllib.parse.urlunsplit(("", "", parts.path or "/", parts.query, ""))
             conn.request(method, target, body=body, headers=headers)
             resp = conn.getresponse()
+            if sink is not None and 200 <= resp.status < 300:
+                _stream(resp, sink, deadline, shown)
+                return Reply(resp.status, {k.lower(): v for k, v in resp.getheaders()}, "", url)
             data = _read_capped(resp, deadline, shown)
         except (OSError, http.client.HTTPException) as exc:
             raise NetworkError(redact(f"{method} {shown} failed: {exc}")) from None
@@ -157,15 +165,47 @@ def _read_capped(resp: Any, deadline: float, shown: str) -> bytes:
     return b"".join(chunks)
 
 
-def get_text(url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None) -> str:
-    return request("GET", url, params=params, headers=headers).text
+def _stream(resp: Any, sink: Path, deadline: float, shown: str) -> None:
+    """Write a 2xx body of any size to `sink` (via a temp file, renamed when complete)."""
+    tmp = sink.with_name(f".{sink.name}.part")
+    try:
+        with open(tmp, "wb") as fh:
+            while chunk := resp.read(1 << 20):
+                if time.monotonic() > deadline:
+                    raise NetworkError(f"{shown} exceeded its deadline", code="NETWORK_TIMEOUT")
+                fh.write(chunk)
+        os.replace(tmp, sink)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
-def get_json(url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None) -> Any:
-    """GET and parse JSON (NaN rejected). openFDA 404 NOT_FOUND -> {"meta":{"results":{"total":0}},"results":[]}."""
+def download(url: str, dest: Path, headers: dict[str, str] | None = None, timeout: float = DOWNLOAD_TIMEOUT_S) -> Path:
+    """GET a body of any size straight into `dest` (no size cap; same redirect rules; never retried)."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    _once("GET", url, {"User-Agent": USER_AGENT, **(headers or {})}, None, timeout, sink=dest)
+    return dest
+
+
+def get_text(url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None, *,
+             missing: tuple[int, ...] = ()) -> str | None:
+    """GET a body as text; a status in `missing` answers None."""
+    try:
+        return request("GET", url, params=params, headers=headers).text
+    except NetworkError as exc:
+        if exc.status in missing:
+            return None
+        raise
+
+
+def get_json(url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None, *,
+             missing: tuple[int, ...] = ()) -> Any:
+    """GET and parse JSON (NaN rejected); a status in `missing` answers None. openFDA 404 NOT_FOUND ->
+    {"meta":{"results":{"total":0}},"results":[]}."""
     try:
         reply = request("GET", url, params=params, headers={"Accept": "application/json", **(headers or {})})
     except NetworkError as exc:
+        if exc.status in missing:
+            return None
         if exc.status == 404 and urllib.parse.urlsplit(url).netloc == "api.fda.gov" and "NOT_FOUND" in exc.body:
             return {"meta": {"results": {"total": 0}}, "results": []}
         raise
@@ -184,3 +224,20 @@ def post_json(url: str, body: Any, headers: dict[str, str] | None = None, *, tok
     if token:
         hdrs["Authorization"] = f"Bearer {token}"
     return request("POST", url, headers=hdrs, body=data, timeout=timeout)
+
+
+def graphql(url: str, document: str, variables: dict[str, Any]) -> dict[str, Any]:
+    """One GraphQL exchange (a POST, never retried) -> its `data` ({} when absent). A reply that is not a JSON
+    object, or that carries `errors`, raises BAD_RESPONSE even at HTTP 200; the first error message is `remote`."""
+    shown = strip_query(url)
+    try:
+        body = post_json(url, {"query": document, "variables": variables}).json()
+    except ValueError:
+        raise NetworkError(f"invalid JSON from {shown}", code="BAD_RESPONSE") from None
+    if not isinstance(body, dict):
+        raise NetworkError(f"{shown} answered something other than a GraphQL reply", code="BAD_RESPONSE")
+    if errors := body.get("errors"):
+        first = str((errors[0] or {}).get("message") or "")
+        raise NetworkError(f"{shown} refused the query", code="BAD_RESPONSE",
+                           remote=sanitize_external(first, CAP_FIELD, shown).model_dump(mode="json"))
+    return body.get("data") or {}

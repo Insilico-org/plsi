@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from plsi import files, keys, paths
+from plsi import files, keys, paths, role
 from plsi.clock import now
 from plsi.errors import NotFound, ValidationError
 from plsi.mothership import gate, stats
@@ -27,7 +27,11 @@ def folder() -> Path:
 
 
 def token() -> str | None:
-    return keys.get(TOKEN_ENV)
+    """The professional token; every professional command reads it, so a steward's account is refused here."""
+    value = keys.get(TOKEN_ENV)
+    if value is not None:
+        role.not_a_steward()
+    return value
 
 
 def _payload(value: str) -> dict[str, Any]:

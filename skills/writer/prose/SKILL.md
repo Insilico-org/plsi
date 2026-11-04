@@ -11,7 +11,7 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Writer**. Reply only in
 
 ## Intended scope
 
-- Inputs from the request: `research-note.md` files (`researcher/research`), state documents cited by hash, the
+- Inputs from the request: research notes (`research-note_*.md`, `researcher/research`), state documents cited by hash, the
   audience (the user's own report or a manuscript) and the length.
 - Read the state only through `plsi state show --instance <instance> --map <id>`; check sources with
   `plsi evidence verify`. Never open inbox files or record text.

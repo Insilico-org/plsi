@@ -14,6 +14,7 @@ dependencies = ["pydantic>=2", "PyYAML"]
 clocks = ["biolearn>=0.9,<1", "pandas>=2.1,<3", "seaborn"]  # DunedinPACE breaks under pandas 3; seaborn is imported but undeclared
 dev = ["pytest>=8"]
 pdf = ["matplotlib>=3.8"]  # plsi report --format pdf
+drive = ["cryptography>=41"]  # plsi clinic setup/sync/publish with a service account (signs its token)
 
 [project.scripts]
 plsi = "plsi.cli:main"

@@ -51,7 +51,10 @@ in setup step 6.1 already holds and what the user already said, and follow up on
 1. **Role:** for their own health, as a longevity physician, or as a researcher. A physician or researcher then
    answers "Use PLSI for your own health too?" (setup step 6.3) before any other topic; "Only my patients" or "Only
    my research" ends the interview here, with nothing to send to Data Processor.
-2. **Age, sex and country:** birth year (or age), sex and the country they live in; "rather not say" is fine.
+2. **Age, sex, country and ethnicity:** birth year (or age), sex, the country they live in and their ethnic
+   background (European, African, Middle Eastern, South Asian, East Asian, Southeast Asian, Latin American, other,
+   or prefer not to answer); "rather not say" is fine for each. Say that ethnicity picks the ranges that fit them
+   and, if they join the Longevity Mothership, is shared as that group.
 3. **Health now:** conditions, problems or symptoms, recent tests and when.
 4. **Medications and supplements:** names and doses as they say them; allergies.
 5. **Lifestyle:** sleep, activity and exercise, food, and for alcohol and smoking how much in a usual week or day
@@ -72,11 +75,13 @@ from a `voice:<call>` address, during the call and once more when it ends; a rep
 text), a reply with no channel goes to this chat (cards, text, images), and what you post to the chat is seen when
 the user looks at it, often only after the call. The talker can read the recent chat. So:
 
-- **Before the call,** post the interview plan to the chat as one message, which is both the talker's brief and
-  the user's text to read along. The talker follows it only loosely, so write every question out in full, with its
-  options filled in from `plsi.md` step 6 (the specialists step 6.4 would offer and the extras of step 6.5 except
-  the second-opinions one, each with its short name and one line from its Description, never a placeholder left in),
-  and leave out what is already on file:
+- **Before the call,** read `plsi.md` step 6 and the roster once and keep what the questions need: during the call
+  you read no file and run no command. Then post the interview plan to the chat as one message, which is both the
+  talker's brief and the user's text to read along. The talker follows it only loosely, so write every question out
+  in full, with its options filled in from `plsi.md` step 6 (the specialists step 6.4 would offer and the extras of
+  step 6.5 except the second-opinions one, never a placeholder left in), and leave out what is already on file. An
+  option is its short name and what it does in a few words, never its whole Description: the brief has to arrive
+  whole, and a long one is cut.
 
   ```text
   Voice interview. Voice assistant: start with question 1 as soon as the call opens, also after a hello; ask these
@@ -85,7 +90,9 @@ the user looks at it, often only after the call. The talker can read the recent 
   PLSI during the call; when it ends, send PLSI one summary with every answer and choice, in the caller's words.
   1. Is PLSI for your own health, for your patients as a longevity physician, or for your research?
      (Physician or research only:) Should PLSI also keep your own health record? If not, go to question 7.
-  2. What year were you born, what is your sex, and which country do you live in?
+  2. What year were you born, what is your sex, which country do you live in, and which ethnic background fits you
+     best (or prefer not to answer)? Your ethnic background picks the ranges that fit you and, if you join the
+     Longevity Mothership, is shared as that group.
   3. How is your health now: any conditions, symptoms or recent tests?
   4. Which medicines and supplements do you take, with doses, and any allergies?
   5. How do you sleep, move and eat, and how much do you drink or smoke in a usual week?
@@ -97,7 +104,11 @@ the user looks at it, often only after the call. The talker can read the recent 
   ```
 
 - **During the call,** answer an ask at once with one short spoken line, without long work, and do the work after
-  the call. Post nothing to the chat for a topic still being talked about.
+  the call. Read no file and run no command: a call waits for nobody, and a missing detail is filled in afterwards.
+  Post nothing to the chat for a topic still being talked about.
+- **A call that ends early** (the user hangs up): keep every ask the talker already sent, and go on in the chat from
+  the first question it did not answer, one card or plain question at a time. Never put a question again that the
+  call answered, and never start the interview over.
 - **After the call** (the summary, or the call-end wake), in the chat: the "Did I get this right?" card built from
   the summary and the user's lines the talker passed on (`What the user said on the call: "…"`, or `user said`),
   with every number and unit as heard; a topic missing from both is one plain chat question. Never ask again what the

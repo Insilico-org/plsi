@@ -15,11 +15,12 @@ from typing import Any
 
 from plsi import keys, net, references
 from plsi.clock import now
-from plsi.errors import NetworkError, ValidationError
+from plsi.errors import ValidationError, warn
 from plsi.files import append_jsonl, read_jsonl
 from plsi.map import registry
 from plsi.models import CAP_ABSTRACT, SourceRef, sanitize_external
 from plsi.paths import plsi_home
+from plsi.policy import ctgov
 from plsi.policy.models import Verification
 from plsi.vocab import ReferenceKind, SearchSource, SourceKind
 
@@ -39,6 +40,7 @@ CITED_AT = {  # source kind -> the reference whose cite_url is the record's cita
     SourceKind.EVIPEDIA: "evipedia",
 }
 Result = dict[str, Any]
+RETRACTED = "retracted publication"  # a PubMed or Europe PMC publication type, lower-cased
 
 
 def ledger_path() -> Path:
@@ -91,8 +93,6 @@ def label_title(label: dict[str, Any]) -> str | None:
     return "; ".join(names.get("brand_name") or names.get("generic_name") or []) or None
 
 
-# ---------------------------------------------------------------- search, one function per source
-
 def _pubmed(query: str, limit: int) -> list[Result]:
     base = references.api_base("ncbi_eutils")
     found = net.get_json(f"{base}/esearch.fcgi", _ncbi_params(db="pubmed", term=query, retmode="json", retmax=limit, sort="relevance"))
@@ -124,17 +124,12 @@ def _europepmc(query: str, limit: int) -> list[Result]:
 
 
 def _ctgov(query: str, limit: int) -> list[Result]:
-    data = net.get_json(f"{references.api_base('ctgov')}/studies",
-                        {"query.term": query, "pageSize": limit, "fields": "NCTId,BriefTitle,OverallStatus,Phase,StartDate"})
+    data = ctgov.studies({"query.term": query, "pageSize": limit, "fields": "NCTId,BriefTitle,OverallStatus,Phase,StartDate"})
     out = []
-    for study in data.get("studies", [])[:limit]:
-        sec = study.get("protocolSection", {})
-        nct = sec.get("identificationModule", {}).get("nctId", "")
-        if re.match(ID_PATTERNS[SourceKind.NCT], nct):
-            status = sec.get("statusModule", {})
-            out.append(_result(SourceKind.NCT, nct, sec["identificationModule"].get("briefTitle"), cite_url(SourceKind.NCT, nct),
-                               "ctgov", year=status.get("startDateStruct", {}).get("date", "")[:4],
-                               pub_types=[p for p in [*sec.get("designModule", {}).get("phases", []), status.get("overallStatus")] if p]))
+    for study in (ctgov.record(raw) for raw in data.get("studies", [])[:limit]):
+        if re.match(ID_PATTERNS[SourceKind.NCT], nct := study["nct"]):
+            out.append(_result(SourceKind.NCT, nct, study["title"], cite_url(SourceKind.NCT, nct), "ctgov",
+                               year=(study["started"] or "")[:4], pub_types=[p for p in [*study["phases"], study["status"]] if p]))
     return out
 
 
@@ -185,7 +180,7 @@ def _search_extension(source: str, query: str, limit: int) -> list[dict[str, Any
 
 
 def search(source: str, query: str, limit: int = 10) -> dict[str, Any]:
-    """`plsi evidence search` (network). Logs an ok Verification for every id it resolved."""
+    """`plsi evidence search` (network). Logs a Verification for every id it resolved, not ok when retracted."""
     if source.startswith("ext:"):
         results, note = _search_extension(source, query, limit), "extension results are leads; run plsi evidence verify on each ref before citing"
     else:
@@ -195,14 +190,13 @@ def search(source: str, query: str, limit: int = 10) -> dict[str, Any]:
             raise ValidationError("limit must be between 1 and 50")
         results, note = SOURCES[SearchSource(source)](query, limit), None
         for r in results:
-            _log(SourceKind(r["ref"]["kind"]), r["ref"]["id"], True, r["title"]["text"], r["ref"].get("url"))
+            ok = RETRACTED not in (t["text"].lower() for t in r.get("pub_types", []))
+            _log(SourceKind(r["ref"]["kind"]), r["ref"]["id"], ok, r["title"]["text"], r["ref"].get("url"))
     out: dict[str, Any] = {"source": source, "query": query, "count": len(results), "results": results}
     if note:
         out["note"] = note
     return out
 
-
-# ---------------------------------------------------------------- verification ledger
 
 def _log(kind: SourceKind, id: str, ok: bool, title: str | None, url: str | None) -> Verification:  # noqa: A002
     v = Verification(kind=kind, id=id, ok=ok, checked_at=now(), canonical_url=url,
@@ -211,28 +205,20 @@ def _log(kind: SourceKind, id: str, ok: bool, title: str | None, url: str | None
     return v
 
 
-def _not_found(fetch: Callable[[], Any]) -> Any:
-    """Run fetch; a definitive HTTP 404 means 'does not resolve' (None). Other failures raise."""
-    try:
-        return fetch()
-    except NetworkError as exc:
-        if exc.status == 404:
-            return None
-        raise
-
-
 def _check_pmid(id: str) -> tuple[bool, str | None]:  # noqa: A002
     item = _esummary([id]).get(id) or {}
+    if RETRACTED in map(str.lower, item.get("pubtype") or []):
+        return False, f"Retracted: {item.get('title')}"
     return _titled(item), item.get("title")
 
 
 def _check_doi(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    data = _not_found(lambda: net.get_json(f"{references.api_base('doi')}/{urllib.parse.quote(id, safe='/')}"))
+    data = net.get_json(f"{references.api_base('doi')}/{urllib.parse.quote(id, safe='/')}", missing=(404,))
     return bool(data) and data.get("responseCode") == 1, None
 
 
 def _check_nct(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    data = _not_found(lambda: net.get_json(f"{references.api_base('ctgov')}/studies/{id}", {"fields": "NCTId,BriefTitle"}))
+    data = ctgov.study(id, "NCTId,BriefTitle")
     return data is not None, (data or {}).get("protocolSection", {}).get("identificationModule", {}).get("briefTitle")
 
 
@@ -243,7 +229,7 @@ def _check_label(id: str) -> tuple[bool, str | None]:  # noqa: A002
 
 
 def _check_evipedia(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    text = _not_found(lambda: net.get_text(f"{references.api_base('evipedia')}/{id}.md"))
+    text = net.get_text(f"{references.api_base('evipedia')}/{id}.md", missing=(404,))
     heading = next((ln.lstrip("# ").strip() for ln in (text or "").splitlines() if ln.startswith("#")), None)
     return text is not None, heading
 
@@ -260,7 +246,7 @@ def _check_rule(id: str) -> tuple[bool, str | None]:  # noqa: A002
 # kind -> check(id) -> (resolves, title); each contacts only the fixed host for its kind.
 CHECKS: dict[SourceKind, Callable[[str], tuple[bool, str | None]]] = {
     SourceKind.PMID: _check_pmid,
-    SourceKind.DOI: _check_doi,
+    SourceKind.DOI: _check_doi,  # resolves only: the DOI handle API knows no retractions (search sees Europe PMC's)
     SourceKind.NCT: _check_nct,
     SourceKind.LABEL: _check_label,
     SourceKind.EVIPEDIA: _check_evipedia,
@@ -270,12 +256,16 @@ CHECKS: dict[SourceKind, Callable[[str], tuple[bool, str | None]]] = {
 
 
 def verify(kind: str, id: str) -> dict[str, Any]:  # noqa: A002 - CLI dest name
-    """`plsi evidence verify --kind K --id ID`: one ledger line. Definitive negative -> ok false; network failure raises."""
+    """`plsi evidence verify --kind K --id ID`: one ledger line; network failure raises. A negative is ok false,
+    no canonical_url, and a NOT_VERIFIED warning (the envelope `ok` only says the check ran)."""
     k = SourceKind(kind)
     if k in ID_PATTERNS and not re.match(ID_PATTERNS[k], id):
         raise ValidationError(f"{kind} id {id!r} has the wrong format", code="BAD_ID", hint=f"must match {ID_PATTERNS[k]}")
     ok, title = CHECKS[k](id)
     url = cite_url(k, id) or (references.load()[id].url if k == SourceKind.MODEL and ok else None)
+    if not ok:
+        warn("NOT_VERIFIED", f"{kind} {id} was looked up and does not resolve: not a citable source")
+        url = None
     return _log(k, id, ok, title, url).dump()
 
 

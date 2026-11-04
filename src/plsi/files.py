@@ -27,6 +27,15 @@ def sha256_hex(data: bytes | str) -> str:
     return hashlib.sha256(data.encode("utf-8") if isinstance(data, str) else data).hexdigest()
 
 
+def sha256_file(path: Path) -> str:
+    """sha256 hex of a file of any size, read in 1 MiB chunks."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        while chunk := fh.read(1 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def hash_json(obj: Any) -> str:
     """'sha256:<hex>' over canonical_json(obj). Used for map_hash, state_hash, action/context/input hashes."""
     return "sha256:" + sha256_hex(canonical_json(obj))

@@ -11,27 +11,33 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from plsi import codes, paths
+from plsi import codes, files, paths
 from plsi.errors import GateFailed, ValidationError
 from plsi.files import sha256_hex
 from plsi.map import registry
-from plsi.mothership import content, enroll, scan, stats
+from plsi.mothership import content, enroll, note, scan, stats
 from plsi.mothership.relay import SCHEMA_VERSION
 from plsi.mothership.scan import HEX64, flag
-from plsi.vocab import (CodeSystem, ContributionKind, HypothesisDirection, MothershipMessage as M, RegistryItemKind, SourceKind,
-                        WithdrawalRequest)
+from plsi.vocab import (CodeSystem, ContributionKind, FeedbackSeverity, FeedbackStage, HypothesisDirection, MothershipMessage as M,
+                        RegistryItemKind, SourceKind, UserRole, WithdrawalRequest)
 
 FIELDS: dict[M, tuple[set[str], set[str]]] = {  # kind -> (required, optional) fields beyond kind and schema_version
     M.CONTRIBUTION: ({"contributor_id", "consent_version", "packed", "kinds", "subject"}, set(ContributionKind)),
     M.WITHDRAWAL: ({"contributor_id", "request"}, {"proof"}),
-    M.RESEARCH_NOTE: ({"items", "method"}, set()),
+    M.RESEARCH_NOTE: ({"items", "method"}, {"report", "files"}),
     M.REGISTRY_UPDATE: ({"items"}, set()),
     M.PREREGISTRATION: ({"professional_id", "preregistration_id", "hypothesis", "release", "analysis", "outcome", "alpha",
                          "direction", "parents"}, set()),
     M.FINDING: ({"professional_id", "finding_id", "preregistration_id", "release", "analysis", "result", "summary"}, set()),
+    M.FEEDBACK: ({"role", "stages", "frustrations", "suggestions"}, set()),
 }
+FEEDBACK = {"stages": {"stage", "minutes", "measured"}, "frustrations": {"stage", "what", "severity"},
+            "suggestions": {"stage", "what"}}
+MAX_FEEDBACK = 20
+MAX_MINUTES = 1440
+MAX_WHAT = 300
 ITEM_FIELDS = {
-    M.RESEARCH_NOTE: {"claim", "grade", "evidence_class", "sources", "falsified_by", "next_step"},
+    M.RESEARCH_NOTE: {"claim", "grade", "evidence_class", "sources", "falsified_by", "next_step", *note.FIELDS},
     M.REGISTRY_UPDATE: {"kind", "name", "specialty", "country", "public_url", "methods", "credentials", "source_urls"},
 }
 CONTRIBUTOR = frozenset({M.CONTRIBUTION, M.WITHDRAWAL, M.REGISTRY_UPDATE})  # install token only
@@ -40,14 +46,15 @@ PROFESSIONAL = frozenset({M.PREREGISTRATION, M.FINDING})  # professional token o
 # below; keys are never exempt. Contribution codes are exempt from the id-number rule only in code objects of loinc,
 # rxnorm, snomed and icd10cm (exempt_codes), never free or cpg. Source ids are exempt from the dotted-date form too ("23.12.02").
 EXEMPT = {
-    "exact_date": {M.RESEARCH_NOTE: frozenset({"items[].sources[].id"})},
+    "exact_date": {M.RESEARCH_NOTE: frozenset({"items[].sources[].id", *note.SOURCE_PATHS, *note.FILE_PATHS})},
     "id_number": {
         M.CONTRIBUTION: frozenset({"contributor_id", "states[].map_hash"}),
         M.WITHDRAWAL: frozenset({"contributor_id", "proof"}),
-        M.RESEARCH_NOTE: frozenset({"items[].sources[].id"}),
+        M.RESEARCH_NOTE: frozenset({"items[].sources[].id", *note.SOURCE_PATHS, *note.FILE_PATHS}),
         M.PREREGISTRATION: frozenset({"professional_id", "preregistration_id", "release", "parents[]"}),
         M.FINDING: frozenset({"professional_id", "finding_id", "preregistration_id", "release"})},
-    "url": {M.REGISTRY_UPDATE: frozenset({"items[].public_url", "items[].source_urls[]"})},
+    "url": {M.REGISTRY_UPDATE: frozenset({"items[].public_url", "items[].source_urls[]"}),
+            M.RESEARCH_NOTE: frozenset({"files[].name"})},
 }
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 VERSION = re.compile(r"[0-9A-Za-z._-]{1,64}")  # a release version, as the relay's
@@ -57,9 +64,10 @@ SOURCE_IDS = {SourceKind.PMID: re.compile(r"[1-9]\d{0,7}"), SourceKind.DOI: re.c
               SourceKind.NCT: re.compile(r"NCT\d{8}"), SourceKind.MODEL: re.compile(r"(?=.*[A-Za-z])[A-Za-z0-9._:/-]{1,80}")}
 RESULT_KEYS = ("effect", "interval", "n", "statistic", "df", "p")
 # every field name of the wire: the only key text a path ever shows
-NAMES = frozenset({"kind", "schema_version", "id", *scan.FORBIDDEN_KEYS, *content.NAMES, *RESULT_KEYS,
+NAMES = frozenset({"kind", "schema_version", "id", *scan.FORBIDDEN_KEYS, *content.NAMES, *RESULT_KEYS, *note.NAMES,
                    *(k for required, optional in FIELDS.values() for k in required | optional),
                    *(k for fields in ITEM_FIELDS.values() for k in fields),
+                   *(k for fields in FEEDBACK.values() for k in fields),
                    "op", "map_id", "coordinate", "group_a", "group_b", *stats.GROUP_KEYS})
 
 
@@ -141,6 +149,27 @@ def _sources(items: list[dict[str, Any]]) -> list[dict[str, str]]:
     return out
 
 
+def _feedback(doc: dict[str, Any]) -> list[dict[str, str]]:
+    """The plsi_feedback rules of WIRE §8, as the Mother."""
+    out = [] if doc.get("role") in tuple(UserRole) else [flag("role", "unknown_role")]
+    for key, fields in FEEDBACK.items():
+        entries = doc.get(key)
+        if not isinstance(entries, list) or len(entries) > MAX_FEEDBACK:
+            out.append(flag(key, "bad_entries"))
+            continue
+        for n, e in enumerate(entries):
+            ok = isinstance(e, dict) and set(e) == fields and e["stage"] in tuple(FeedbackStage)
+            ok = ok and ("minutes" not in e or (type(e["minutes"]) is int and 0 <= e["minutes"] <= MAX_MINUTES
+                                                and type(e["measured"]) is bool))
+            ok = ok and ("what" not in e or (isinstance(e["what"], str) and 0 < len(e["what"].strip()) <= MAX_WHAT))
+            ok = ok and ("severity" not in e or e["severity"] in tuple(FeedbackSeverity))
+            if not ok:
+                out.append(flag(f"{key}[{n}]", "bad_entry"))
+    if not out and not (doc["frustrations"] or doc["suggestions"] or doc["stages"]):
+        out.append(flag("$", "empty_feedback"))
+    return out
+
+
 def _keys(obj: Any) -> set[str]:
     if isinstance(obj, dict):
         return set(obj) | {k for v in obj.values() for k in _keys(v)}
@@ -162,12 +191,14 @@ def _shape(doc: dict[str, Any], kind: M) -> list[dict[str, str]]:
             out += [flag(f"items[{n}].kind", "unknown_kind")
                     for n, item in enumerate(items) if item.get("kind") not in tuple(RegistryItemKind)]
         if kind == M.RESEARCH_NOTE:
-            out += _sources(items)
+            out += _sources(items) + note.check(items, SOURCE_IDS[SourceKind.MODEL].fullmatch, doc.get("report")) + note.files(doc)
     separated = "professional_id" if kind in CONTRIBUTOR else "contributor_id" if kind in PROFESSIONAL else None
     if separated and separated in _keys(doc):
         out.append(flag(separated, "identity_mix"))
     if kind == M.RESEARCH_NOTE and {"contributor_id", "professional_id"} & _keys(doc):
         out.append(flag("items", "identity_mix"))
+    if kind == M.FEEDBACK:
+        out += _feedback(doc)
     return out
 
 
@@ -250,8 +281,16 @@ def violations(doc: Any, instance: str | None = None, enrollment: dict[str, Any]
         out += _declared(doc, instance)
     if kind in PROFESSIONAL and (pid is None or doc.get("professional_id") != pid):
         out.append(flag("professional_id", "professional_mismatch"))
-    out += scan.violations(doc, _exemptions(doc, kind), NAMES, instance_names(instance))
+    extra = (note.LIMITS, note.MASKS) if kind == M.RESEARCH_NOTE else (None, None)
+    out += scan.violations(doc, _exemptions(doc, kind), NAMES, instance_names(instance), *extra)
     return [dict(t) for t in dict.fromkeys(tuple(v.items()) for v in out)]  # each {path, rule} once
+
+
+def approved(doc: Any, expected: str | None) -> None:
+    """Raise unless `doc` is the file the user approved (its package_hash)."""
+    if expected is not None and files.hash_json(doc) != expected:
+        raise ValidationError("the file changed since it was checked", code="HASH_MISMATCH",
+                              hint="check the file again and ask the user to approve the new one")
 
 
 def require(doc: Any, instance: str | None = None, pid: str | None = None, what: str = "file") -> None:

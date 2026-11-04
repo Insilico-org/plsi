@@ -18,6 +18,13 @@ PATTERNS = {
     CodeSystem.FREE: re.compile(r"[a-z][a-z0-9_.:-]{0,63}"),
 }
 LOCAL = frozenset({CodeSystem.FREE, CodeSystem.CPG})  # PLSI's own names: no id-number exemption, map-declared only
+# never leave as a code: ethnicity and race (the subject carries the ethnicity group) and occupation. Only these
+# concepts match: a SNOMED descendant (e.g. one ethnic group) is not caught here, so the skills never record one.
+NEVER_SHARED = frozenset({
+    (CodeSystem.LOINC.value, "69490-1"), (CodeSystem.LOINC.value, "32624-9"),  # ethnicity, race
+    (CodeSystem.LOINC.value, "11341-5"), (CodeSystem.LOINC.value, "85658-3"),  # occupation
+    (CodeSystem.SNOMED.value, "372148003"), (CodeSystem.SNOMED.value, "14679004"),  # ethnic group, occupation
+})
 _D = ("0123456789", "1234067895", "2340178956", "3401289567", "4012395678",
       "5987604321", "6598710432", "7659821043", "8765932104", "9876543210")
 _P = ("0123456789", "1576283094", "5803796142", "8916043527", "9453126870", "4286573901", "2793806415", "7046913285")
@@ -52,5 +59,7 @@ def valid(system: Any, code: Any) -> bool:
 
 
 def shareable(system: Any, code: Any, declared: set[tuple[str, str]]) -> bool:
-    """A valid code that may leave the computer: a free or cpg code only when a map declares it (`declared`)."""
-    return valid(system, code) and (system not in LOCAL or (system, code) in declared)
+    """A valid code that may leave the computer: never one of NEVER_SHARED, a free or cpg code only when a map
+    declares it (`declared`)."""
+    return (valid(system, code) and (system, code) not in NEVER_SHARED
+            and (system not in LOCAL or (system, code) in declared))

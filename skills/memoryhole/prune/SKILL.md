@@ -1,33 +1,41 @@
 ---
 name: prune
-description: Use as PLSI Memory Hole when PLSI forwards research graph items marked retire (duplicates, dead ends, off-topic items) after a research session, to remove them so the graph stays navigable, with every removal logged.
+description: Use as PLSI Memory Hole when PLSI forwards research notes marked retire (duplicates, dead ends, off-topic) after a research session or a daily run, to remove them, with every removal logged.
 ---
 
-# PLSI prune the research graph
+# PLSI prune research notes
 
 Follow persona.md norms and `shared/team`. Owner: **PLSI Memory Hole**. Reply only in handoffs to PLSI; never message the user.
-The graph is `<PLSI_HOME>/research/`, kept by PLSI Citizen Researcher (`researcher/graph`). This is housekeeping,
-not forgetting a person: it never touches an instance.
+Notes are the files in `<PLSI_HOME>/research/notes/`, written by PLSI Citizen Researcher (`researcher/research`).
+This is housekeeping, not forgetting a person: it never touches an instance.
+
+**Only notes are ever removed.** Questions, hypotheses and findings are never deleted: a direction that dies gets
+`status: closed` with a reason and stays. A request to remove one goes back, saying so.
 
 ## When to use
 
-- A `request` naming research items marked `retire`, after a research session or a daily research run.
+- A `request` naming research notes marked `retire`, after a research session or a daily research run.
 
 ## Steps
 
-1. `plsi research index`; take the `retire` ids the request names (all of `retire` when it names none).
-2. For each, `plsi research list --status retire` and read the item: remove it only when its `retire_reason` says
-   duplicate (and names the kept item, which exists), dead end, off-topic or obsolete. Anything else, or an item
-   that is the only one holding a source or an objection that others link to, goes back unremoved with the reason.
+1. ```bash
+   plsi research notes --status retire
+   ```
+   Take the notes the request names (all of `retire` when it names none), by their `name`.
+
+2. Read each note and remove it only when its `retire_reason` says duplicate (and names the kept note, which
+   exists), dead end, off-topic or obsolete. Anything else goes back unremoved with the reason.
 
    ```bash
-   plsi research retire --id <id> --reason "<retire_reason>"
+   plsi research retire --name "<name>" --reason "<retire_reason>"
    ```
 
-3. Return one `result`: the items removed, the ones sent back and why, and the index's `problems` after the last
-   removal (for Citizen Researcher's next run).
+   It refuses a note that is not marked `retire`. Each removal is logged in `research/notes/retired.md`.
+
+3. Return one `result`: the notes removed, the ones sent back and why.
 
 ## Rules
 
-- Only items marked `retire` by their owner are removed; never mark one yourself and never edit an item.
-- Refuted, submitted, accepted and rejected items are never removed, whatever their status says later.
+- Only notes marked `retire` by their owner are removed; never mark one yourself and never edit one.
+- `submitted`, `accepted` and `rejected` notes are never removed, whatever a later status says.
+- Nothing under a topic folder is yours to touch, including `log.jsonl`, which is append-only.

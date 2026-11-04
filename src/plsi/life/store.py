@@ -19,7 +19,7 @@ from plsi.events import Event, NewEvent, PAYLOAD_TYPES
 from plsi.life.deid import deid_subject_fields
 from plsi.life.models import Subject
 from plsi.paths import instance_dir, new_id, plsi_home, validate_id
-from plsi.vocab import EventType, Relation, Sex
+from plsi.vocab import Ethnicity, EventType, Relation, Sex
 
 
 def _retracted(events: Iterable[Event]) -> set[str]:
@@ -104,7 +104,8 @@ class EventStore:
     # -------------------------------------------------------------- subject
 
     def update_subject(self, *, birth_year: int | None = None, sex: Sex | str | None = None, relation: Relation | str | None = None,
-                       country: str | None = None, update: bool = False) -> tuple[Subject, list[str]]:
+                       country: str | None = None, ethnicity: Ethnicity | str | None = None,
+                       update: bool = False) -> tuple[Subject, list[str]]:
         """Fill unset subject fields; change existing values only with update=True. Applies the 90+ rule. -> (subject, changed fields)."""
         with lock(self.dir):
             subject = self.subject
@@ -118,6 +119,8 @@ class EventStore:
                 changed["relation"] = Relation(relation)
             if country is not None and (update or subject.country is None):
                 changed["country"] = _country(country)
+            if ethnicity is not None and (update or subject.ethnicity is None):
+                changed["ethnicity"] = Ethnicity(ethnicity)
             changed = {k: v for k, v in changed.items() if getattr(subject, k) != v}
             if changed:
                 subject = Subject.model_validate({**subject.model_dump(mode="json"), **changed})
@@ -135,7 +138,7 @@ def _country(value: str | None) -> str | None:
 
 
 def init_instance(instance: str, birth_year: int | None = None, sex: Sex | str | None = None, relation: Relation | str | None = None,
-                  country: str | None = None, update: bool = False) -> dict[str, Any]:
+                  country: str | None = None, ethnicity: Ethnicity | str | None = None, update: bool = False) -> dict[str, Any]:
     """Create <PLSI_HOME>/<instance>/ with subject.json and an empty events.jsonl. Existing -> created False (+ subject update).
     One instance per person; `relation` says who it is to the user."""
     validate_id(instance, "instance name")
@@ -147,13 +150,13 @@ def init_instance(instance: str, birth_year: int | None = None, sex: Sex | str |
         with lock(path):
             fields = deid_subject_fields(birth_year, sex)
             subject = Subject(subject_id=f"s_{secrets.token_hex(6)}", created_at=now(), relation=relation,
-                              country=country, **fields)
+                              country=country, ethnicity=ethnicity, **fields)
             atomic_write_json(path / "subject.json", subject.dump())
             (path / "events.jsonl").touch()
         changed: list[str] = []
     else:
         subject, changed = EventStore(instance).update_subject(birth_year=birth_year, sex=sex, relation=relation,
-                                                               country=country, update=update)
+                                                               country=country, ethnicity=ethnicity, update=update)
     return {
         "instance": instance,
         "created": created,

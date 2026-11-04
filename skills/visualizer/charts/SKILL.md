@@ -26,7 +26,14 @@ plsi due --instance <instance>
 A PLSI output is not verified by being in PLSI. Keep each value's source, unit, transformations (conversion, mean,
 derived score) and verification status, and say them in the legend, footer or table. Measured values and model
 estimates (clocks, risk scores, predictions) look different on the chart and say which is which. Missing data is
-shown as missing, never interpolated.
+shown as missing, never interpolated: in a timeseries, a point with `v` null breaks the line there (a month with
+too few days, a test not taken). A lab result is drawn against the range printed on its own report (`ref_low`,
+`ref_high` and the lab's `flag` on each point, from the observation), never one range for all years; a flagged point,
+or one outside its own range, is marked, never alarming (no stretched axis). The range is in the observation's own
+unit: plot the value in that unit, or convert value and range together (`plsi calc convert`), never a converted
+value against an unconverted range. Label the last recorded point with its value and date. Wearable trends: monthly
+means as recorded, never the raw days; a 3-month rolling mean only as a lighter second series named so, using only
+recorded months, at least 2 of the 3, and blank where the month itself is blank.
 
 ## Uncertainty
 

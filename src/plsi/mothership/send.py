@@ -15,7 +15,7 @@ from plsi import files
 from plsi.clock import now
 from plsi.errors import NetworkError, NotFound, UsageError
 from plsi.mothership import gate, professional, scan
-from plsi.mothership.enroll import drop_deletion_secret, folder, install, pending, sends
+from plsi.mothership.enroll import folder, forget_install, install, pending, sends
 from plsi.mothership.relay import address, post, refused
 from plsi.vocab import MothershipMessage, ProfessionalScope, ReceiptState, WithdrawalRequest
 
@@ -26,6 +26,8 @@ def _sender(doc: Any, instance: str | None) -> tuple[str | None, dict[str, Any] 
     if kind == MothershipMessage.RESEARCH_NOTE:
         raise UsageError("research notes go to the Mothership by email, signed by the sender's address",
                          code="EMAIL_ONLY", hint="plsi mothership email --file <file>")
+    if kind == MothershipMessage.FEEDBACK:
+        raise UsageError("feedback goes to the Mothership by email", code="EMAIL_ONLY", hint="plsi feedback report --file <draft>")
     if kind in gate.PROFESSIONAL and instance:
         raise UsageError(f"a {kind} is a professional message; send it without --instance")
     if instance or kind not in gate.PROFESSIONAL:
@@ -33,25 +35,27 @@ def _sender(doc: Any, instance: str | None) -> tuple[str | None, dict[str, Any] 
     return None, professional.payload(ProfessionalScope.FINDINGS_SUBMIT)
 
 
-def _gated(file: str, instance: str | None) -> tuple[Any, str | None, dict[str, Any] | None]:
+def _gated(file: str, instance: str | None, expected: str | None = None) -> tuple[Any, str | None, dict[str, Any] | None]:
     """The file and its sender (instance or professional token payload), once the file passed the gate."""
     doc = scan.load(file)
+    gate.approved(doc, expected)
     instance, token = _sender(doc, instance)
     gate.require(doc, instance, pid=token["pid"] if token else None)
     return doc, instance, token
 
 
-def check(file: str, instance: str | None = None) -> dict[str, Any]:
+def check(file: str, instance: str | None = None, expected: str | None = None) -> dict[str, Any]:
     """`mothership check`: run the gate on a file without sending or logging it."""
-    _gated(file, instance)
-    return {"file": file, "ok": True, "to": address()}
+    doc, *_ = _gated(file, instance, expected)
+    return {"file": file, "ok": True, "to": address(), "package_hash": files.hash_json(doc)}
 
 
-def send(file: str, instance: str | None = None) -> dict[str, Any]:
+def send(file: str, expected: str, instance: str | None = None) -> dict[str, Any]:
     """`mothership send`: gate-check a file, POST it to the relay with the sender's token and log it with the relay's
     reply and ticket. Not logged when the relay refuses; never retried. Delivery is not storage: the Mother's receipt
-    comes from `receipt`. A delete_all file keeps its proof until that receipt says deleted."""
-    doc, instance, _ = _gated(file, instance)
+    comes from `receipt`. A delete_all file keeps its proof until that receipt says deleted. Only the approved file
+    (`expected`, its package_hash) goes."""
+    doc, instance, _ = _gated(file, instance, expected)
     if instance:
         found = install(instance)
         if found is None:
@@ -99,7 +103,7 @@ def receipt(instance: str | None = None, wait: int = 0) -> dict[str, Any]:
     """`mothership receipt`: ask the relay for the Mother's receipt of every sent message that has none yet, keep each
     answer in acks.jsonl and list what is done, refused and still pending. With `wait` (seconds, at most 300) it asks
     again every 15 s while anything is pending. A delete_all whose receipt says deleted drops the proof: from the
-    withdrawal file and the install's deletion_secret."""
+    withdrawal file and the install itself."""
     deadline = time.monotonic() + max(0, min(wait, 300))
     out = _receipt_once(instance)
     while out["pending"] and time.monotonic() + POLL_S <= deadline:
@@ -135,6 +139,7 @@ def _receipt_once(instance: str | None) -> dict[str, Any]:
         deleted = ack.get("ok") and ack.get("status") == "deleted"
         if instance and deleted and entry.get("request") == WithdrawalRequest.DELETE_ALL:
             _drop_proof(instance, entry.get("file"))
+            break  # the relay retires this install once it reads the deletion: nothing more to ask with its token
     return out
 
 
@@ -143,4 +148,4 @@ def _drop_proof(instance: str, file: str | None) -> None:
     if file and file != "-" and Path(file).is_file():
         doc = files.load_json(file)
         files.atomic_write_json(Path(file), {k: v for k, v in doc.items() if k != "proof"})
-    drop_deletion_secret(instance)
+    forget_install(instance)

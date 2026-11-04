@@ -23,6 +23,8 @@ from plsi.vocab import LITERATURE_SOURCE_KINDS, CodeSystem, EvidenceClass, Sourc
 CAP_ABSTRACT = 4_000
 CAP_LABEL = 8_000
 CAP_REPLY = 20_000
+CAP_FIELD = 400  # one relayed field (`external_str`)
+TRUNCATED = " […]"
 
 
 class Model(BaseModel):
@@ -85,14 +87,27 @@ class ExternalText(Model):
 _STRIP = {0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF, 0x200E, 0x200F, 0x061C} | set(range(0x202A, 0x202F)) | set(range(0x2066, 0x206A))
 
 
-def sanitize_external(text: str, cap: int, origin: str) -> ExternalText:
-    """Wrap network/document text: drop control chars (keep \\n, \\t), zero-width and bidi overrides; cap length."""
+def _clean(text: str) -> str:
+    """Drop control chars (keep \\n, \\t), zero-width and bidi overrides."""
     text = (text or "").replace("\r\n", "\n")
-    clean = "".join(
+    return "".join(
         ch for ch in text
         if ch in "\n\t" or (ord(ch) not in _STRIP and unicodedata.category(ch) != "Cc")
     )
+
+
+def sanitize_external(text: str, cap: int, origin: str) -> ExternalText:
+    """Wrap network/document text: cleaned as `_clean`, capped at `cap`, `truncated` when cut."""
+    clean = _clean(text)
     return ExternalText(origin=origin, truncated=len(clean) > cap, text=clean[:cap])
+
+
+def external_str(value: Any, cap: int = CAP_FIELD) -> str:
+    """One relayed field as a plain string, cleaned as `sanitize_external` cleans it, for a block that is marked
+    as external text as a whole. Text longer than `cap` is cut and ends in TRUNCATED, so it never reads as
+    complete."""
+    clean = _clean(str(value or ""))
+    return clean if len(clean) <= cap else clean[:cap - len(TRUNCATED)] + TRUNCATED
 
 
 def coherence_errors(evidence_class: EvidenceClass, sources: list[SourceRef]) -> list[str]:
