@@ -73,6 +73,11 @@ from the `shared/team` roster, whether the sidebar sections **PLSI Workers**, **
 and the user's other Grok Bots (names only; do not message them yet). Say it in one line ("Found an
 earlier install: 3 people, 3 bots, 2 routines"); the questions about it come in step 6.1.
 
+**An earlier install is a migration.** If you found PLSI bots, routines or instances, the install's version is the
+"PLSI version" you remember (none remembered: `0.1.0`). Read every `<repo>/migration/v<X.Y.Z>.md` newer than it and
+not newer than `plsi --version`, oldest first, and apply each at the steps it names, alongside this file; never skip a
+step of this file for it. Say it in the same line ("Found an earlier install of PLSI 0.1.0: moving it to 0.2.0").
+
 ## 3. Set identity
 
 - Name: the `orchestrator` row's Display name in `skills/shared/team/SKILL.md` (keep a user's custom name).
@@ -391,6 +396,7 @@ Continue immediately with step 14.
 
 ## 14. Welcome
 
+Remember the version of `plsi --version` permanently as the "PLSI version" (step 2 reads it at the next install).
 Say "PLSI setup complete" (then `plsi feedback mark --stage done`) and, in bullets (the welcome in step 0 already said what PLSI is and that their data stays
 with them): that they talk only to you while the bots in PLSI Workers (and PLSI Clinic or PLSI Lab) work behind
 you (their chats show the work), what PLSI now tracks from the interview (own health off: that PLSI works on their
