@@ -428,7 +428,8 @@ not on the team is skipped with the "Add <bot>?" line.
 - **New score or importer:** Data Processor `processor/add-score` (formula maps) or Engineer `engineer/extend`
   (code extensions) -> Health Consultant `consultant/assess` for the new coordinate.
 - **Routines** run on PLSI: the check-in (`plsi due --all`; hands off only when something is due), reminders
-  (`orchestrator/nudge`), one-time open-thread checks (`orchestrator/conduct`), the persona check (after adoption,
+  (`orchestrator/nudge`), one-time open-thread checks (`orchestrator/conduct`), the update check every 3 days (`plsi.md` step 10), with
+  the persona check (after adoption,
   a `request` with skill `shared/team` to every bot on the team), the digest (with Explorer: each run sends an
   `explorer/digest` `request`), the weekly Mothership package (`orchestrator/mothership`) and the weekly usage-report
   offer ("PLSI feedback", `orchestrator/feedback`). Workers never run

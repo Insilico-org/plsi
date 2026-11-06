@@ -34,11 +34,13 @@ Before anything else, send ONE short message. Start with the `orchestrator` row'
 `skills/shared/team/SKILL.md`, unchanged, then, in plain words:
 
 - They can also contribute research to the longevity community, choosing what to share.
-- Its three laws: "I do no harm, I help you live longer in good health, and, if you want, we help the longevity
-  community learn faster together".
-- Their data is theirs: Insilico does not collect it; it stays in PLSI on this computer and in their Grok chats.
-  Only what they turn on and approve leaves: second opinions from outside AI models and the Longevity Mothership,
-  each without their name.
+- It is built to help them research their own healthy lifespan, and designed to flag risks and avoid harmful
+  suggestions; it can still be wrong.
+- Their data: xAI processes what is in their Grok Bot account under its own terms and privacy policy, and services
+  they connect may also receive information. Insilico receives information from that account only through
+  contributions or emails they choose to send. Shared measurements carry a code, not their name, with dates reduced
+  to the month.
+- The disclaimer of `<repo>/legal/DISCLAIMER.md` (its first paragraph), unchanged, as the message's last paragraph.
 - Close with what happens next: setup takes about ten minutes, starting with a short conversation about them, by
   voice or in chat, then the team and the connections that fit how they want to use PLSI.
 
@@ -53,6 +55,13 @@ python -m pip install -e <repo>
 ```
 
 Run it in the foreground and wait until it exits (a minute or two), then continue with step 2 in the same turn.
+
+**Terms.** Unless the "Terms accepted" you remember equals the `<!-- plsi-legal: … -->` marker of
+`<repo>/legal/TERMS.md`, send ONE card "Terms of Service" with `legal/TERMS.md` and `legal/PRIVACY.md` as chat
+attachments: "By installing, you agree to the Terms of Service and the Privacy Policy (attached). You must be 18 or
+older." (I agree / Not now). A changed marker on an install that accepted before says first, in one line, that the
+Terms changed. I agree: remember the marker permanently as "Terms accepted", then step 2. Not now: say in one line
+that setup continues once they agree, and create nothing until they do.
 
 ## 2. Check the environment
 
@@ -74,9 +83,10 @@ and the user's other Grok Bots (names only; do not message them yet). Say it in 
 earlier install: 3 people, 3 bots, 2 routines"); the questions about it come in step 6.1.
 
 **An earlier install is a migration.** If you found PLSI bots, routines or instances, the install's version is the
-"PLSI version" you remember (none remembered: `0.1.0`). Read every `<repo>/migration/v<X.Y.Z>.md` newer than it and
-not newer than `plsi --version`, oldest first, and apply each at the steps it names, alongside this file; never skip a
-step of this file for it. Say it in the same line ("Found an earlier install of PLSI 0.1.0: moving it to 0.2.0").
+"PLSI version" you remember (none remembered: `0.1.0`). Under `<repo>/migration/`, every top-level section
+`# PLSI vA -> vB` moves an install to vB. Read every section whose vB is newer than it and not newer than
+`plsi --version`, oldest first, and apply each at the steps it names, alongside this file; never skip a step of this
+file for it. Say it in the same line ("Found an earlier install of PLSI 0.1.0: moving it to 0.2.0").
 
 ## 3. Set identity
 
@@ -89,7 +99,7 @@ step of this file for it. Say it in the same line ("Found an earlier install of 
 ## 4. Adopt the persona
 
 1. Save a local copy of `<repo>/persona.md` and adopt it as your persona.
-2. Persona check, run as part of the weekly check-in (step 10), not as its own routine: compare the `<!-- plsi-persona: X.Y.Z -->` marker of `<repo>/persona.md` with your saved copy. Unchanged: stay silent. Changed: show a question card "PLSI persona X.Y.Z is available. Adopt it?" (Adopt / Not now). Never adopt automatically. After "Adopt", send every bot on the team (the remembered list) a `request` (skill `shared/team`, thread
+2. Persona check, run as part of the update check (step 10) and right after an update, not as its own routine: compare the `<!-- plsi-persona: X.Y.Z -->` marker of `<repo>/persona.md` with your saved copy. Unchanged: stay silent. Changed: show a question card "PLSI persona X.Y.Z is available. Adopt it?" (Adopt / Not now). Never adopt automatically. After "Adopt", send every bot on the team (the remembered list) a `request` (skill `shared/team`, thread
    `persona-X.Y.Z`) to adopt it too; if one of them does not exist any more, create it first as in step 5 of
    `<repo>/plsi.md`.
 3. Remember permanently: you are the orchestrator; before every new task, read `<repo>/skills/shared/team/SKILL.md`;
@@ -341,7 +351,8 @@ health off: `plsi init --instance me --sex unknown --relation self`, nothing els
 (`orchestrator/talk` step 3) and go back to step 6.4.
 
 The user can add other people later (family, or a sample person for a story); each gets their own instance, as
-`shared/team` describes.
+`shared/team` describes. A real person must be an adult who asked for it and agreed to the Terms and the Privacy
+Policy (Terms 2.1): ask the user to confirm that in the same card that creates the instance.
 
 ## 10. Weekly check-in
 
@@ -354,8 +365,29 @@ plsi due --all
 If predictions are due or awaiting, tell the user what to measure and by when. Add one adherence and side-effect
 line per started plan (`orchestrator/nudge`, Mid-plan check). With PLSI Wearables on the team and Open Wearables, Google Health or Apple Health (P.R.O.) connected, send PLSI Wearables one
 `wearables/import` request first (`wearables/google-health` for Google Health, `wearables/apple-health` for Apple Health) for any closed month not yet recorded
-(standing approval to record it, if the user gave one); without Wearables there is no monthly import. For a physician, the run also sends PLSI Panel one `panel/overview` request and shows the panel when anyone needs attention. Nothing due and no active plan: stay quiet. Each run also does the persona check (step 4), silently unless a new version is available. When the user sends the results, follow the **New record** and
+(standing approval to record it, if the user gave one); without Wearables there is no monthly import. For a physician, the run also sends PLSI Panel one `panel/overview` request and shows the panel when anyone needs attention. Nothing due and no active plan: stay quiet. When the user sends the results, follow the **New record** and
 **Review** flows in `shared/team`.
+
+Create the ENABLED routine **"PLSI update check"**, every 3 days, that runs:
+
+```bash
+git -C <repo> status --porcelain
+git -C <repo> fetch --tags --quiet
+git -C <repo> tag --list "v*" --sort=-v:refname
+plsi --version
+```
+
+- **Nothing newer** (the first tag is not newer than `plsi --version`), or the fetch fails (no network, no remote):
+  run the persona check (step 4) and otherwise stay quiet.
+- **A newer release** you have not offered yet: ONE card "PLSI X.Y.Z is available (you have A.B.C). Update?", with
+  one line for each migration section between the two (step 2) saying what changes for the user (Update / Not now).
+  Not now: offer it again only for a newer release or when the user says "update PLSI", which shows the same card.
+  Local changes in the checkout (`status --porcelain` not empty): offer no update; say once that the checkout has
+  local changes, so the user updates it by hand.
+- **Update:** `git -C <repo> checkout vX.Y.Z` (a detached HEAD is fine), then `python -m pip install -e <repo>` in
+  the foreground, and check that `plsi --version` says the new version. Apply the migration sections between the
+  two versions as step 2 describes, then the Terms check (step 1) and the persona check (step 4). Remember the new
+  "PLSI version" and say "PLSI updated to X.Y.Z" in one line. Never update without the user's "Update".
 
 If the weekly talk was chosen in step 6.5, also create the ENABLED weekly routine **"PLSI talk"**
 (`orchestrator/talk`, step 4).
@@ -401,8 +433,10 @@ Say "PLSI setup complete" (then `plsi feedback mark --stage done`) and, in bulle
 with them): that they talk only to you while the bots in PLSI Workers (and PLSI Clinic or PLSI Lab) work behind
 you (their chats show the work), what PLSI now tracks from the interview (own health off: that PLSI works on their
 <patients / research> only, and "track my own health too" turns it on any time), that they can send any record (PDF, photo,
-FHIR export, CSV, methylation file), and that every suggestion is checked for safety and comes with a prediction
-that is checked against their next results. Name only choices the user made; a step that did not run is said as
+FHIR export, CSV, methylation file), and that automated checks look for weak evidence, risks and contradictions in
+every suggestion (they can miss errors, do not establish that a plan is safe or effective, and no clinician reviews
+plans before the user sees them), and that its predictions are scored against their later data: estimates, not
+guarantees. Name only choices the user made; a step that did not run is said as
 not done ("the Mothership card is still to come"), never as a choice. Offer this sample prompt:
 
 > "Here are my latest blood test results. What is my blood-test age, and what could I try over the next three months to lower it?"
