@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/claude-code/hooks/session-start.sh\""
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(plsi:*)",
+      "Bash(.venv/bin/plsi:*)",
+      "Bash(python claude-code/gen_agents.py:*)",
+      "Bash(git -C:*)",
+      "Read(skills/**)",
+      "Read(claude-code/**)",
+      "Read(persona.md)",
+      "Read(plsi.md)",
+      "Read(legal/**)",
+      "Read(mothership/**)",
+      "Read(migration/**)"
+    ],
+    "deny": [
+      "Edit(instances/**/events.jsonl)",
+      "Read(~/.config/plsi/**)",
+      "Edit(~/.config/plsi/**)",
+      "Read(.env)",
+      "Read(.env.*)"
+    ]
+  }
+}
