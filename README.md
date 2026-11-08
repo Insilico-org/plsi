@@ -291,8 +291,10 @@ The main session becomes PLSI (`CLAUDE.md`), each worker bot is a Claude Code su
 cards, Grok email) to its Claude Code equivalent; the skills are unchanged. Routines are slash commands
 (`/plsi-checkin`, `/plsi-update-check`, ...) that `claude-code/routines.sh` can schedule with cron; scheduled runs
 leave their messages in `<PLSI_HOME>/outbox/` for the next session. Keys go in `~/.config/plsi/env`, never in chat.
-Restart Claude Code once after setup so the team and connectors load. No voice mode and no Grok email: the interview
-runs in chat and emails are prepared for you to send.
+Restart Claude Code once after setup so the team and connectors load. Voice: answer PLSI by talking with Claude
+Code's `/voice` dictation (hold Space), and optionally hear its replies read aloud by your computer's text-to-speech
+(`/plsi-voice speak on`, off by default; `claude-code/hooks/speak.py`). There is no Grok email: emails are prepared
+for you to send.
 
 Optional keys go in a gitignored `.env` (copy `.env.example`); the process environment overrides it. `plsi keys status` reports booleans only. A secret the user already has under another name is used through `plsi keys map --name <VAR> --from <their name>` (`plsi keys scan` lists the names); only the names are stored.
 

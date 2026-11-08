@@ -13,7 +13,7 @@ As `plsi.md`, with one change to the data paragraph: Anthropic processes what is
 Claude plan terms and privacy policy (in place of xAI and the Grok Bot account); services they connect may also
 receive information; Insilico receives information only through contributions or emails they choose to send; shared
 measurements carry a code, not their name, with dates reduced to the month. The closing line says "a short
-conversation about you here in chat" (no voice).
+conversation about you, by voice (Claude Code's /voice) or in chat".
 
 ## 1. Install
 
@@ -69,14 +69,20 @@ before step 14 is replaced by `gen_agents.py --list` showing every Team role ins
 Every card follows RUNTIME.md (AskUserQuestion up to 4 options; a numbered list and one plain question above that).
 
 - **6.1** As `plsi.md`, without the other-bots card.
-- **6.2** Skip: the interview runs in chat. Do not ask about voice.
-- **6.3** As `plsi.md`, chat path. The physician's `+patients` e-mail address and its routine do not exist; say
+- **6.2** As `plsi.md`: one AskUserQuestion "How shall we do the setup?" (intro: a short talk about you, then a few
+  choices) with "Talk by voice (recommended)" / "Here in chat". Voice: write `Voice: on` and "Setup: by voice, next
+  step 6.3" in `.plsi/memory.md`, and in the same message tell the user to type `/voice` and hold Space to answer
+  (`/voice tap` to toggle instead), with the interview plan of `orchestrator/talk` (Voice calls). Then ask, as
+  ONE AskUserQuestion, "Shall I read my questions and replies aloud too? Anyone nearby will hear them." (Not now /
+  Read them aloud); "Read them aloud" writes `Speak replies: on`. Then run the interview the voice way of
+  RUNTIME.md, Voice: PLSI asks each question itself, one short spoken-style question per message.
+- **6.3** As `plsi.md`: the voice path (RUNTIME.md, Voice) or the chat path, as chosen in 6.2. The physician's `+patients` e-mail address and its routine do not exist; say
   instead that patients send files through the Patient Drive folders (step 6.6) or that they save files to
   `<PLSI_HOME>/inbox/`.
 - **6.4** The specialists list has more than four options, so it is a numbered list (Display name and Description,
   preselected ones marked "(recommended)") and the question "Reply with the numbers, 'all' or 'none' (Enter keeps
   the recommended ones)."
-- **6.5** The extras: "Weekly talk" is "A weekly talk with me, in chat". "Daily research" asks for a cap in research
+- **6.5** The extras: "Weekly talk" is "A weekly talk with me, by voice or text". "Daily research" asks for a cap in research
   runs per day instead of "usage you don't spend". If the five options with all/none exceed four, use the numbered list.
 - **6.6** Tools and keys: as `plsi.md`, with the Claude Code setup column below. For keys, run `plsi keys scan` and
   `keys map` as `plsi.md` says, then ONE message naming each variable to add to `~/.config/plsi/env` with the

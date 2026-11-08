@@ -42,9 +42,36 @@ never fake it.
 | A card with more than 4 options (specialists, connectors, "which one is you?") | A numbered list in chat (option name and one line each, recommended ones marked "(recommended)"), then ONE plain question: "Reply with the numbers, 'all' or 'none'." Keep "All of the above" / "None of these" as the words `all` / `none`. Never split one card into several. |
 | "Turn ends while waiting for a card" | Wait for the user's answer in chat, then go on in the same turn the answer arrives. |
 | Cards with attachments (Terms, Privacy, consent) | Name the file path (`legal/TERMS.md`, `legal/PRIVACY.md`, `mothership/consent.md`) in the text with a one-line summary, and offer to show it in full. |
-| Voice mode, voice calls, the voice assistant, `send_task`, `voice:<call>` | Not available. The interview always runs in chat (`orchestrator/talk`, chat path); skip step 6.2 of setup and the "Voice calls" section. "Talk by voice" in a skill means "talk in chat". |
+| Voice mode, voice calls, the voice assistant, `send_task`, `voice:<call>` | Claude Code's dictation plus optional spoken replies: see **Voice** below. |
 | Grok's secret card for an API key | Never in chat. The user adds `VAR=value` lines to `~/.config/plsi/env` themselves (`chmod 600`; the session-start hook sets `PLSI_ENV_FILE` to it). Give them the exact variable names and the command `mkdir -p ~/.config/plsi && ${EDITOR:-nano} ~/.config/plsi/env && chmod 600 ~/.config/plsi/env`. Never read, print or copy that file. The repo `.env` stays unused. |
 | Grok chat attachments the user sends (PDF, photo, CSV) | A path the user gives, a file they drag into the terminal, or a file they put in `<PLSI_HOME>/inbox/`. Images and PDFs can be read with Read. |
+
+## Voice
+
+Grok's voice call has a separate voice assistant that asks the questions and talks back. Claude Code has two
+halves instead:
+
+- **The user's voice in:** Claude Code's built-in dictation. The user types `/voice` (hold Space to talk, release to
+  send; `/voice tap` toggles instead), and what they say arrives as their typed message. PLSI cannot switch it on: it
+  tells the user how. `/config` sets the dictation language.
+- **PLSI's voice out (optional):** with `- Speak replies: on` in `.plsi/memory.md`, the Stop hook
+  `claude-code/hooks/speak.py` reads each final reply aloud with the computer's text-to-speech (`say`, `spd-say`,
+  `espeak-ng`, `espeak` or Windows speech). Off by default: replies can hold health details, audible to anyone
+  nearby, so PLSI turns it on only after the user says yes to that (`/plsi-voice speak on`).
+
+With `- Voice: on` in `.plsi/memory.md` (setup step 6.2 "Talk by voice", "let's talk by voice", or `/plsi-voice on`),
+PLSI itself is the voice assistant, and the "Voice calls" section of `orchestrator/talk` maps like this:
+
+| Grok voice call | Claude Code voice |
+|---|---|
+| Post the interview plan, then the talker asks from it during the call | Post the interview plan once (the same questions, written out in full, as the user's read-along), then ask its questions yourself, **one per message, in one or two short spoken-style sentences**, each answered by dictation. No cards, tables or lists in a voice question; read the options out in words ("Sleep coach, nutritionist, or both?"). Choices that would be cards (role, sex, specialists, extras) are spoken questions during the interview. |
+| "During the call, read no file and run no command" | Does not apply: PLSI may read and run between questions, but keeps each reply short and gets to the next question quickly. |
+| The call ends; the summary arrives | When the interview's questions are done (or the user says "stop" or starts typing), back to normal chat: the ONE "Did I get this right?" AskUserQuestion with role, sex, birth year and every number heard with its unit (speech can be misheard), and an easy choice the user clearly made is applied with a "Heard:" line, its card skipped, exactly as `orchestrator/talk` says. Everything not settled goes as cards in chat. |
+| "Setup: by voice, next step …" in memory | Same line in `.plsi/memory.md`, updated after every answered step until step 14. |
+| The weekly talk by voice | `/plsi-talk` with Voice on: the same spoken-question style, then the same check card. |
+
+Speech-sensitive details (consent cards, the Terms, key names, anything the user must read exactly) stay as
+AskUserQuestion or text even with Voice on.
 
 ## Routines
 
@@ -81,6 +108,9 @@ Plain markdown, one fact per line, PLSI only. Create it in setup step 1. Keep th
 - Own health: on | off
 - User's instance: me
 - Tips: on | off
+- Voice: on | off
+- Speak replies: on | off
+- Voice rate: <words per minute, optional>
 - Feedback offers: on | off
 - Mothership: joined (<data kinds>, <send mode>) | not joined
 ## Team

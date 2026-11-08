@@ -9,6 +9,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/claude-code/hooks/speak.py\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   },
   "permissions": {
@@ -23,7 +34,8 @@
       "Read(plsi.md)",
       "Read(legal/**)",
       "Read(mothership/**)",
-      "Read(migration/**)"
+      "Read(migration/**)",
+      "Bash(python claude-code/hooks/speak.py:*)"
     ],
     "deny": [
       "Edit(instances/**/events.jsonl)",
