@@ -40,3 +40,8 @@ tests/fixtures/mh_routing/*
 !tests/fixtures/mh_wellbeing/
 tests/fixtures/mh_wellbeing/*
 !tests/fixtures/mh_wellbeing/**
+
+# Claude Code port: per-install state (kept out of git so the update check sees a clean checkout)
+.plsi/
+.claude/agents/plsi-*.md
+.claude/settings.local.json

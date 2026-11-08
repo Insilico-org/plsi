@@ -278,6 +278,26 @@ plsi report --instance me --map blood_phenoage
 
 Canonical CSV header: `effective_at,text,value,unit[,code_system,code,specimen,kind,fasting]`. Grok Bot users start with `plsi.md` instead.
 
+### On Claude Code
+
+```bash
+git clone https://github.com/Insilico-org/plsi && cd plsi
+claude          # then type /plsi-setup
+```
+
+The main session becomes PLSI (`CLAUDE.md`), each worker bot is a Claude Code subagent generated from the roster
+(`claude-code/gen_agents.py` -> `.claude/agents/plsi-<role>.md`), and `/plsi-setup` runs `plsi.md` through
+`claude-code/SETUP.md`. `claude-code/RUNTIME.md` maps every Grok mechanism (bots, cards, routines, voice, secret
+cards, Grok email) to its Claude Code equivalent; the skills are unchanged. Routines are slash commands
+(`/plsi-checkin`, `/plsi-update-check`, ...) that `claude-code/routines.sh` can schedule with cron; scheduled runs
+leave their messages in `<PLSI_HOME>/outbox/` for the next session. Keys go in `~/.config/plsi/env`, never in chat.
+Restart Claude Code once after setup so the team and connectors load. Voice: answer PLSI by talking with Claude
+Code's `/voice` dictation (hold Space), and optionally hear its replies read aloud by your computer's text-to-speech
+(`/plsi-voice speak on`, off by default; `claude-code/hooks/speak.py`). There is no Grok email: emails are prepared
+for you to send. `/plsi-dashboard` (`claude-code/home.py`) renders a read-only home dashboard of the whole install
+(what needs you, your latest derived measures, people, plans, due measurements, the team, routines and routine
+messages) with PLSI's own report template, to `<PLSI_HOME>/dashboard/home.html`.
+
 Optional keys go in a gitignored `.env` (copy `.env.example`); the process environment overrides it. `plsi keys status` reports booleans only. A secret the user already has under another name is used through `plsi keys map --name <VAR> --from <their name>` (`plsi keys scan` lists the names); only the names are stored.
 
 ## Layout
