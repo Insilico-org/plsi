@@ -294,7 +294,9 @@ leave their messages in `<PLSI_HOME>/outbox/` for the next session. Keys go in `
 Restart Claude Code once after setup so the team and connectors load. Voice: answer PLSI by talking with Claude
 Code's `/voice` dictation (hold Space), and optionally hear its replies read aloud by your computer's text-to-speech
 (`/plsi-voice speak on`, off by default; `claude-code/hooks/speak.py`). There is no Grok email: emails are prepared
-for you to send.
+for you to send. `/plsi-dashboard` (`claude-code/home.py`) renders a read-only home dashboard of the whole install
+(what needs you, your latest derived measures, people, plans, due measurements, the team, routines and routine
+messages) with PLSI's own report template, to `<PLSI_HOME>/dashboard/home.html`.
 
 Optional keys go in a gitignored `.env` (copy `.env.example`); the process environment overrides it. `plsi keys status` reports booleans only. A secret the user already has under another name is used through `plsi keys map --name <VAR> --from <their name>` (`plsi keys scan` lists the names); only the names are stored.
 

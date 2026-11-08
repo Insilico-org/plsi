@@ -44,6 +44,7 @@ never fake it.
 | Cards with attachments (Terms, Privacy, consent) | Name the file path (`legal/TERMS.md`, `legal/PRIVACY.md`, `mothership/consent.md`) in the text with a one-line summary, and offer to show it in full. |
 | Voice mode, voice calls, the voice assistant, `send_task`, `voice:<call>` | Claude Code's dictation plus optional spoken replies: see **Voice** below. |
 | Grok's secret card for an API key | Never in chat. The user adds `VAR=value` lines to `~/.config/plsi/env` themselves (`chmod 600`; the session-start hook sets `PLSI_ENV_FILE` to it). Give them the exact variable names and the command `mkdir -p ~/.config/plsi && ${EDITOR:-nano} ~/.config/plsi/env && chmod 600 ~/.config/plsi/env`. Never read, print or copy that file. The repo `.env` stays unused. |
+| "How is everything?", "show my dashboard", an overview of the whole install | `/plsi-dashboard`: `python claude-code/home.py` writes `<PLSI_HOME>/dashboard/home.html` (read-only). A dashboard on one topic is still the Visualizer's (`visualizer/dashboard`). |
 | Grok chat attachments the user sends (PDF, photo, CSV) | A path the user gives, a file they drag into the terminal, or a file they put in `<PLSI_HOME>/inbox/`. Images and PDFs can be read with Read. |
 
 ## Voice

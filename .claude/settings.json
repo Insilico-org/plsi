@@ -35,7 +35,8 @@
       "Read(legal/**)",
       "Read(mothership/**)",
       "Read(migration/**)",
-      "Bash(python claude-code/hooks/speak.py:*)"
+      "Bash(python claude-code/hooks/speak.py:*)",
+      "Bash(python claude-code/home.py:*)"
     ],
     "deny": [
       "Edit(instances/**/events.jsonl)",
