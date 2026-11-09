@@ -114,6 +114,10 @@ def run(names: list[str], betas: Any, *, age: float | None, sex: Sex) -> dict[st
 
     gallery = _gallery()
     sample = betas.columns[0]
+    if betas.index.astype(str).str.contains("_").any() or betas.index.has_duplicates:
+        betas = betas.copy()
+        betas.index = betas.index.astype(str).str.split("_").str[0]
+        betas = betas.groupby(level=0).mean()
     meta = pd.DataFrame({"age": [age], "sex": [_SEX.get(sex, float("nan"))]}, index=[sample])
     groups: dict[str, list[str]] = {}
     out: dict[str, float | str] = {}

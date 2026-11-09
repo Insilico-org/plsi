@@ -94,21 +94,55 @@ def _live_violations(m: MapContract) -> list[dict[str, str]]:
     return out
 
 
-def _expanded(m: MapContract) -> MapContract:
+def _expanded(m: MapContract, instance: str | None = None) -> MapContract:
     """Shipped/user maps with `expand`: add a derived coordinate per biolearn clock not already declared.
+    For `genomic_context`, dynamically generate measured coordinates on the fly from the instance's
+    recorded `free:genomic_context.*` observations so no gene names are hardcoded in the shipped map.
     Snapshots are stored expanded and never re-expanded, so a newer biolearn cannot change an old map hash."""
-    if m.expand is None or not biolearn.available():
-        return m
     have = {c.id for c in m.coordinates}
-    extra = [
-        MapCoordinate(id=cid, label=f"{c['name']}: {c['output']} ({c['tissue']}, {c['year']})", kind=CoordinateKind.DERIVED,
-                      unit=c["unit"], derive=Derive(engine=DeriveEngine.BIOLEARN, model=c["name"], inputs=[m.expand.input]),
-                      correspondence_type=CorrespondenceType.STATISTICAL,
-                      sources=[SourceRef(kind=SourceKind.MODEL, id="biolearn", title=c["name"], url=c["source"])])
-        for c in biolearn.clocks() if (cid := re.sub(r"[^a-z0-9_]+", "_", c["name"].lower()).strip("_")) not in have
-    ]
+    extra: list[MapCoordinate] = []
+    if m.expand is not None and biolearn.available():
+        extra.extend(
+            MapCoordinate(id=cid, label=f"{c['name']}: {c['output']} ({c['tissue']}, {c['year']})", kind=CoordinateKind.DERIVED,
+                          unit=c["unit"], derive=Derive(engine=DeriveEngine.BIOLEARN, model=c["name"], inputs=[m.expand.input]),
+                          correspondence_type=CorrespondenceType.STATISTICAL,
+                          sources=[SourceRef(kind=SourceKind.MODEL, id="biolearn", title=c["name"], url=c["source"])])
+            for c in biolearn.clocks() if (cid := re.sub(r"[^a-z0-9_]+", "_", c["name"].lower()).strip("_")) not in have
+        )
+    if m.id == "genomic_context" and instance is not None:
+        from plsi.models import Code
+        from plsi.map.models import Accepts
+
+        seen_codes: dict[str, tuple[str, str | None, str]] = {}
+        for ev in EventStore(instance).observations():
+            obs = ev.payload
+            if obs.code and obs.code.system == CodeSystem.FREE and obs.code.code.startswith("genomic_context."):
+                raw_suffix = obs.code.code.removeprefix("genomic_context.")
+                cid = re.sub(r"[^a-z0-9_]+", "_", raw_suffix.lower()).strip("_")
+                if cid and cid not in have and cid not in seen_codes:
+                    label = obs.original_text or obs.code.display or cid
+                    unit = obs.unit or "1"
+                    seen_codes[cid] = (obs.code.code, obs.code.display, f"{label}||{unit}")
+        for cid in sorted(seen_codes):
+            full_code, display, meta = seen_codes[cid]
+            label, unit = meta.split("||", 1)
+            extra.append(
+                MapCoordinate(
+                    id=cid,
+                    label=label,
+                    kind=CoordinateKind.MEASURED,
+                    unit=unit,
+                    recency_days=36500,
+                    predictable=False,
+                    accepts=Accepts(codes=[Code(system=CodeSystem.FREE, code=full_code, display=display)]),
+                    correspondence_type=CorrespondenceType.TERMINOLOGY,
+                )
+            )
+    if not extra:
+        return m
+    base_coords = [] if m.id == "genomic_context" else m.dump()["coordinates"]
     return MapContract.model_validate({**m.dump(),
-                                       "coordinates": [*m.dump()["coordinates"],
+                                       "coordinates": [*base_coords,
                                                        *(x.dump() for x in extra)]})
 
 
@@ -131,7 +165,7 @@ def load_all(instance: str | None = None) -> dict[str, MapContract]:
     out: dict[str, MapContract] = {}
     for path, user in files:
         raw = _parse(path.read_text(encoding="utf-8"), path.name) if user else _shipped(path, path.stat().st_mtime_ns)
-        m = _expanded(raw)
+        m = _expanded(raw, instance)
         if bad := _rule_violations(m, user):
             raise ValidationError(f"{path.name}: {bad[0]['message']}", code="MAP_INVALID", violations=bad)
         if m.id in out:

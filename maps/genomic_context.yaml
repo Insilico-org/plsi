@@ -1,0 +1,28 @@
+kind: plsi_map
+schema_version: 1
+id: genomic_context
+title: Germline genomic & pharmacogenomic context
+map_version: 1.0.0
+claim_level: designed
+summary: >-
+  Patient-specific germline and pharmacogenomic allele-dosage coordinates (0, 1, or 2 effect alleles),
+  generated dynamically on the fly from the instance's recorded genomic_context.* observations when
+  the map loads for an instance.
+tags: [genomics, pharmacogenomics, wgs]
+coordinates:
+- id: germline_panel
+  label: Germline variant panel anchor
+  kind: measured
+  unit: '1'
+  recency_days: 36500
+  predictable: false
+  accepts:
+    codes:
+    - {system: free, code: genomic_context.germline_panel, display: 'Germline variant panel anchor'}
+  correspondence_type: terminology
+inference_boundaries:
+  supports:
+  - tracking patient-specific germline allele dosages and pharmacogenomic metabolizer phenotypes across longitudinal plans
+  does_not_support:
+  - standalone clinical diagnosis without phenotypic lab and clinical correlation
+  min_evidence_class_for_actions: hypothesis_only

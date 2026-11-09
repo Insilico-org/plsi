@@ -1,8 +1,12 @@
-# Local instances and secrets
+# Local instances, databases, and secrets
 instances/
+*.sqlite
+*.sqlite3
+*.db
 .env
 .env.*
 !.env.example
+.agents/
 
 # Python
 *.pyc
