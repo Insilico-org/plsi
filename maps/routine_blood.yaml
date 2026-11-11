@@ -3,7 +3,7 @@ kind: plsi_map
 schema_version: 1
 id: routine_blood
 title: Routine blood tests
-map_version: 0.2.0
+map_version: 0.2.1
 claim_level: designed
 summary: Routine blood results no other map reads - hemoglobin, platelets, liver enzymes, lab-reported eGFR, uric acid, TSH, vitamin D, vitamin B12, ferritin and homocysteine.
 tags: [blood, liver, kidney, thyroid, vitamins, iron]
@@ -25,6 +25,10 @@ coordinates:
   ranges:
   - {low: 13, sex: M, source: {kind: pmid, id: '38493792'}}
   - {low: 12, sex: F, source: {kind: pmid, id: '38493792'}}
+  conversions:
+  - from_unit: mmol/L
+    factor: 1.6113
+    source: {kind: doi, id: 10.7326/0003-4819-106-1-114, title: Young DS 1987. Implementation of SI units for clinical laboratory data. Ann Intern Med}
   correspondence_type: terminology
 - id: platelets
   label: Platelet count
@@ -138,6 +142,10 @@ coordinates:
     - {system: loinc, code: 3015-5, display: 'Thyrotropin [Units/volume] in Blood'}
     - {system: loinc, code: 29575-8, display: 'Thyrotropin [Units/volume] in DBS'}
     - {system: loinc, code: 27975-2, display: 'Thyrotropin [Mass/volume] in Serum or Plasma'}
+  conversions:
+  - from_unit: mU/L
+    factor: 1
+    source: {kind: rule, id: 'ucum:mU/L=m[IU]/L', title: 'a hormone reported in WHO international units: mU/L and mIU/L name the same unit'}
   correspondence_type: terminology
 - id: vitamin_d_25oh
   label: 25-hydroxyvitamin D, total (D2 + D3)

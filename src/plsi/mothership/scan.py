@@ -1,15 +1,13 @@
-"""The rules every string and number of a Mothership message passes, the same on PLSI's side as on the Mother's
-(WIRE §3, §4): strict parsing (no NaN or Infinity, no duplicate keys), nesting depth, NFKC normalisation with format
-characters removed, lengths, the identifying patterns (exact dates, contacts, URLs, id numbers, internal ids) outside
-their exempt paths, forbidden keys, and finite bounded numbers. A violation is {path, rule}: paths show only wire
-field names and indexes; a coordinate key is `#key[<n>]` and any other key `#unknown[<n>]` (n = its position)."""
+"""The rules every string and number of a Mothership message passes, as on the Mother's side (WIRE §3, §4): strict
+parsing, nesting depth, NFKC with format characters removed, lengths, the identifying patterns outside their exempt
+paths, forbidden keys and bounded numbers. Paths show only wire field names, indexes, `#key[<n>]` and `#unknown[<n>]`."""
 
 from __future__ import annotations
 
 import json
 import re
 import unicodedata
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -23,22 +21,24 @@ MAX_NUMBER = 1e9
 ID = re.compile(r"[a-z0-9][a-z0-9_.-]{0,63}")
 HEX64 = re.compile(r"[0-9a-f]{64}")
 MONTH = re.compile(r"[0-9]{4}-(?:0[1-9]|1[0-2])")
+UUID_LOWER = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")  # as the Mother's project ids
+UUID_ANY = re.compile(UUID_LOWER.pattern, re.I)
+# a long base64 run mixing cases and digits (sequences and hex hashes do not)
+BASE64_RUN = r"(?<![A-Za-z0-9+/])(?=[A-Za-z0-9+/]*[a-z])(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*[0-9])[A-Za-z0-9+/]{120,}"
 _MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec"
 _MONTH = rf"(?:{_MONTHS})[a-z]*\.?"
 _DAY = r"\d{1,2}(?:st|nd|rd|th)?"
 _TLDS = "com|org|net|io|ai|co|me|info|biz|ru|cn|uk|de|xyz|app|dev|link|ly|gl"
 PATTERNS = {
     "exact_date": re.compile(rf"\b\d{{4}}-\d{{2}}-\d{{2}}|\b\d{{4}}[./-]\d{{1,2}}[./-]\d{{1,2}}\b"
-                             rf"|(?<![\d.])\d{{1,2}}([./-])\d{{1,2}}\1(?:\d{{4}}|\d{{2}})(?![\d.])"
+                             rf"|(?<![\d.])\d{{1,2}}([./-])\d{{1,2}}\1(?:\d{{4}}|\d{{2}})(?!\d|\.\d)"
                              rf"|{_DAY}\s+{_MONTH}\s+\d{{2,4}}|\b{_MONTH}\s+{_DAY},?\s+\d{{2,4}}"
                              rf"|\d{{1,2}}[- ]{_MONTH}[- ]\d{{2,4}}", re.I),
     "email": re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"),
     "url": re.compile(rf"\bhttps?://|\bwww\.|(?<![\w-])[\w-]+\.(?:{_TLDS})\b", re.I),
     "id_number": re.compile(r"\d[\d\s().-]{6,}\d"),
     "internal_id": re.compile(r"\b(?:s_[0-9a-f]{12}|evt_[0-9a-f]{8,32})\b"),
-    # a data: URI or a long base64 run mixing cases and digits (sequences and hex hashes do not)
-    "embedded_data": re.compile(r"(?i:\bdata:[a-z]+/[\w.+-]+;base64)|(?<![A-Za-z0-9+/])(?=[A-Za-z0-9+/]*[a-z])"
-                                r"(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*[0-9])[A-Za-z0-9+/]{120,}"),
+    "embedded_data": re.compile(r"(?i:\bdata:[a-z]+/[\w.+-]+;base64)|" + BASE64_RUN),  # a data: URI or a base64 run
 }
 # a cheap test every match of the rule contains, so the backtracking bare-domain pattern runs only where it can match
 NEEDS = {"url": re.compile(rf"https?://|www\.|\.(?:{_TLDS})\b", re.I)}
@@ -65,27 +65,56 @@ def normal(text: str) -> str:
     return "".join(ch for ch in unicodedata.normalize("NFKC", text) if unicodedata.category(ch) != "Cf")
 
 
+def _read(rule: str, text: str) -> str:
+    """The text as an identifying-pattern rule reads it: the id-number rule with years removed."""
+    return YEARS.sub(" ", text) if rule == "id_number" else text
+
+
 def hit(rule: str, text: str) -> bool:
-    """`text` breaks the identifying-pattern rule (the id-number rule reads it with years removed)."""
+    """`text` breaks the identifying-pattern rule."""
     if rule in NEEDS and not NEEDS[rule].search(text):
         return False
-    return bool(PATTERNS[rule].search(YEARS.sub(" ", text) if rule == "id_number" else text))
+    return bool(PATTERNS[rule].search(_read(rule, text)))
+
+
+def _names(instances: set[str]) -> re.Pattern[str]:
+    """Any of the (lower-case) instance names as a whole word."""
+    return re.compile("|".join(rf"\b{re.escape(n)}\b" for n in instances))
+
+
+def named(text: str, instances: set[str]) -> bool:
+    """`text` names one of the instances as a whole word, in any case."""
+    return bool(instances) and bool(_names(instances).search(text.lower()))
+
+
+def broken(text: str, instances: set[str], rules: Iterable[str] = PATTERNS, mask: Mask | None = None) -> list[str]:
+    """The identifying-pattern `rules` (each reading `text` as `mask` shows it) and `instance_name` that `text` breaks."""
+    found = [rule for rule in rules if hit(rule, mask(rule, text) if mask else text)]
+    return found + (["instance_name"] if named(text, instances) else [])
+
+
+def listed(value: Any) -> list[Any]:  # reading a document whose shape is checked elsewhere
+    return value if isinstance(value, list) else []
+
+
+def keyed(value: Any) -> dict[Any, Any]:  # as listed, for an object
+    return value if isinstance(value, dict) else {}
 
 
 # a data: picture (markdown or HTML), a data: URI with its payload, or a bare base64 run
 PICTURE = re.compile(r"(?i:!\[[^\]\n]*\]\(\s*data:[^)]*\)|<img\b[^>]*\bdata:[^>]*>|\bdata:[a-z]+/[\w.+-]+;base64,?"
-                     r"[A-Za-z0-9+/=]*)|" + PATTERNS["embedded_data"].pattern.split("|", 1)[1] + "={0,2}")
+                     r"[A-Za-z0-9+/=]*)|" + BASE64_RUN + "={0,2}")
 REMOVED = "[picture removed]"
 
 
 def strip_pictures(obj: Any) -> tuple[Any, int]:
     """`obj` with hidden pictures replaced by REMOVED, and their count; a hit string is cleaned in its normal form."""
     if isinstance(obj, dict):
-        pairs = [(k, *strip_pictures(v)) for k, v in obj.items()]
-        return {k: v for k, v, _ in pairs}, sum(n for *_, n in pairs)
+        parts = [(k, *strip_pictures(v)) for k, v in obj.items()]
+        return {k: v for k, v, _ in parts}, sum(n for *_, n in parts)
     if isinstance(obj, list):
-        pairs = [strip_pictures(v) for v in obj]
-        return [v for v, _ in pairs], sum(n for _, n in pairs)
+        parts = [strip_pictures(v) for v in obj]
+        return [v for v, _ in parts], sum(n for _, n in parts)
     if not isinstance(obj, str) or not hit("embedded_data", normal(obj)):
         return obj, 0
     return PICTURE.subn(REMOVED, normal(obj))
@@ -95,10 +124,10 @@ class _Duplicate(ValueError):
     pass
 
 
-def _pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    if len({k for k, _ in pairs}) != len(pairs):
+def _unique(items: list[tuple[str, Any]]) -> dict[str, Any]:
+    if len({k for k, _ in items}) != len(items):
         raise _Duplicate
-    return dict(pairs)
+    return dict(items)
 
 
 def _constant(name: str) -> Any:
@@ -109,7 +138,7 @@ def load(file: str | Path) -> Any:
     """A message file parsed strictly: NaN/Infinity -> not_json, a repeated key -> duplicate_key (path `$`)."""
     text = files.read_input_text(file)
     try:
-        return json.loads(text, parse_constant=_constant, object_pairs_hook=_pairs)
+        return json.loads(text, parse_constant=_constant, object_pairs_hook=_unique)
     except _Duplicate:
         rule = "duplicate_key"
     except RecursionError:
@@ -131,21 +160,28 @@ def too_deep(obj: Any) -> bool:
     return False
 
 
-def _walk(obj: Any, names: frozenset[str], shown: str = "", plain: str = "") -> Iterator[tuple[str, str, Any, bool]]:
-    """(shown path, path template, value, is_key) for every dict key, string and number. Templates write `[]` for any
-    index and `*` for any coordinate key."""
+def walk(obj: Any, names: frozenset[str] = frozenset(), shown: str = "",
+         plain: str = "") -> Iterator[tuple[str, str, Any, bool]]:
+    """(shown path, path template, value, is_key) for every dict key, string and number, paths showing only `names`.
+    Templates write `[]` for any index and `*` for any coordinate key."""
     if isinstance(obj, dict):
         for n, (k, v) in enumerate(obj.items()):
             sub, tmpl = (f"#key[{n}]", "*") if plain in KEYED else (name(k, n, names),) * 2
             sub, tmpl = (f"{shown}.{sub}", f"{plain}.{tmpl}") if shown else (sub, tmpl)
             if isinstance(k, str):
                 yield sub, tmpl, k, True
-            yield from _walk(v, names, sub, tmpl)
+            yield from walk(v, names, sub, tmpl)
     elif isinstance(obj, list):
         for n, v in enumerate(obj):
-            yield from _walk(v, names, f"{shown}[{n}]", f"{plain}[]")
+            yield from walk(v, names, f"{shown}[{n}]", f"{plain}[]")
     elif isinstance(obj, (str, int, float)) and not isinstance(obj, bool):
         yield shown, plain, obj, False
+
+
+def pairs(obj: Any) -> list[tuple[str, Any]]:
+    if isinstance(obj, dict):
+        return [p for k, v in obj.items() for p in ((k, v), *pairs(v))]
+    return [p for v in obj for p in pairs(v)] if isinstance(obj, list) else []
 
 
 def lines(pattern: re.Pattern[str], text: str) -> list[int]:
@@ -160,10 +196,9 @@ def _lined(path: str, text: str, mask: Mask, instances: set[str]) -> list[dict[s
     for rule, pattern in PATTERNS.items():
         seen = mask(rule, text)
         if rule not in NEEDS or NEEDS[rule].search(seen):
-            out += [flag(f"{path}[{n}]", rule) for n in lines(pattern, YEARS.sub(" ", seen) if rule == "id_number" else seen)]
+            out += [flag(f"{path}[{n}]", rule) for n in lines(pattern, _read(rule, seen))]
     if instances:
-        named = re.compile("|".join(rf"\b{re.escape(n)}\b" for n in instances))
-        out += [flag(f"{path}[{n}]", "instance_name") for n in lines(named, text.lower())]
+        out += [flag(f"{path}[{n}]", "instance_name") for n in lines(_names(instances), text.lower())]
     return out
 
 
@@ -173,7 +208,7 @@ def violations(doc: Any, exempt: Exempt, names: frozenset[str], instances: set[s
     instance names never sent. A field in `masks` (path template -> mask) is read as each rule's mask shows it, and its
     violations name the line (`_lined`); `limits` override MAX_STRING per path template."""
     out = []
-    for path, plain, value, is_key in _walk(doc, names):
+    for path, plain, value, is_key in walk(doc, names):
         path = path or "$"
         if not isinstance(value, str):
             if not abs(value) <= MAX_NUMBER:  # NaN, infinities and big numbers; a huge int is never made a float
@@ -188,7 +223,6 @@ def violations(doc: Any, exempt: Exempt, names: frozenset[str], instances: set[s
         if masks and plain in masks and not is_key:
             out += [v for v in _lined(path, text, masks[plain], instances) if not exempt(v["rule"], plain, path)]
             continue
-        out += [flag(path, rule) for rule in PATTERNS if (is_key or not exempt(rule, plain, path)) and hit(rule, text)]
-        if any(re.search(rf"\b{re.escape(n)}\b", text.lower()) for n in instances):
-            out.append(flag(path, "instance_name"))
+        rules = [rule for rule in PATTERNS if is_key or not exempt(rule, plain, path)]
+        out += [flag(path, rule) for rule in broken(text, instances, rules)]
     return out

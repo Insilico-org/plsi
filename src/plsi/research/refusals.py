@@ -1,19 +1,15 @@
-"""The seven refusals a save is checked against. None of them is about research judgment: they refuse an
-unsourced finding, an unfalsifiable hypothesis, an unearned absence, an uncited answer, a finding from an empty or
-unreported search, a dangling link, and a computed field written by the bot.
-
-The budget is not a refusal: a move's cost arrives after the work, so `next` stops a day before a move starts and
-`save` only requires the reading.
-"""
+"""The seven refusals a save is checked against (numbered as in skills/shared/research-graph): an unsourced
+finding, an unfalsifiable hypothesis, an unearned absence, an uncited answer, a finding from an empty or unreported
+search, a dangling link, and a computed field written by the bot. None is about research judgment."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from plsi.errors import GateFailed, violation
-from plsi.research.schema import links_of, meta_of
+from plsi.research.schema import links_of, meta_of, search_counts, where
 from plsi.research.store import Graph
-from plsi.research.verdict import MIN_ABSENCE_ROUNDS
+from plsi.research.tuning import MIN_ABSENCE_ROUNDS
 from plsi.vocab.research import ResearchDesign, ResearchGap, ResearchMove, ResearchNodeKind, ResearchVerdict
 
 COMPUTED_FIELDS = ("verdict", "route", "independent_lines", "rank", "confidence")
@@ -27,26 +23,26 @@ def check(graph: Graph, move: str, nodes: list[dict[str, Any]], updates: list[di
     search = _search_of(move, nodes, updates, graph)
 
     for index, node in enumerate(nodes):
-        where = f"nodes[{index}] {node.get('title') or ''}".strip()
+        place = where("nodes", index, node.get("title"))
         meta = meta_of(node)
-        bad += _honesty(where, node.get("kind"), meta, search)
-        bad += _integrity(where, meta, known)
+        bad += _honesty(place, node.get("kind"), meta, search)
+        bad += _integrity(place, meta, known)
     for index, update in enumerate(updates):
-        where = f"update[{index}] {update.get('name') or ''}".strip()
+        place = where("update", index, update.get("name"))
         if update.get("name") not in graph.nodes:
-            bad.append(violation(where, "refusal-6", f"no node named {update.get('name')!r} in this topic",
+            bad.append(violation(place, "refusal-6", f"no node named {update.get('name')!r} in this topic",
                                  "update only a node that exists; create new ones in `nodes`"))
             continue
         stored = graph.nodes[update["name"]]
-        bad += _honesty(where, stored.get("kind"), meta_of({**stored, **update}), search)
-        bad += _integrity(where, update, known)
+        bad += _honesty(place, stored.get("kind"), meta_of({**stored, **update}), search)
+        bad += _integrity(place, update, known)
     # a gather that reports no search at all is refused like one that reports an empty search;
     # the user's own record comes from no search and is exempt
     if move == ResearchMove.GATHER and search is None:
         searched = [n for n in nodes if n.get("kind") == ResearchNodeKind.FINDING
                     and n.get("design") != ResearchDesign.PERSONAL_RECORD]
         if searched:
-            bad.append(violation(f"nodes[{nodes.index(searched[0])}] {searched[0].get('title') or ''}".strip(),
+            bad.append(violation(where("nodes", nodes.index(searched[0]), searched[0].get("title")),
                                  "refusal-5", "findings saved without saying what search produced them",
                                  "record last_search {rounds, hits, new} on the question in the same save; "
                                  "without it a search that returned nothing cannot be told from one nobody ran"))
@@ -88,7 +84,7 @@ def _honesty(where: str, kind: str | None, meta: dict[str, Any], search: dict[st
         out.append(violation(where, "refusal-2", "a hypothesis with no if_false",
                              "say what we would see if it were wrong; without that it is a story"))
     if kind == ResearchNodeKind.QUESTION:
-        rounds = int((meta.get("last_search") or {}).get("rounds") or 0)
+        rounds = search_counts(meta)["rounds"]
         if ResearchGap.canonical(meta.get("gap")) == ResearchGap.UNSTUDIED and rounds < MIN_ABSENCE_ROUNDS:
             out.append(violation(where, "refusal-3", "a claim of absence without a recorded search",
                                  f"gap: unstudied needs last_search.rounds >= {MIN_ABSENCE_ROUNDS}, "

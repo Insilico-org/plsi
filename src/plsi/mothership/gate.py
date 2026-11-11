@@ -1,30 +1,29 @@
-"""The gate every file passes before it leaves for the Longevity Mothership (WIRE §3): a known message kind with
-the current schema_version, the fields of its kind only; for contributions only consented sections of this contributor
-and coded content only (plsi.mothership.content), free and cpg codes only when a map declares them; for withdrawals
-the proof exactly when deleting; for professional messages the token's professional id; and nothing that identifies
-the person (plsi.mothership.scan: exact dates, contacts, URLs, id numbers, internal ids, identifying fields, the
-instance names), with fields exempt from a pattern only at their exact paths and in their strict formats (the Mother's
-checks, made no looser). A violation is {path, rule}, never the text it found. Empty violations = safe to send."""
+"""The gate every file passes before it leaves for the Longevity Mothership (WIRE §3), at least as strict as the
+Mother's: a known kind at the current schema_version with its own fields only; for contributions the consented
+sections of this contributor, coded content only (content) and map-declared free and cpg codes; for withdrawals the
+proof exactly when deleting; for professional messages the token's professional id; and nothing identifying (scan),
+a field exempt from a pattern only at its exact path and in its strict format. A violation is {path, rule}, never
+the text it found; no violations = safe to send."""
 
 from __future__ import annotations
 
 import re
+from functools import partial
 from typing import Any
 
 from plsi import codes, files, paths
 from plsi.errors import GateFailed, ValidationError
-from plsi.files import sha256_hex
 from plsi.map import registry
 from plsi.mothership import content, enroll, note, scan, stats
 from plsi.mothership.relay import SCHEMA_VERSION
-from plsi.mothership.scan import HEX64, flag
+from plsi.mothership.scan import HEX64, UUID_ANY, flag, keyed, listed
 from plsi.vocab import (CodeSystem, ContributionKind, FeedbackSeverity, FeedbackStage, HypothesisDirection, MothershipMessage as M,
-                        RegistryItemKind, SourceKind, UserRole, WithdrawalRequest)
+                        RegistryItemKind, UserRole, WithdrawalRequest)
 
 FIELDS: dict[M, tuple[set[str], set[str]]] = {  # kind -> (required, optional) fields beyond kind and schema_version
     M.CONTRIBUTION: ({"contributor_id", "consent_version", "packed", "kinds", "subject"}, set(ContributionKind)),
     M.WITHDRAWAL: ({"contributor_id", "request"}, {"proof"}),
-    M.RESEARCH_NOTE: ({"items", "method"}, {"report", "files"}),
+    M.RESEARCH_NOTE: ({"items", "method"}, {"report", "files", "project"}),
     M.REGISTRY_UPDATE: ({"items"}, set()),
     M.PREREGISTRATION: ({"professional_id", "preregistration_id", "hypothesis", "release", "analysis", "outcome", "alpha",
                          "direction", "parents"}, set()),
@@ -42,51 +41,51 @@ ITEM_FIELDS = {
 }
 CONTRIBUTOR = frozenset({M.CONTRIBUTION, M.WITHDRAWAL, M.REGISTRY_UPDATE})  # install token only
 PROFESSIONAL = frozenset({M.PREREGISTRATION, M.FINDING})  # professional token only; research notes go by email
+# a research note's identifiers of strict format: sources, file hashes and Drive ids, MeSH tags
+NOTE_IDS = frozenset({"items[].sources[].id", *note.SOURCE_PATHS, *note.FILE_PATHS, *note.TAG_PATHS})
 # pattern exemptions by exact path template (`[]` any index), per rule and kind, each a field of strict format checked
 # below; keys are never exempt. Contribution codes are exempt from the id-number rule only in code objects of loinc,
-# rxnorm, snomed and icd10cm (exempt_codes), never free or cpg. Source ids are exempt from the dotted-date form too ("23.12.02").
+# rxnorm, snomed and icd10cm (code_paths), never free or cpg. Source ids are exempt from the dotted-date form too ("23.12.02").
 EXEMPT = {
-    "exact_date": {M.RESEARCH_NOTE: frozenset({"items[].sources[].id", *note.SOURCE_PATHS, *note.FILE_PATHS})},
+    "exact_date": {M.RESEARCH_NOTE: NOTE_IDS},
     "id_number": {
         M.CONTRIBUTION: frozenset({"contributor_id", "states[].map_hash"}),
         M.WITHDRAWAL: frozenset({"contributor_id", "proof"}),
-        M.RESEARCH_NOTE: frozenset({"items[].sources[].id", *note.SOURCE_PATHS, *note.FILE_PATHS}),
+        M.RESEARCH_NOTE: NOTE_IDS | note.PROJECT_PATHS,
         M.PREREGISTRATION: frozenset({"professional_id", "preregistration_id", "release", "parents[]"}),
         M.FINDING: frozenset({"professional_id", "finding_id", "preregistration_id", "release"})},
     "url": {M.REGISTRY_UPDATE: frozenset({"items[].public_url", "items[].source_urls[]"}),
             M.RESEARCH_NOTE: frozenset({"files[].name"})},
 }
-UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 VERSION = re.compile(r"[0-9A-Za-z._-]{1,64}")  # a release version, as the relay's
 IDS = {"preregistration_id": re.compile(r"pr_[0-9a-f]{16}"), "finding_id": re.compile(r"f_[0-9a-f]{16}")}
-# research-note sources: exactly {kind, id}, a public identifier in its strict form (WIRE §3)
-SOURCE_IDS = {SourceKind.PMID: re.compile(r"[1-9]\d{0,7}"), SourceKind.DOI: re.compile(r"10\.\d{4,9}/\S{1,200}"),
-              SourceKind.NCT: re.compile(r"NCT\d{8}"), SourceKind.MODEL: re.compile(r"(?=.*[A-Za-z])[A-Za-z0-9._:/-]{1,80}")}
 RESULT_KEYS = ("effect", "interval", "n", "statistic", "df", "p")
 # every field name of the wire: the only key text a path ever shows
-NAMES = frozenset({"kind", "schema_version", "id", *scan.FORBIDDEN_KEYS, *content.NAMES, *RESULT_KEYS, *note.NAMES,
+NAMES = frozenset({"kind", "schema_version", "plsi_version", "id", *scan.FORBIDDEN_KEYS, *content.NAMES, *RESULT_KEYS, *note.NAMES,
                    *(k for required, optional in FIELDS.values() for k in required | optional),
                    *(k for fields in ITEM_FIELDS.values() for k in fields),
                    *(k for fields in FEEDBACK.values() for k in fields),
-                   "op", "map_id", "coordinate", "group_a", "group_b", *stats.GROUP_KEYS})
+                   *stats.SPEC_KEYS, *stats.GROUPS, *stats.GROUP_KEYS})
+
+
+def _exempt(templates: dict[str, frozenset[str]], code_paths: set[str], rule: str, plain: str, shown: str) -> bool:
+    return plain in templates.get(rule, ()) or (rule == "id_number" and shown in code_paths)
 
 
 def _exemptions(doc: dict[str, Any], kind: M) -> scan.Exempt:
-    exempt_codes = {f"{at}.code" for at, (system, _) in content.code_objects(doc).items()
-                    if isinstance(system, str) and system in tuple(CodeSystem) and system not in codes.LOCAL}
-    templates = {rule: by_kind.get(kind, frozenset()) for rule, by_kind in EXEMPT.items()}
-    return lambda rule, plain, shown: plain in templates.get(rule, ()) or (
-        rule == "id_number" and kind == M.CONTRIBUTION and shown in exempt_codes)
+    found = content.code_objects(doc) if kind == M.CONTRIBUTION else {}
+    code_paths = {f"{at}.code" for at, (system, _) in found.items()
+                  if isinstance(system, str) and system in tuple(CodeSystem) and system not in codes.LOCAL}
+    return partial(_exempt, {rule: by_kind.get(kind, frozenset()) for rule, by_kind in EXEMPT.items()}, code_paths)
 
 
 def _match(doc: dict[str, Any], key: str, pattern: re.Pattern[str], rule: str) -> list[dict[str, str]]:
-    value = doc.get(key)
-    ok = isinstance(value, str) and pattern.fullmatch(value)
-    return [] if ok or key not in doc else [flag(key, rule)]
+    return content.check_match(pattern, rule, doc[key], key) if key in doc else []
 
 
-def _number(v: Any) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) <= scan.MAX_NUMBER
+def _proven(doc: dict[str, Any]) -> bool:
+    """The proof hashes to the message's own contributor id."""
+    return "proof" in doc and enroll.pseudonym(str(doc["proof"])) == doc.get("contributor_id")
 
 
 def _result(result: Any) -> list[dict[str, str]]:
@@ -95,21 +94,20 @@ def _result(result: Any) -> list[dict[str, str]]:
     out = [flag(f"result.{k}", "missing_field") for k in RESULT_KEYS if k not in result]
     out += [flag(scan.name(k, n, NAMES, "result"), "unknown_field") for n, k in enumerate(result) if k not in RESULT_KEYS]
     out += [flag(f"result.{k}", "bad_result") for k in ("effect", "statistic", "df", "p")
-            if k in result and not _number(result[k])]
-    if _number(result.get("p")) and not 0 <= result["p"] <= 1:
+            if k in result and not content.number(result[k])]
+    if content.number(result.get("p")) and not 0 <= result["p"] <= 1:
         out.append(flag("result.p", "bad_result"))
-    if "n" in result and not (_number(result["n"]) and isinstance(result["n"], int) and result["n"] >= 0):
+    if "n" in result and not (content.number(result["n"]) and isinstance(result["n"], int) and result["n"] >= 0):
         out.append(flag("result.n", "bad_result"))
     interval = result.get("interval")
-    if "interval" in result and not (isinstance(interval, list) and len(interval) == 2 and all(map(_number, interval))):
+    if "interval" in result and not (isinstance(interval, list) and len(interval) == 2 and all(map(content.number, interval))):
         out.append(flag("result.interval", "bad_result"))
     return out
 
 
 def _professional(doc: dict[str, Any], kind: M) -> list[dict[str, str]]:
-    out = _match(doc, "professional_id", UUID, "bad_id") + _match(doc, "release", VERSION, "bad_release")
-    for key, pattern in IDS.items():
-        out += _match(doc, key, pattern, "bad_id")
+    out = _match(doc, "professional_id", UUID_ANY, "bad_id") + _match(doc, "release", VERSION, "bad_release")
+    out += [v for key, pattern in IDS.items() for v in _match(doc, key, pattern, "bad_id")]
     try:
         if "analysis" in doc:
             stats.check_spec(doc["analysis"])
@@ -118,7 +116,7 @@ def _professional(doc: dict[str, Any], kind: M) -> list[dict[str, str]]:
     if kind == M.FINDING:
         return out + (_result(doc["result"]) if "result" in doc else [])
     alpha = doc.get("alpha")
-    if "alpha" in doc and not (_number(alpha) and 0 < alpha < 1):
+    if "alpha" in doc and not (content.number(alpha) and 0 < alpha < 1):
         out.append(flag("alpha", "bad_alpha"))
     if "direction" in doc and doc["direction"] not in tuple(HypothesisDirection):
         out.append(flag("direction", "bad_direction"))
@@ -136,17 +134,6 @@ def _formats(doc: dict[str, Any], kind: M) -> list[dict[str, str]]:
     if kind == M.CONTRIBUTION:
         out += content.violations(doc)
     return out + (_professional(doc, kind) if kind in PROFESSIONAL else [])
-
-
-def _sources(items: list[dict[str, Any]]) -> list[dict[str, str]]:
-    out = []
-    for n, item in enumerate(items):
-        sources = item.get("sources", [])
-        for m, s in enumerate(sources if isinstance(sources, list) else [None]):
-            pattern = SOURCE_IDS.get(s["kind"]) if isinstance(s, dict) and isinstance(s.get("kind"), str) else None
-            if not (pattern and set(s) == {"kind", "id"} and isinstance(s["id"], str) and pattern.fullmatch(s["id"])):
-                out.append(flag(f"items[{n}].sources[{m}]", "bad_source"))
-    return out
 
 
 def _feedback(doc: dict[str, Any]) -> list[dict[str, str]]:
@@ -170,16 +157,13 @@ def _feedback(doc: dict[str, Any]) -> list[dict[str, str]]:
     return out
 
 
-def _keys(obj: Any) -> set[str]:
-    if isinstance(obj, dict):
-        return set(obj) | {k for v in obj.values() for k in _keys(v)}
-    return {k for v in obj for k in _keys(v)} if isinstance(obj, list) else set()
-
-
 def _shape(doc: dict[str, Any], kind: M) -> list[dict[str, str]]:
     required, optional = FIELDS[kind]
     out = [flag(k, "missing_field") for k in sorted(required - set(doc))]
-    known = required | optional | {"kind", "schema_version"}
+    known = required | optional | {"kind", "schema_version", "plsi_version"}
+    version = doc.get("plsi_version")
+    if not (isinstance(version, str) and VERSION.fullmatch(version)):
+        out.append(flag("plsi_version", "missing_field" if version is None else "bad_format"))
     out += [flag(scan.name(k, n, NAMES), "unknown_field") for n, k in enumerate(doc) if k not in known]
     if kind in ITEM_FIELDS:
         items = doc.get("items")
@@ -191,11 +175,12 @@ def _shape(doc: dict[str, Any], kind: M) -> list[dict[str, str]]:
             out += [flag(f"items[{n}].kind", "unknown_kind")
                     for n, item in enumerate(items) if item.get("kind") not in tuple(RegistryItemKind)]
         if kind == M.RESEARCH_NOTE:
-            out += _sources(items) + note.check(items, SOURCE_IDS[SourceKind.MODEL].fullmatch, doc.get("report")) + note.files(doc)
+            out += note.check(items, doc.get("report")) + note.files(doc) + note.project(doc)
     separated = "professional_id" if kind in CONTRIBUTOR else "contributor_id" if kind in PROFESSIONAL else None
-    if separated and separated in _keys(doc):
+    keys = {k for k, _ in scan.pairs(doc)}
+    if separated and separated in keys:
         out.append(flag(separated, "identity_mix"))
-    if kind == M.RESEARCH_NOTE and {"contributor_id", "professional_id"} & _keys(doc):
+    if kind == M.RESEARCH_NOTE and {"contributor_id", "professional_id"} & keys:
         out.append(flag("items", "identity_mix"))
     if kind == M.FEEDBACK:
         out += _feedback(doc)
@@ -208,7 +193,7 @@ def _declared(doc: dict[str, Any], instance: str) -> list[dict[str, str]]:
     declared, maps = registry.declared_codes(instance), registry.load_all(instance)
     out = [flag(at, "bad_code") for at, code in content.code_objects(doc).items()
            if code[0] in tuple(codes.LOCAL) and not (isinstance(code[1], str) and code in declared)]
-    states = doc.get("states") if isinstance(doc.get("states"), list) else []
+    states = listed(doc.get("states"))
     every = {c.id for m in maps.values() for c in m.coordinates}
     for n, state in enumerate(states):
         if not isinstance(state, dict):
@@ -220,28 +205,24 @@ def _declared(doc: dict[str, Any], instance: str) -> list[dict[str, str]]:
         if state.get("map_version", m.map_version) != m.map_version:
             out.append(flag(f"states[{n}].map_version", "bad_format"))
         ids = {c.id for c in m.coordinates}
-        coordinates = state.get("coordinates") if isinstance(state.get("coordinates"), dict) else {}
-        gaps = state.get("gaps") if isinstance(state.get("gaps"), list) else []
-        out += [flag(f"states[{n}].coordinates.#key[{c}]", "bad_id") for c, k in enumerate(coordinates) if k not in ids]
-        out += [flag(f"states[{n}].gaps[{g}]", "bad_id") for g, k in enumerate(gaps) if not (isinstance(k, str) and k in ids)]
-    by = doc.get("scores", {}).get("by_coordinate") if isinstance(doc.get("scores"), dict) else None
-    keys = by if isinstance(by, dict) else {}
+        out += [flag(f"states[{n}].coordinates.#key[{c}]", "bad_id")
+                for c, k in enumerate(keyed(state.get("coordinates"))) if k not in ids]
+        out += [flag(f"states[{n}].gaps[{g}]", "bad_id")
+                for g, k in enumerate(listed(state.get("gaps"))) if not (isinstance(k, str) and k in ids)]
+    keys = keyed(keyed(doc.get("scores")).get("by_coordinate"))
     return out + [flag(f"scores.by_coordinate.#key[{c}]", "bad_id") for c, k in enumerate(keys) if k not in every]
 
 
 def _contributor(doc: dict[str, Any], kind: M, enrollment: dict[str, Any], consent_version: str | None) -> list[dict[str, str]]:
     out = []
-    # a delete_all whose proof hashes to its own contributor id needs no enrollment match: it stays sendable after a
-    # later join made a new pseudonym (sha256(proof) == contributor_id already proves ownership)
-    proven = (kind == M.WITHDRAWAL and doc.get("request") == WithdrawalRequest.DELETE_ALL and "proof" in doc
-              and sha256_hex(str(doc["proof"])) == doc.get("contributor_id"))
+    # a delete_all with its proof needs no enrollment match: it stays sendable after a later join made a new pseudonym
+    proven = kind == M.WITHDRAWAL and doc.get("request") == WithdrawalRequest.DELETE_ALL and _proven(doc)
     if not proven and doc.get("contributor_id") != enrollment.get("contributor_id"):
         out.append(flag("contributor_id", "contributor_mismatch"))
     if kind == M.CONTRIBUTION:
         if not enroll.consented(enrollment) or doc.get("consent_version") != consent_version:
             out.append(flag("consent_version", "consent"))
-        kinds = doc.get("kinds") if isinstance(doc.get("kinds"), list) else []
-        given = {k for k in kinds if isinstance(k, str)} | {k for k in ContributionKind if k in doc}
+        given = {k for k in listed(doc.get("kinds")) if isinstance(k, str)} | {k for k in ContributionKind if k in doc}
         out += [flag(k, "not_consented") for k in sorted(given - set(enrollment.get("kinds", [])))
                 if k in tuple(ContributionKind)]
     if kind == M.WITHDRAWAL:
@@ -250,7 +231,7 @@ def _contributor(doc: dict[str, Any], kind: M, enrollment: dict[str, Any], conse
             out.append(flag("request", "bad_request"))
         elif not deleting and "proof" in doc:
             out.append(flag("proof", "unexpected_proof"))
-        elif deleting and ("proof" not in doc or sha256_hex(str(doc["proof"])) != doc.get("contributor_id")):
+        elif deleting and not _proven(doc):
             out.append(flag("proof", "bad_proof"))
     return out
 

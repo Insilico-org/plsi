@@ -5,8 +5,8 @@ Blood PhenoAge (Levine 2018, doi:10.18632/aging.101414) — NOT biolearn's DNAm 
        - 0.0120*lymph% + 0.0268*MCV + 0.3306*RDW + 0.00188*ALP + 0.0554*WBC + 0.0804*age
   M = 1 - exp(-exp(xb) * (exp(120*g) - 1) / g), g = 0.0076927
   PhenoAge = 141.50225 + ln(-0.00553 * ln(1 - M)) / 0.090165
-Verified 2026-10-20: the weights against Levine 2018 Table 1 (PMC5940111; ALP printed as 0.0019); the intercept,
-Gompertz gamma and the PhenoAge transform against the BioAge reference implementation (Kwon & Belsky 2021,
+The weights match Levine 2018 Table 1 (PMC5940111; ALP printed as 0.0019); the intercept,
+Gompertz gamma and the PhenoAge transform match the BioAge reference implementation (Kwon & Belsky 2021,
 doi:10.1007/s11357-021-00480-5, github.com/dayoonkwon/BioAge R/phenoage_calc.R, orig=TRUE: -19.90667, 0.007692696,
 1.51714 = exp(120*g) - 1, 141.50225, -0.0055305, 0.090165). biolearn.hematology uses mistyped weights (RDW 0.3356).
 
@@ -36,6 +36,7 @@ PHENOAGE_WEIGHTS = {
     "albumin": -0.0336, "creatinine": 0.0095, "glucose": 0.1953, "lymphocyte_pct": -0.0120, "mcv": 0.0268,
     "rdw": 0.3306, "alp": 0.00188, "wbc": 0.0554,
 }
+AGE_UNIT = "a"  # UCUM years: a derived value in years is an age or an age acceleration
 
 
 def rule_id(model: str) -> str:
@@ -74,7 +75,7 @@ NATIVE_MODELS: dict[str, Callable[[dict[str, float], float], float]] = {
 }
 
 
-def compute(model: str, inputs: dict[str, float], *, birth_year: int | None, at: datetime) -> float:
+def _native(model: str, inputs: dict[str, float], *, birth_year: int | None, at: datetime) -> float:
     """Evaluate a NATIVE_MODELS entry from same-day canonical inputs (keys = input coordinate ids).
     Every native model needs birth_year (ValueError if None). Raises KeyError for an unknown model."""
     fn = NATIVE_MODELS[model]
@@ -106,27 +107,25 @@ class Engine:
 
 ENGINES: dict[DeriveEngine, Engine] = {
     DeriveEngine.NATIVE: Engine(
-        lambda d, v, birth_year, sex, at: compute(d.model, v, birth_year=birth_year, at=at),
-        lambda d: rule_id(d.model), lambda d: True, lambda d: True, lambda: set(NATIVE_MODELS),
-        ("map.native_model", "unknown native model {!r}", f"one of {sorted(NATIVE_MODELS)}")),
+        evaluate=lambda d, v, birth_year, sex, at: _native(d.model, v, birth_year=birth_year, at=at),
+        rule_id=lambda d: rule_id(d.model), censor_safe=lambda d: True, reads_age=lambda d: True,
+        models=lambda: set(NATIVE_MODELS),
+        unknown=("map.native_model", "unknown native model {!r}", f"one of {sorted(NATIVE_MODELS)}")),
     DeriveEngine.EXPR: Engine(
-        lambda d, v, birth_year, sex, at: formula.evaluate(d.formula or "", v, age=age_at(birth_year, at), sex=sex),
-        lambda d: f"{DeriveEngine.EXPR.value}:{d.model}", lambda d: formula.monotone_safe(d.formula or ""),
-        lambda d: "age" in formula.variables(d.formula or "")),
+        evaluate=lambda d, v, birth_year, sex, at: formula.evaluate(d.formula or "", v, age=age_at(birth_year, at), sex=sex),
+        rule_id=lambda d: f"{DeriveEngine.EXPR.value}:{d.model}", censor_safe=lambda d: formula.monotone_safe(d.formula or ""),
+        reads_age=lambda d: "age" in formula.variables(d.formula or "")),
     DeriveEngine.EXTENSION: Engine(
-        lambda d, v, birth_year, sex, at: float(extensions.deriver(d.model)(dict(v), age=age_at(birth_year, at), sex=sex)),
-        lambda d: extensions.rule_id(d.model), lambda d: bool(extensions.manifest(d.model).monotone), lambda d: True,
-        lambda: set(extensions.installed(ExtensionKind.DERIVER)),
-        ("map.extension_missing", "no active deriver extension {!r}", "plsi ext list")),
+        evaluate=lambda d, v, birth_year, sex, at: float(extensions.deriver(d.model)(dict(v), age=age_at(birth_year, at), sex=sex)),
+        rule_id=lambda d: extensions.rule_id(d.model), censor_safe=lambda d: bool(extensions.manifest(d.model).monotone),
+        reads_age=lambda d: True, models=lambda: set(extensions.installed(ExtensionKind.DERIVER)),
+        unknown=("map.extension_missing", "no active deriver extension {!r}", "plsi ext list")),
     DeriveEngine.BIOLEARN: Engine(
         # reads_age False: the clocks that read age (GrimAge) output years, which age_based excludes by unit
-        None, lambda d: f"{DeriveEngine.BIOLEARN.value}:{d.model}", lambda d: False, lambda d: False,
-        lambda: {x["name"] for x in biolearn.clocks()} if biolearn.available() else None,
-        ("map.biolearn_model", "{!r} is not a biolearn aging clock", "plsi clocks list")),
+        evaluate=None, rule_id=lambda d: f"{DeriveEngine.BIOLEARN.value}:{d.model}", censor_safe=lambda d: False,
+        reads_age=lambda d: False, models=lambda: {x["name"] for x in biolearn.clocks()} if biolearn.available() else None,
+        unknown=("map.biolearn_model", "{!r} is not a biolearn aging clock", "plsi clocks list")),
 }
-
-
-AGE_UNIT = "a"  # UCUM years: a derived value in years is an age or an age acceleration
 
 
 def age_based(coordinates: list[MapCoordinate]) -> set[str]:
@@ -181,5 +180,5 @@ def clocks() -> list[dict[str, Any]]:
     if biolearn.available():
         out += [{**m, "engine": DeriveEngine.BIOLEARN.value} for m in biolearn.clocks()]
     else:
-        errors.warn("DEPENDENCY_MISSING", f"biolearn clocks need the clocks extra: {biolearn.HINT}")
+        errors.warn("DEPENDENCY_MISSING", f"biolearn clocks need the clocks extra: {errors.CLOCKS_EXTRA}")
     return out

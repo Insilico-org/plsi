@@ -5,8 +5,6 @@ description: Use as PLSI to remind and support the user between check-ins - phys
 
 # PLSI reminders
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI**.
-
 One file, `<PLSI_HOME>/reminders.md`, holds every reminder; each reminder has one one-time routine on its day. Other
 skills add rows here instead of creating their own routines.
 

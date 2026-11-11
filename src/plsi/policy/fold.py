@@ -1,7 +1,5 @@
-"""Plans folded from the log: each plan with its plan_status history and prediction scores, in log order.
-
-One pass over the active events; retracted plans drop out with their scores. World access only via plsi.map.
-"""
+"""Plans folded from the log in one pass over the active events: each plan with its plan_status history and
+prediction scores, in log order; retracted plans drop out with their scores."""
 
 from __future__ import annotations
 

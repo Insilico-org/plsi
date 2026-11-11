@@ -74,6 +74,8 @@ coordinates:
     - {system: loinc, code: 8343-6, display: 'Lean body weight estimated by Skin fold method'}
   recency_days: 1095
   score_window_days: {before: 90, after: 365}
+  conversions:
+  - {from_unit: '', factor: 1, source: {kind: rule, id: 'definition:almi', title: 'ALMI is appendicular lean mass in kg over height in m squared, so one printed without a unit is in kg/m2'}}
   correspondence_type: terminology
 inference_boundaries:
   supports: [tracking each score between scans and predictions on it]

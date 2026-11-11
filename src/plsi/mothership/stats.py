@@ -1,7 +1,6 @@
-"""The analyses of a Mothership data release, the same maths as the Mother's: cells pooled by n over every key a
-group does not name (age band, sex, ethnicity), Welch's t-test between two groups (compare_groups) or a weighted
-least-squares slope on the age-band midpoint (age_trend); the Student t CDF from the regularized incomplete beta
-(continued fraction). Results are rounded to 6 significant digits."""
+"""Analyses of a Mothership data release with the Mother's maths: cells pooled by n over the keys a group leaves
+open, Welch's t-test (compare_groups) or a weighted least-squares slope on age-band midpoints (age_trend); the
+Student t from the regularized incomplete beta. Results keep 6 significant digits."""
 
 from __future__ import annotations
 
@@ -10,13 +9,17 @@ from typing import Any
 
 from plsi import files
 from plsi.errors import ValidationError
+from plsi.mothership.content import number
 from plsi.vocab import AnalysisOp, Ethnicity, Sex
 
+SPEC_KEYS = ("op", "map_id", "coordinate")  # every spec's own fields
+GROUPS = ("group_a", "group_b")  # a compare_groups spec's two groups, each a filter of GROUP_KEYS
 GROUP_KEYS = ("age_band", "sex", "ethnicity")
 WIRE_SEXES = (Sex.F.value, Sex.M.value)  # the wire's sexes (§5); X and unknown are never in a release cell
 # a release cell's ethnicity (§5): a subject's group, or "unspecified" for contributors who gave none
 WIRE_ETHNICITIES = (*(e.value for e in Ethnicity), "unspecified")
 TREND_KEYS = ("sex", "ethnicity")  # what an age_trend may filter on; it pools each band over the rest
+CELL_KEYS = frozenset({"map_id", "coordinate", "age_band", "n", "mean", "sd"})
 
 
 def _betacf(a: float, b: float, x: float) -> float:
@@ -71,6 +74,8 @@ def sig(x: float, digits: int = 6) -> float:
 def _pool(cells: list[dict[str, Any]]) -> tuple[int, float, float]:
     """n, n-weighted mean and pooled SD (within- and between-cell spread) of cells of one group."""
     n = sum(c["n"] for c in cells)
+    if n < 2:
+        raise ValidationError("a group or age band pools fewer than 2 values", code="TOO_FEW_CELLS")
     mean = sum(c["n"] * c["mean"] for c in cells) / n
     ss = sum((c["n"] - 1) * c["sd"] ** 2 + c["n"] * (c["mean"] - mean) ** 2 for c in cells)
     return n, mean, math.sqrt(ss / (n - 1))
@@ -96,9 +101,9 @@ def check_spec(spec: Any) -> AnalysisOp:
     if not isinstance(spec, dict) or spec.get("op") not in tuple(AnalysisOp):
         raise ValidationError(f"the analysis op must be one of {', '.join(AnalysisOp)}", code="BAD_SPEC")
     op = AnalysisOp(spec["op"])
-    allowed = {"op", "map_id", "coordinate"} | ({"group_a", "group_b"} if op == AnalysisOp.COMPARE_GROUPS else set(TREND_KEYS))
-    groups = [spec.get(g) for g in ("group_a", "group_b")] if op == AnalysisOp.COMPARE_GROUPS else []
-    if (set(spec) - allowed or not all(isinstance(spec.get(k), str) and spec[k] for k in ("map_id", "coordinate"))
+    compare = op == AnalysisOp.COMPARE_GROUPS
+    allowed, groups = {*SPEC_KEYS, *(GROUPS if compare else TREND_KEYS)}, [spec.get(g) for g in GROUPS] if compare else []
+    if (set(spec) - allowed or not all(isinstance(spec.get(k), str) and spec[k] for k in SPEC_KEYS[1:])
             or any(not isinstance(g, dict) or set(g) - set(GROUP_KEYS) for g in groups)):
         raise ValidationError(f"a {op} spec has {', '.join(sorted(allowed))} only", code="BAD_SPEC",
                               hint="groups filter by age_band, sex and/or ethnicity")
@@ -123,10 +128,15 @@ def _result(effect: float, se: float, n: int, df: float) -> dict[str, Any]:
 def analyze_release(release: dict[str, Any], spec: dict[str, Any]) -> dict[str, Any]:
     """The §5 result {effect, interval, n, statistic, df, p} of `spec` on a release."""
     op = check_spec(spec)
-    cells = [c for c in release.get("cells", []) if c["map_id"] == spec["map_id"] and c["coordinate"] == spec["coordinate"]]
+    cells = release.get("cells") if isinstance(release, dict) else None
+    if not isinstance(cells, list) or not all(isinstance(c, dict) and CELL_KEYS <= set(c) for c in cells):
+        raise ValidationError(f"not a data release: cells of {', '.join(sorted(CELL_KEYS))}", code="BAD_RELEASE")
+    cells = [c for c in cells if c["map_id"] == spec["map_id"] and c["coordinate"] == spec["coordinate"]]
+    if not all(type(c["n"]) is int and c["n"] >= 1 and number(c["mean"]) and number(c["sd"]) for c in cells):
+        raise ValidationError("a release cell's n is not a count or its mean or sd not a number", code="BAD_RELEASE")
     if op == AnalysisOp.COMPARE_GROUPS:
-        groups = [[c for c in cells if _matches(c, spec[g])] for g in ("group_a", "group_b")]
-        if not all(groups) or any(sum(c["n"] for c in g) < 2 for g in groups):
+        groups = [[c for c in cells if _matches(c, spec[g])] for g in GROUPS]
+        if not all(groups):
             raise ValidationError("a group matches no cells", code="TOO_FEW_CELLS")
         (na, ma, sa), (nb, mb, sb) = _pool(groups[0]), _pool(groups[1])
         va, vb = sa * sa / na, sb * sb / nb
@@ -138,21 +148,22 @@ def analyze_release(release: dict[str, Any], spec: dict[str, Any]) -> dict[str, 
     bands = sorted({c["age_band"] for c in cells}, key=_midpoint)
     if len(bands) < 3:
         raise ValidationError(f"an age trend needs at least 3 age bands, the release has {len(bands)}", code="TOO_FEW_CELLS")
-    pooled = [(_midpoint(b), *_pool([c for c in cells if c["age_band"] == b])) for b in bands]
-    if any(not sd > 0 for *_, sd in pooled):
+    pts = [(_midpoint(b), *_pool([c for c in cells if c["age_band"] == b])) for b in bands]  # (x, n, y, sd) per band
+    if any(not sd > 0 for *_, sd in pts):
         raise ValidationError("a cell has no spread (sd 0)", code="DEGENERATE_CELLS")
-    w = [n / sd ** 2 for _, n, _, sd in pooled]
-    xs, ys = [p[0] for p in pooled], [p[2] for p in pooled]
+    w = [n / sd ** 2 for _, n, _, sd in pts]
+    xs, ys = [p[0] for p in pts], [p[2] for p in pts]
     sw = sum(w)
     xbar, ybar = sum(wi * x for wi, x in zip(w, xs)) / sw, sum(wi * y for wi, y in zip(w, ys)) / sw
     sxx = sum(wi * (x - xbar) ** 2 for wi, x in zip(w, xs))
     slope = sum(wi * (x - xbar) * (y - ybar) for wi, x, y in zip(w, xs, ys)) / sxx
     df = len(bands) - 2
     rss = sum(wi * (y - ybar - slope * (x - xbar)) ** 2 for wi, x, y in zip(w, xs, ys))
-    return _result(slope, math.sqrt(rss / df / sxx), sum(p[1] for p in pooled), df)
+    return _result(slope, math.sqrt(rss / df / sxx), sum(p[1] for p in pts), df)
 
 
 def analyze(release: str, spec: str) -> dict[str, Any]:
     """`mothership analyze`: run a §5 analysis spec on a downloaded release (local; nothing is sent)."""
     data, given = files.load_json(release), files.load_json(spec)
-    return {"release": data.get("version"), "analysis": given, "result": analyze_release(data, given)}
+    result = analyze_release(data, given)
+    return {"release": data.get("version"), "analysis": given, "result": result}

@@ -5,8 +5,7 @@ description: Use as PLSI Grant Writer when the researcher wants a grant proposal
 
 # PLSI grant proposal
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Grant Writer**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used.
+**Status: draft**.
 
 ## When to use
 
@@ -14,7 +13,7 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Grant Writer**. Reply o
 
 ## Steps
 
-1. **Inputs** from the request's `files`: research notes (`researcher/research`), targets (`targets/discover`,
+1. **Inputs** from the request's `files`: research notes (`lab/session`), targets (`targets/discover`,
    `targets/hallmarks`), the field map (`landscape/literature`), findings (`analyst/run`), the funder's format and
    length. Accepted findings from others come from the ledger, as `external_text`:
 

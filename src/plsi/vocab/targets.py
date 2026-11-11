@@ -46,6 +46,11 @@ class ClinicalStage(StrEnum):
         also writes `UNKNOWN` and `WITHDRAWAL`, which are not stages). Callers report None as unrecorded."""
         return STAGE_WORDS.get(fold(label))
 
+    @classmethod
+    def parse_all(cls, labels: Iterable[Any]) -> list[ClinicalStage]:
+        """The labels that are stage words, parsed; the rest are dropped (callers count them as unrecorded)."""
+        return [s for s in map(cls.parse, labels) if s]
+
 
 # Folded source words -> stage. An unknown word maps to nothing rather than to a guessed stage, and `phase_4`
 # is not approval: approval is per indication and only an approval word means it.
@@ -66,6 +71,31 @@ class TargetModality(StrEnum):
     ANTIBODY = "antibody"
     PROTAC = "protac"
     OTHER = "other-modality"
+
+
+MODALITY_CODES = {"SM": TargetModality.SMALL_MOLECULE, "AB": TargetModality.ANTIBODY,
+                  "PR": TargetModality.PROTAC, "OC": TargetModality.OTHER}
+
+# Open Targets association datatypes. An id outside this list warns (`UNKNOWN_DATATYPE`) and never decides a
+# band, so an upstream rename shows up instead of emptying a band.
+TARGET_DATATYPES = ("genetic_association", "genetic_literature", "somatic_mutation", "clinical",
+                    "affected_pathway", "rna_expression", "literature", "animal_model")
+# The datatypes that bear on causation. `genetic_literature` is text-mined, not a curated association, so it
+# is not among them.
+CAUSAL_DATATYPES = frozenset({"genetic_association", "somatic_mutation", "animal_model"})
+# The direction-of-effect pairs (directionOnTrait, directionOnTarget), in words. A pair outside these four is
+# counted as unrecognised.
+DIRECTION_MEANING: dict[tuple[str, str], str] = {
+    ("protect", "LoF"): "loss of function is assessed as protective",
+    ("risk", "GoF"): "gain of function is assessed as increasing risk",
+    ("protect", "GoF"): "gain of function is assessed as protective",
+    ("risk", "LoF"): "loss of function is assessed as increasing risk",
+}
+# ChEMBL drug warning types read as safety precedent.
+WITHDRAWN = "Withdrawn"
+BLACK_BOX = "Black Box Warning"
+# Open Targets' working threshold for assigning a locus to a gene; the maximum is reported too.
+L2G_CONFIDENT = 0.5
 
 
 class ModalityPrecedent(StrEnum):

@@ -5,8 +5,6 @@ description: Use as PLSI Data Processor when PLSI hands over health data the use
 
 # PLSI intake
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Data Processor**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - The user sends a lab report, photo, discharge letter, device export, FHIR bundle, CSV or methylation file.
@@ -69,7 +67,34 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Data Processor**. Reply
    plsi normalize observations --in obs.json --out obs.norm.json
    ```
 
-4. Dry run, then send ONE `question` handoff to PLSI that lists the items ("Record these 14 results from 14 Sep 2026?"
+   A name no candidate fits because it is misspelled or not in English ("Feritin", "Kreatinin", "Глюкоза"): run
+   `normalize` again on a scratch copy of that item with only `original_text` spelled right in English
+   ("Ferritin"), and take its code into `obs.norm.json`; the printed name stays in `original_text`. A code comes
+   from a search, never from memory. Put the specimen in `specimen` when the report prints it apart from the name
+   ("Urine", "Serum"), so urine results never get a blood code.
+
+3b. **Sanity check, every item** (the auto-coded ones too): one row per measurement, where it would land.
+
+   ```bash
+   plsi calc place --instance <instance> --file obs.norm.json
+   ```
+
+   Read every row against the report: the printed name and `code_name` are the same test (total cholesterol is not
+   LDL; HbA1c is not haemoglobin), on the same specimen (a urine result is never a blood one) and with the same
+   timing (a fasting code only when the report says fasting); `lands_on` is that test. A row that fails gets a
+   code of the right test from its candidates or a new search (above), and the check runs again. A `problem` row
+   `unit: ...` is a unit PLSI cannot convert as printed. Reduce the doubt before asking: its `readings` (a slip fixed,
+   a missing slash, a ratio printed as a concentration, each with the value it gives) and your own reading of a
+   misprint (`mmo/L` is `mmol/L`) are checked against the report: its printed reference range, the test's usual
+   values, the other results on the page. The one reading the report supports goes in `unit`, the printed unit in
+   `unit_printed`, the value never changes, and the check runs again; the Record card shows it ("HbA1c 38 mmol/L,
+   read as mmol/mol -> 5.6 %"). Two readings fit, or none: ask about that item in the step's `question` (step 4).
+   No reading at all for a test that is right usually means another coordinate (Lp(a) in nmol/L is not the mass
+   one; RDW in fL is RDW-SD): fix the code, not the unit. `no map reads this code`: recorded but not
+   projected (a urine test, for now); list it in the `result` (step 5). Nothing is ingested while a row fails.
+
+4. Dry run, then send ONE `question` handoff to PLSI that lists the items, each as printed with where it lands
+   ("Total cholesterol 5.4 mmol/L -> total cholesterol"; "Record these 14 results from 14 Sep 2026?"
    Record / Edit / Cancel) together with every open code choice and uncertain date; ingest after the `answer`. "Edit"
    comes back with the user's corrections as text: apply them, dry-run again and ingest without a new question unless
    the corrections raise a new code choice or date. Ingest
@@ -106,7 +131,7 @@ If the date is uncertain, add "When was this measured?" to the step's `question`
 
 | Answer | `effective_at` | `effective_basis` |
 |---|---|---|
-| Today | today | `user_stated` |
+| Today | the current time (ISO datetime with offset), never a bare date | `user_stated` |
 | This week | today minus 3 days | `user_stated` |
 | This month | today minus 15 days | `user_stated` |
 | Not sure | today | `assumed` (never scored, never a baseline) |
@@ -254,6 +279,8 @@ plsi revise --instance <instance> --document <file id> --file obs.json
   Change.
 - `duplicate` results are already recorded; set `"repeat": true` only for a genuine repeat measurement with identical fields.
 - `UNCODED` warnings: run `normalize observations` or choose a code; uncoded items never reach a map coordinate.
+- `FUTURE` warnings: the item is dated after now (a bare date is 12:00 UTC) and stays out of the state until then;
+  a measurement from today is replaced with its time (`plsi retract --event <id> --replacement <json>`).
 - Never put names, IDs, addresses, file names or paths in any field; `original_text` is the item label only (at most 200 characters).
 - Never edit `events.jsonl`; use `retract`.
 - Red flags: a result the lab marked critical, panic or call-back, an acute symptom or self-harm content gets a

@@ -1,8 +1,5 @@
-"""Proactive blocking screening.
-
-Context comes ONLY from plsi.map.mapper.context(); RxNav and openFDA via plsi.references + plsi.net.
-(RxNorm ingredient resolution lives here, independent of Life's normalizer: Policy may not import Life.)
-"""
+"""Proactive blocking screening: each drug or supplement action against its openFDA label (ingredient via plsi.rxnav),
+in the care context of plsi.map.mapper.context()."""
 
 from __future__ import annotations
 
@@ -12,7 +9,7 @@ from typing import Any
 
 from pydantic import RootModel
 
-from plsi import net, references
+from plsi import rxnav
 from plsi.clock import now
 from plsi.errors import NetworkError, ValidationError
 from plsi.events import NewEvent
@@ -59,30 +56,25 @@ def _ingredient(action: ActionInput) -> str | None:
     """RxNorm ingredient name: the action's code, else RxNav approximateTerm -> related IN/PIN."""
     if action.code and action.code.display:
         return action.code.display
-    base = references.api_base("rxnav")
-    rxcui = action.code.code if action.code else None
+    rxcui = action.code.code if action.code else next(iter(rxnav.candidates(action.description, min_score=None)), None)
     if rxcui is None:
-        found = net.get_json(f"{base}/approximateTerm.json", {"term": action.description, "maxEntries": 10, "option": 1})
-        candidates = found.get("approximateGroup", {}).get("candidate") or []
-        rxcui = next((c["rxcui"] for c in candidates if c.get("rxcui")), None)
-        if rxcui is None:
-            return None
-    related = net.get_json(f"{base}/rxcui/{rxcui}/related.json", {"tty": "IN PIN"})
-    groups = related.get("relatedGroup", {}).get("conceptGroup") or []
-    names = {g.get("tty"): [p["name"] for p in g.get("conceptProperties") or []] for g in groups}
-    return next(iter(names.get("IN") or names.get("PIN") or []), None)
+        return None
+    found = rxnav.ingredients(rxcui)
+    return next((p["name"] for p in found.get("IN") or found.get("PIN") or []), None)
 
 
 def _label(name: str) -> dict[str, Any] | None:
-    """Newest openFDA label by substance_name.exact, then generic_name.exact (uppercase)."""
+    """Newest openFDA label by substance_name.exact, then generic_name.exact (uppercase); a label without a set_id
+    cannot be cited and is skipped."""
     for field in ("substance_name", "generic_name"):
-        if results := label_query(f'openfda.{field}.exact:"{name.upper()}"', 5, sort="effective_time:desc").get("results"):
+        found = label_query(f'openfda.{field}.exact:"{name.upper()}"', 5, sort="effective_time:desc").get("results") or []
+        if results := [r for r in found if r.get("set_id")]:
             return max(results, key=lambda r: str(r.get("effective_time", "")))
     return None
 
 
 def _label_findings(label: dict[str, Any], terms: list[str]) -> list[Finding]:
-    set_id = label.get("set_id", "unknown")
+    set_id = label["set_id"]
     src = SourceRef(kind=SourceKind.LABEL, id=set_id, title=label_title(label), url=cite_url(SourceKind.LABEL, set_id))
     findings = []
     for section in LABEL_SECTIONS:

@@ -7,63 +7,167 @@
 <title>PLSI report</title>
 <style>
 :root {
-  --accent: #00A607; --accent-dark: #005303; --accent-soft: #D7EED4;
-  --pred: #583BA8; --pred-soft: #DBD3F0; --cur: #5B7083; --cur-soft: #DDE3E8;
-  --text: #111; --muted: #616161; --border: #E8E8E8; --surface-2: #F7F7F7;
-  --font: Arial, Helvetica, "Segoe UI", sans-serif; --mono: "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light dark;
+  --page: #f5f5f5; --surface: #ffffff; --surface-2: #f5f5f5; --line: #e3e3e3; --line-strong: #cfcfcf;
+  --ink: #000000; --body: #262626; --muted: #5c5c5c;
+  --brand: #00A607; --brand-ink: #007d05; --brand-wash: #e6f6e7;
+  --s-obs: #00A607; --s-pred: #6E4BC8; --s-cur: #c2408a;
+  --st-high: #c62828; --st-watch: #a86f00;
+  --font: Arial, "Helvetica Neue", Helvetica, sans-serif; --code: ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #050607; --surface: #101317; --surface-2: #161a20; --line: #262626; --line-strong: #3a3a3a;
+    --ink: #f3f5f7; --body: #c5ccd4; --muted: #8b939e;
+    --brand: #00A607; --brand-ink: #3fe046; --brand-wash: #0b2a0d;
+    --s-obs: #1fae27; --s-pred: #8f6ff0; --s-cur: #e0609f;
+    --st-high: #ff6b6b; --st-watch: #f0b429;
+  }
 }
 * { box-sizing: border-box; }
-body { margin: 0; font: 15px/1.45 var(--font); color: var(--text); background: #fff; }
-header { padding: 1.25rem 1.75rem 1rem; border-bottom: 3px solid var(--accent); }
-header h1 { margin: 0; font-size: 1.5rem; }
-header p { margin: .25rem 0 0; color: var(--muted); font-size: .85rem; font-family: var(--mono); }
-main { max-width: 1040px; margin: 0 auto; padding: 1rem 1.75rem 3rem; }
-section { border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin: 1rem 0; }
-h2 { margin: 0 0 .75rem; font-size: 1.1rem; color: var(--accent-dark); }
-h3 { margin: 1rem 0 .4rem; font-size: .95rem; }
-h4, h5 { margin: .8rem 0 .3rem; }
-a { color: var(--accent-dark); }
-.kv { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1.25rem; margin: 0; }
-.kv dt { color: var(--muted); }
-.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+body { margin: 0; font: 15px/1.5 var(--font); color: var(--body); background: var(--page); }
+a { color: var(--brand-ink); text-underline-offset: 2px; }
+.top { background: var(--surface); border-bottom: 1px solid var(--line); }
+.top .in { max-width: 1180px; margin: 0 auto; padding: 14px 28px; display: flex; align-items: center; gap: 12px; }
+.ism { width: 40px; height: auto; flex: none; }
+.ism-name { color: var(--ink); font-size: 13px; font-weight: 700; line-height: 1.1; }
+.divider { width: 1px; height: 32px; background: var(--line-strong); margin: 0 8px; flex: none; }
+.brand { font-weight: 700; font-size: 19px; color: var(--ink); letter-spacing: .01em; }
+.hero { max-width: 1180px; margin: 0 auto; padding: 34px 28px 10px; }
+.eyebrow { margin: 0 0 10px; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--brand-ink); }
+.hero h1 { margin: 0; color: var(--ink); font-size: clamp(28px, 4vw, 44px); line-height: 1.05; font-weight: 700; letter-spacing: -.01em; }
+.hero p.meta { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+main { max-width: 1180px; margin: 0 auto; padding: 8px 28px 56px; }
+section { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--brand); padding: 20px 24px 22px; margin: 18px 0; }
+h2 { margin: 0 0 14px; font-size: 18px; color: var(--ink); font-weight: 700; }
+h3 { margin: 0 0 6px; font-size: 14px; color: var(--ink); font-weight: 700; }
+h4, h5 { margin: 14px 0 6px; color: var(--ink); }
+.md p { margin: 0 0 10px; max-width: 75ch; } .md ul { margin: 0 0 10px; padding-left: 20px; }
+.kv { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 1px; margin: 0; padding: 1px; }
+.kv div { background: var(--surface); padding: 12px 14px; outline: 1px solid var(--line); }
+.kv dt { color: var(--muted); font-size: 13px; }
+.kv dd { margin: 4px 0 0; color: var(--ink); font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
 .scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: .9rem; }
-th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-th { background: var(--surface-2); font-weight: 600; }
-td { font-variant-numeric: tabular-nums; }
-pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflow-x: auto; font: .8rem/1.4 var(--mono); }
-.chart { width: 100%; max-width: 720px; height: auto; display: block; }
-.chart text { font: 11px var(--font); fill: var(--muted); }
-.chart .grid { stroke: var(--border); }
-.chart .obs { stroke: var(--accent); fill: none; stroke-width: 2; }
-.chart .dot { fill: var(--accent); }
-.chart .dot.out { fill: #c0392b; }
-.chart .band { fill: var(--pred-soft); opacity: .7; }
-.chart .bar { stroke: var(--pred); stroke-width: 2; }
-.chart .exp { fill: #fff; stroke: var(--pred); stroke-width: 2; }
-.chart .link { stroke: var(--pred); stroke-dasharray: 4 3; fill: none; }
-.chart .alt { stroke-dasharray: 6 4; } .chart .link.cur { stroke: var(--cur); stroke-dasharray: none; }
-.chart .band.cur { fill: var(--cur-soft); } .chart .bar.cur, .chart .exp.cur { stroke: var(--cur); } .chart .band.alt { opacity: .35; } .chart .exp.alt { fill: var(--pred-soft); }
-.legend { color: var(--muted); font-size: .8rem; margin: .2rem 0 0; }
-.legend .o { color: var(--accent); } .legend .p { color: var(--pred); } .legend .c { color: var(--cur); }
-.chart.arrow { max-width: none; }
-.arrow .axis { stroke: var(--text); stroke-width: 2; }
-.arrow .future { fill: var(--pred-soft); opacity: .35; }
-.arrow .now { stroke: var(--muted); stroke-dasharray: 3 3; }
-.arrow .stem { stroke: var(--border); }
-.arrow .label { font-size: 11px; fill: var(--text); }
-.arrow .info { fill: var(--accent); } .arrow .watch { fill: #E8A200; } .arrow .high { fill: #D32F2F; }
-.arrow .predicted { fill-opacity: .25; stroke-width: 2; }
-.arrow .predicted.info { stroke: var(--pred); fill: var(--pred); }
-.arrow .predicted.watch { stroke: #E8A200; } .arrow .predicted.high { stroke: #D32F2F; }
-.arrow .window { stroke-width: 6; stroke-linecap: round; opacity: .35; }
-.arrow .window.info { stroke: var(--pred); } .arrow .window.watch { stroke: #E8A200; } .arrow .window.high { stroke: #D32F2F; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; border-bottom-color: var(--line-strong); }
+td { color: var(--body); font-variant-numeric: tabular-nums; }
+td a, td .lvl { white-space: nowrap; }
+tbody tr:hover td { background: var(--surface-2); }
+pre { background: var(--surface-2); padding: 12px; overflow-x: auto; font: 12px/1.4 var(--code); }
 .muted { color: var(--muted); }
+.lvl { color: var(--ink); font-weight: 700; white-space: nowrap; }
+.lvl::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; vertical-align: 1px; }
+.lvl-high::before { background: var(--st-high); transform: rotate(45deg); }
+.lvl-watch::before { background: var(--st-watch); border-radius: 50%; }
+nav.tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; overflow-x: auto; background: var(--page); border-bottom: 1px solid var(--line-strong); margin: 4px 0 6px; }
+nav.tabs button { font: inherit; font-size: 14px; font-weight: 700; color: var(--muted); background: none; cursor: pointer; white-space: nowrap;
+  border: 0; border-bottom: 3px solid transparent; padding: 12px 14px 9px; }
+nav.tabs button:hover { color: var(--ink); }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--brand); }
+nav.tabs button:focus-visible, .chart:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 28px 32px; }
+.figure { position: relative; min-width: 0; }
+.chart { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { font: 11px var(--font); fill: var(--muted); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .ref { fill: var(--brand); opacity: .08; }
+.chart .obs { stroke: var(--s-obs); fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .dot { fill: var(--s-obs); stroke: var(--surface); stroke-width: 2; }
+.chart .dot.out { fill: var(--st-high); }
+.chart .band { fill: var(--s-pred); opacity: .1; } .chart .band.cur { fill: var(--s-cur); }
+.chart .bar { stroke: var(--s-pred); stroke-width: 2; stroke-linecap: round; } .chart .bar.cur { stroke: var(--s-cur); }
+.chart .exp { fill: var(--surface); stroke: var(--s-pred); stroke-width: 2; } .chart .exp.cur { stroke: var(--s-cur); }
+.chart .link { stroke: var(--s-pred); stroke-width: 2; stroke-dasharray: 5 4; fill: none; stroke-linecap: round; }
+.chart .link.cur { stroke: var(--s-cur); stroke-dasharray: none; }
+.chart .cross { stroke: var(--line-strong); stroke-width: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.legend .k { display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: middle; background: var(--s-obs); }
+.legend .k.pred { background: var(--s-pred); } .legend .k.cur { background: var(--s-cur); }
+.legend .k.dash { background: repeating-linear-gradient(90deg, var(--s-pred) 0 5px, transparent 5px 9px); }
+.legend .k.ref { height: 10px; background: var(--brand); opacity: .18; }
+.legend .k.out { width: 8px; height: 8px; background: var(--st-high); transform: rotate(45deg); margin: 0 9px 0 3px; }
+.tip { position: absolute; pointer-events: none; z-index: 3; min-width: 150px; background: var(--surface); color: var(--body);
+  border: 1px solid var(--line-strong); box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 8px 10px; font-size: 12px; }
+.tip .when { color: var(--muted); margin-bottom: 4px; }
+.tip .row { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.tip .row b { color: var(--ink); font-size: 13px; }
+.tip .row .k { display: inline-block; width: 10px; height: 2px; background: var(--s-obs); flex: none; align-self: center; }
+.tip .row .k.pred { background: var(--s-pred); } .tip .row .k.cur { background: var(--s-cur); } .tip .row .k.out { background: var(--st-high); }
+main, .page { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; align-content: start; }
+main > *, .page > * { grid-column: 1 / -1; }
+section.compact { grid-column: span 1; }
+.page[hidden] { display: none; }
+h2 { display: flex; align-items: center; gap: 12px; }
+.ico { flex: none; width: 36px; height: 36px; display: grid; place-items: center; background: var(--brand-wash); color: var(--brand-ink); }
+.ico svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.total { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.total b { color: var(--ink); font-size: 34px; font-weight: 700; margin-right: 6px; vertical-align: -3px; }
+.pbar { display: flex; gap: 2px; height: 28px; }
+.seg { min-width: 4px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; container-type: inline-size;
+  color: var(--on, #fff); font-size: 12px; font-weight: 700; outline-offset: 2px; }
+@container (max-width: 40px) { .seg span { display: none; } }
+.c0, .k.c0 { background: var(--s-obs); --on: #000; } .c1, .k.c1 { background: var(--s-pred); } .c2, .k.c2 { background: var(--s-cur); }
+.t-info, .k.t-info { background: var(--s-obs); --on: #000; } .t-watch, .k.t-watch { background: var(--st-watch); --on: #000; }
+.t-high, .k.t-high { background: var(--st-high); } .t-neutral, .k.t-neutral { background: var(--line-strong); --on: var(--ink); }
+.legend .k.sw { width: 10px; height: 10px; border-radius: 2px; }
+.meter { height: 12px; background: var(--brand-wash); border-radius: 6px; overflow: hidden; margin-top: 4px; }
+.meter > div { height: 100%; border-radius: 6px; background: var(--s-obs); }
+.meter > div.t-high { background: var(--st-high); } .meter > div.t-watch { background: var(--st-watch); }
+.kv div.big { grid-column: span 2; background: var(--brand-wash); }
+.kv div.big dd { font-size: 52px; line-height: 1.05; letter-spacing: -.01em; }
+.kv div.big dd small { font-size: 18px; color: var(--muted); font-weight: 700; margin-left: 6px; }
+.scale { position: relative; height: 104px; margin: 8px 16px 4px; }
+.scale .axis { position: absolute; left: 0; right: 0; top: 50px; height: 4px; border-radius: 2px; background: var(--line-strong); }
+.scale .tick { position: absolute; top: 60px; font-size: 11px; color: var(--muted); transform: translateX(-50%); }
+.scale .mlabel { position: absolute; transform: translateX(-50%); text-align: center; white-space: nowrap; }
+.scale .mlabel.up { bottom: 64px; } .scale .mlabel.down { top: 66px; }
+.scale .mlabel b { display: block; color: var(--ink); font-size: 15px; } .scale .mlabel span { color: var(--muted); font-size: 12px; }
+.scale .pin { position: absolute; top: 44px; width: 16px; height: 16px; border-radius: 50%; transform: translateX(-50%);
+  border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
+.bars { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 6px 14px; align-items: center; }
+.bars .lab { color: var(--body); font-size: 13px; text-align: right; }
+.bars .track { position: relative; height: 22px; }
+.bars .zero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--line-strong); }
+.bars .bar { position: absolute; top: 3px; height: 16px; }
+.bars .bar.pos { background: var(--s-cur); border-radius: 0 4px 4px 0; } .bars .bar.neg { background: var(--s-obs); border-radius: 4px 0 0 4px; }
+.bars .val { position: absolute; top: 2px; font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.bars .axisnote { grid-column: 2; display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+@media (max-width: 860px) { section.compact { grid-column: 1 / -1; } .kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-color-scheme: dark) { .c1, .c2, .t-high { --on: #000; } }
+.fhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+button.ghost { font: inherit; font-size: 12px; font-weight: 700; color: var(--muted); background: none; cursor: pointer;
+  border: 1px solid var(--line-strong); padding: 3px 9px; }
+button.ghost:hover { color: var(--ink); } button.ghost[aria-pressed="true"] { color: var(--ink); border-color: var(--brand); background: var(--brand-wash); }
+button.ghost:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.chart .endlab { font-size: 12px; font-weight: 700; fill: var(--ink); }
+.chart .hl { fill: none; stroke: var(--ink); stroke-width: 2; }
+.tview { margin-top: 6px; }
+.tlf { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+ol.tl { list-style: none; margin: 0; padding: 0 0 0 24px; position: relative; }
+ol.tl::before { content: ""; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px; background: var(--line); }
+.tli { position: relative; padding: 0 0 16px; }
+.tli .dot { position: absolute; left: -22px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--s-obs); box-shadow: 0 0 0 3px var(--surface); }
+.tli.watch .dot { background: var(--st-watch); } .tli.high .dot { background: var(--st-high); border-radius: 2px; transform: rotate(45deg); }
+.tli.pred .dot { background: var(--surface); border: 2px solid var(--s-pred); }
+.tli .when { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.tli .what { margin: 3px 0 0; color: var(--ink); font-weight: 700; }
+.tli .detail { margin: 2px 0 0; color: var(--body); font-size: 13px; max-width: 80ch; }
+.chip { font-size: 11px; font-weight: 700; padding: 1px 7px; border: 1px solid var(--line-strong); color: var(--muted); }
+.tlnow { position: relative; margin: 2px 0 18px -24px; padding-left: 24px; color: var(--brand-ink); font-size: 12px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; }
+.tlnow::after { content: ""; position: absolute; left: 70px; right: 0; top: 50%; height: 1px; background: var(--brand); opacity: .5; }
+.tlmore { margin-left: -24px; }
+footer { max-width: 1180px; margin: 0 auto; padding: 0 28px 40px; color: var(--muted); font-size: 12px; }
+@media (max-width: 640px) { .top .in, .hero, main, footer { padding-left: 16px; padding-right: 16px; } section { padding: 16px; } .charts { grid-template-columns: 1fr; } }
+@media print { body { background: #fff; } nav.tabs { display: none; } section { break-inside: avoid; } .tip { display: none; } }
 </style>
 </head>
 <body>
-<header><h1 id="title"></h1><p id="meta"></p></header>
-<main id="app"></main>
+<div class="top"><div class="in"><img class="ism" alt="Insilico Medicine" width="40" height="42" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFwAAABgCAMAAACnieW8AAAAYFBMVEX6/fqAzoDM/8wAAAADpQf7/fuO1pAwtDKy47MAnABuynD////I68n7/ftWwlhHvEnY8dmi3aT6/PojrSX5/fo9ukBexWAerSB80H1+0ICe3KC+6MDf9OAesCO//7/7/fuebvUoAAAAIHRSTlOn/wUA/vr+//7//gb/Lv////7Y/0r////+/v7///8EnsgS02MAAAXDSURBVHjazZqLduMoDIbZLQhBKZhxc+/MvP9broRv4NgOzqRnltPTNqb5Kn5AEiLirba9v719fH5+pF8qm6hnvwtF7fd7PV3Us3+oBkCpH/V0sYMdJTXcQa+D/3r76Nm76KLObmKDlHvpYhfb4S662MU+wy662MMGY3bRxS62lAZu9XRRz74Y/mHA8Y9YQxcP2WrQ23SLZaJ/PKKLvew9dFHHRst6JzTTsY4u6uxWrZQBtDEagpRa3arooobdOI1SY0Br6ZuWqJukzPUBXdTYHaFFeYit8xZb1CdsY0zKwDZdVLCtsQ2JYZFkCXiU0je+n9VtunisCc/l6LW6BuOa2aSLh+sEL3IJLgF7ZdQqXTyyGw1Jfg+H6IxzD+jikSaAVi7AI03BGR7QxaO57A29szxtKLtNF1vsL5BaJxaWcExw6ovNFl1s2Y0WAHjTSF+YjkEjLUrqtLhlu9jUhBvtR9qfFnK2xDagTN1byoj1uYST5iY7ur9m7NuJnsjUfYrrdLHAvnT+hDXpZUl0mOxmdpKFlVlfkWKZfXLoOwfOsnT0I+SahGGOzbru4o59TnZ7bSeNeUppCll38MRu+eXYfdFruos5OzEVGD/CjT8bS55K8/qLUoOx1kAYI5MN5rq8IsUCu3XxmMFlILd4MJBcCjDc8wOZwVeUETM22/MVtM3h5LsdkDPXjaYv28grP8jhwE/v6WJif3bsVnk2LYMrRXHtoMCqYJUHpRt64Ao4Gb9AF3P2ybk53BELtbJHFXyCuxxuCH4m+MKKFDO2JNVpa0cTroXlTq9aTgGK1pMj7pwuSrZmH+tpqGCmDQ/xhKDRU2ymL4p2gPRg6L1aEy0HQbjzwKLUm4LjIXJqkuj6QOEGrZELzXAXHAKzj6YbQKf7ZaSLci75zyJvarbdg22UUiAXG1IXjdMbGmn3FjJJFXSRa6LwqvulzX6QXWLyXIM8N8Tb+K/YrbFjJDb2i17HblbPPV3keiua8+SMYstelnIgl1vu+ajox9VPLxxlSZ49TzIdKAFROV1kdgeP2Nmpkenae2xccxlwmuHjQIC60B87r6b78aL3SXeb6GJkf5G3GN/ZJroxPPafy3DdydJ5zKH9JE/UnAa6GDVhT6RP03wRnc+0SqFZhLNiit19xuYJInrb0T9FzrYRde5oteaA4Zct5y5LtIxNstiBTitHiUkTDuoWTE6XwXuvl+EH6jrIKWjw0vcpTRjpIuUIqvPO3mWWpwVfyILp1UyWfBdodEGOdBmFZk0GZNSznRKOvB56B6VSGzYsdx1mf677gZvAyPAAridZtOqbvutahYMpZGlXZWkGeFMhy5dOsgwbaGFCQzdrehK8azhOqF6bUN1NqMroG0vRqqwl2ReXYiyX4mdOn3Zj2niTLFoVTVduorecPrJP/fbnTX4qRRmEWd/+7bj9/53oh7njOnp0ztkU6crGjou64uC4unVwQAzJtZjBceUuV665XFey3YbLHd3We22w0PxepxBVSj917xbvg0XmcHeFORrrgVILU4a5MIS56xjmzlmYmwVoPQXoUARoems4jrs/C9C4FaAfphacSeibtykpmqcWQHSa8yNCl+xeZqlFnnClpIjSixDvkqIx49qXFOXKPJ3O3dbSuYEuvyURLehPpNDHzRQ6p78++f+TYws8PLbkh4vtAxf5hsPeA1d2nGuXjorxj46KxWHx1h1y/0lsOhz6OB1y2fCAdt8htzhCgyyO5zE/+svxeC6h+nheFBZ8Vlg4Xl9QWChLfucXl0RyuuLCxVYx57S3mFPYfnx1Gaq+gHZ5ooBWlLnWSn/4bOmvKFpGeHHRcme59df/qVBc0GGhxH37kxL3cnH+XBTn4eni/Oa1QhX7uQuRC9ZcKuy4yrGvvsr53kuogj5cn91q2VUXfzl917Xi372yLOh2z4Xl378m/t4L7pL+6qv57/1Qwfd+HOJ7P8jx1EdQ/gNxi8PTF9zE6AAAAABJRU5ErkJggg=="><span class="ism-name" aria-hidden="true">Insilico<br>Medicine</span><span class="divider" aria-hidden="true"></span><span class="brand">Longevity Grok</span></div></div>
+<header class="hero"><p class="eyebrow">PLSI · Personal Longevity Superintelligence</p><h1 id="title"></h1><p class="meta" id="meta"></p></header>
+<main id="app"><noscript><p>This report draws itself with a script: open the file in a web browser (download it first if a preview shows nothing).</p></noscript></main>
+<footer>Made by PLSI from the records this page names. A summary for discussion, not a diagnosis.</footer>
 <script type="application/json" id="plsi-payload">__PLSI_PAYLOAD__</script>
 <script>
 (() => {
@@ -82,13 +186,25 @@ pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflo
   };
   const fmt = (v) => typeof v === "number" ? String(+v.toPrecision(6))
     : v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  const TAB_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
   const link = (text, href) => {
+    if (typeof href === "string" && href[0] === "#" && TAB_ID.test(href.slice(1))) {
+      const a = el("a", null, fmt(text));
+      a.href = href;  // another tab of this file
+      return a;
+    }
     if (typeof href !== "string" || !/^https?:\/\//i.test(href)) return el("span", null, fmt(text));
     const a = el("a", null, fmt(text));
     a.href = href; a.rel = "noopener noreferrer"; a.target = "_blank";
     return a;
   };
-  const cell = (v) => v && typeof v === "object" && !Array.isArray(v) && "text" in v ? link(v.text, v.href) : el("span", null, fmt(v));
+  const LEVEL_CLS = { watch: "lvl lvl-watch", high: "lvl lvl-high" };
+  const cell = (v) => {
+    if (!(v && typeof v === "object" && !Array.isArray(v) && "text" in v)) return el("span", null, fmt(v));
+    const node = link(v.text, v.href);
+    if (Object.prototype.hasOwnProperty.call(LEVEL_CLS, v.level)) { node.className = LEVEL_CLS[v.level]; node.title = v.level; }
+    return node;
+  };
   const json = (v) => el("pre", "json", JSON.stringify(v, null, 2));
 
   const INLINE = /\*\*([^*]+)\*\*|\*([^*]+)\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
@@ -125,11 +241,17 @@ pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflo
     return box;
   };
 
+  // As many columns as make the rows even: 6 tiles are 3 + 3, never 5 + 1; the large figure counts twice.
   const kv = (d) => {
     const dl = el("dl", "kv");
+    const units = (d.items || []).reduce((n, it) => n + (it && it.hero === true ? 2 : 1), 0) || 1;
+    dl.style.setProperty("--cols", String(Math.ceil(units / Math.ceil(units / 5))));
     for (const it of d.items || []) {
-      dl.appendChild(el("dt", null, fmt(it && it.key)));
-      dl.appendChild(el("dd")).appendChild(cell(it && it.value));
+      const tile = dl.appendChild(el("div", it && it.hero === true ? "big" : null));
+      tile.appendChild(el("dt", null, fmt(it && it.key)));
+      const dd = tile.appendChild(el("dd"));
+      dd.appendChild(cell(it && it.value));
+      if (it && it.hero === true && it.unit) dd.appendChild(el("small", null, fmt(it.unit)));
     }
     return dl;
   };
@@ -168,65 +290,183 @@ pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflo
   const refText = (p) => (Number.isFinite(p.lo) || Number.isFinite(p.hi)
     ? " (report range " + (Number.isFinite(p.lo) ? fmt(p.lo) : "") + "–" + (Number.isFinite(p.hi) ? fmt(p.hi) : "") + ")" : "")
     + (p.flag ? " " + fmt(p.flag) : "");
+  const key = (cls) => el("span", "k" + (cls ? " " + cls : ""));
+  const legendItem = (cls, text) => { const it = el("span"); it.appendChild(key(cls)); it.appendChild(document.createTextNode(text)); return it; };
+  // The range printed on the reports, drawn as a band only when every report printed the same one.
+  const sharedRange = (ss) => {
+    const rs = ss.flatMap((s) => s.pts).filter((p) => Number.isFinite(p.lo) && Number.isFinite(p.hi));
+    return rs.length && rs.every((p) => p.lo === rs[0].lo && p.hi === rs[0].hi) ? { lo: rs[0].lo, hi: rs[0].hi } : null;
+  };
+  // Round numbers for an axis: 1, 2 or 5 times a power of ten.
+  const niceStep = (span, n) => {
+    const raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / mag;
+    return (r <= 1 ? 1 : r <= 2 ? 2 : r <= 5 ? 5 : 10) * mag;
+  };
+  const niceTicks = (lo, hi, n) => {
+    if (hi === lo) { lo -= Math.abs(lo) * 0.1 || 1; hi += Math.abs(hi) * 0.1 || 1; }
+    const step = niceStep(hi - lo, n), out = [];
+    for (let v = Math.floor(lo / step) * step; v < hi + step * 0.999; v += step) out.push(+v.toPrecision(12));
+    return out;
+  };
+  const axisNum = (v) => (Math.abs(v) >= 1000 ? (+v.toPrecision(6)).toLocaleString("en-GB") : fmt(v));
+  const month = (t) => new Date(t).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+  // Month starts every 1, 3, 6 or 12 months, as the span allows.
+  const dateTicks = (t0, t1) => {
+    const months = (t1 - t0) / (30.44 * DAY), every = months <= 7 ? 1 : months <= 18 ? 3 : months <= 40 ? 6 : 12, out = [];
+    const d = new Date(t0);
+    let y = d.getUTCFullYear(), m = Math.ceil((d.getUTCMonth() + (d.getUTCDate() > 1 ? 1 : 0)) / every) * every;
+    for (let t = Date.UTC(y, m, 1); t <= t1; m += every, t = Date.UTC(y, m, 1)) out.push(t);
+    return out;
+  };
   // One chart per group: series sharing a unit and a "<label>: " name prefix share one x/y axis, later ones dashed.
   const chart = (group) => {
-    const box = el("div"), ss = group.map(series), unit = group[0].unit;
-    const title = ss.length > 1 ? fmt(String(group[0].name).replace(/:[^:]*$/, "")) : fmt(group[0].name);
-    box.appendChild(el("h3", null, title + (unit ? " (" + fmt(unit) + ")" : "")));
+    const box = el("div", "figure"), ss = group.map(series), unit = group[0].unit, multi = ss.length > 1;
+    const title = multi ? fmt(String(group[0].name).replace(/:[^:]*$/, "")) : fmt(group[0].name);
+    const head = box.appendChild(el("div", "fhead"));
+    head.appendChild(el("h3", null, title + (unit ? " (" + fmt(unit) + ")" : "")));
     const ts = ss.flatMap((s) => s.pts.map((p) => p.t).concat(s.pr.map((p) => p.t)));
-    const vs = ss.flatMap((s) => s.pts.map((p) => p.v).concat(...s.pr.map((p) => [p.lo, p.hi])));
     if (!ts.length) { box.appendChild(el("p", "muted", "no data")); return box; }
-    let t0 = Math.min(...ts), t1 = Math.max(...ts), y0 = Math.min(...vs), y1 = Math.max(...vs);
-    if (t1 === t0) { t0 -= DAY; t1 += DAY; }
-    const pad = y1 === y0 ? Math.abs(y0) * 0.1 || 1 : (y1 - y0) * 0.08;
-    y0 -= pad; y1 += pad;
-    const W = 720, H = 240, L = 60, R = 16, T = 12, B = 28;
+    const toggle = head.appendChild(el("button", "ghost", "Table"));
+    toggle.type = "button"; toggle.setAttribute("aria-pressed", "false");
+    const ref = sharedRange(ss);
+    const data = ss.flatMap((s) => s.pts.map((p) => p.v).concat(...s.pr.map((p) => [p.lo, p.hi])));
+    const d0 = Math.min(...data), d1 = Math.max(...data), near = Math.max(d1 - d0, Math.abs(d1) * 0.05);
+    // a range bound near the data joins the axis, so its edge shows; a far one is left out and the band is clipped
+    const vs = data.concat(ref ? [ref.lo, ref.hi].filter((v) => v >= d0 - near && v <= d1 + near) : []);
+    const yt = niceTicks(Math.min(...vs), Math.max(...vs), 4), y0 = yt[0], y1 = yt[yt.length - 1];
+    let t0 = Math.min(...ts), t1 = Math.max(...ts);
+    if (t1 - t0 < 20 * DAY) { t0 -= 15 * DAY; t1 += 15 * DAY; }
+    const W = 560, H = 220, L = 44, R = 64, T = 14, B = 28;
     const x = (t) => L + (t - t0) / (t1 - t0) * (W - L - R);
     const y = (v) => T + (y1 - v) / (y1 - y0) * (H - T - B);
-    const line = (ps, cls) => svg("polyline", { points: ps.map((p) => x(p.t) + "," + y(p.v)).join(" "), class: cls });
-    const root = svg("svg", { viewBox: "0 0 " + W + " " + H, class: "chart", role: "img" });
-    root.appendChild(svg("title")).textContent = title;
-    for (const v of [y0 + pad, (y0 + y1) / 2, y1 - pad]) {
+    const pts = (ps) => ps.map((p) => x(p.t) + "," + y(p.v)).join(" ");
+    const root = svg("svg", { viewBox: "0 0 " + W + " " + H, class: "chart", role: "img", tabindex: 0,
+      "aria-label": title + ": " + ss.reduce((n, s) => n + s.pts.length, 0) + " recorded values; arrow keys step through them" });
+    const bandTop = ref && y(Math.min(ref.hi, y1)), bandBottom = ref && y(Math.max(ref.lo, y0));
+    if (ref && bandBottom > bandTop) root.appendChild(svg("rect", { x: L, width: W - L - R, y: bandTop, height: bandBottom - bandTop, class: "ref" }));
+    for (const v of yt) {
       root.appendChild(svg("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid" }));
-      const lab = root.appendChild(svg("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }));
-      lab.textContent = fmt(+v.toPrecision(4));
+      root.appendChild(svg("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" })).textContent = axisNum(v);
     }
-    [[t0, "start"], [t1, "end"]].forEach(([t, anchor]) => {
-      root.appendChild(svg("text", { x: x(t), y: H - 8, "text-anchor": anchor })).textContent = day(t);
+    const xt = dateTicks(t0, t1);
+    const every = Math.max(1, Math.ceil(xt.length / 5));
+    (xt.length ? xt.filter((_, i) => i % every === 0) : [t0, t1]).forEach((t) => {
+      root.appendChild(svg("text", { x: x(t), y: H - 8, "text-anchor": "middle" })).textContent = xt.length ? month(t) : day(t);
     });
     const legend = el("p", "legend");
-    legend.appendChild(el("span", "o", "● observed"));
-    ss.forEach(({ name, pts, segs, pr }, i) => {
-      const alt = ss.length > 1 ? (i ? " alt" : " cur") : "";
+    legend.appendChild(legendItem("", "recorded"));
+    const kind = (i) => (multi ? (i ? "pred" : "cur") : "pred");
+    ss.forEach(({ name, pts: rec, segs, pr }, i) => {
+      const alt = multi && !i ? " cur" : "";
       if (pr.length > 1) {
         const band = pr.map((p) => x(p.t) + "," + y(p.hi)).concat(pr.slice().reverse().map((p) => x(p.t) + "," + y(p.lo)));
         root.appendChild(svg("polygon", { points: band.join(" "), class: "band" + alt }));
       }
-      if (pts.length && pr.length) {
-        const last = pts[pts.length - 1];
+      if (rec.length && pr.length) {
+        const last = rec[rec.length - 1];
         const path = [last].concat(pr.filter((p) => p.t >= last.t).map((p) => ({ t: p.t, v: p.e })));
-        if (path.length > 1) root.appendChild(line(path, "link" + alt));
+        if (path.length > 1) root.appendChild(svg("polyline", { points: pts(path), class: "link" + alt }));
       }
       for (const p of pr) {
-        root.appendChild(svg("rect", { x: x(p.t) - 5, y: y(p.hi), width: 10, height: Math.max(1, y(p.lo) - y(p.hi)), class: "band" + alt }));
+        if (pr.length === 1) root.appendChild(svg("rect", { x: x(p.t) - 6, y: y(p.hi), width: 12, height: Math.max(1, y(p.lo) - y(p.hi)), class: "band" + alt }));
         root.appendChild(svg("line", { x1: x(p.t), x2: x(p.t), y1: y(p.hi), y2: y(p.lo), class: "bar" + alt }));
-        const c = root.appendChild(svg("circle", { cx: x(p.t), cy: y(p.e), r: 4, class: "exp" + alt }));
-        c.appendChild(svg("title")).textContent = fmt(name) + " predicted " + day(p.t) + ": " + fmt(p.e) + " [" + fmt(p.lo) + ", " + fmt(p.hi) + "]";
+        root.appendChild(svg("circle", { cx: x(p.t), cy: y(p.e), r: 4, class: "exp" + alt }));
       }
-      for (const g of segs) if (g.length > 1) root.appendChild(line(g, "obs"));
-      for (const p of pts) {
-        const c = root.appendChild(svg("circle", { cx: x(p.t), cy: y(p.v), r: 3.5, class: outside(p) ? "dot out" : "dot" }));
-        c.appendChild(svg("title")).textContent = day(p.t) + ": " + fmt(p.v) + refText(p);
+      if (!i) for (const g of segs) if (g.length > 1) root.appendChild(svg("polyline", { points: pts(g), class: "obs" }));
+      if (!i) for (const p of rec) {
+        const cx = x(p.t), cy = y(p.v);
+        root.appendChild(outside(p)
+          ? svg("path", { d: `M${cx} ${cy - 6}L${cx + 6} ${cy}L${cx} ${cy + 6}L${cx - 6} ${cy}Z`, class: "dot out" })
+          : svg("circle", { cx, cy, r: 4.5, class: "dot" }));
       }
-      if (ss.length > 1 && pr.length) legend.appendChild(el("span", i ? "p" : "c", (i ? "   - - " : "   ── ") + fmt(name)));
+      if (multi && pr.length) legend.appendChild(legendItem(i ? "dash" : "cur", fmt(name).replace(/^.*:\s*/, "")));
+    });
+    const lastRec = ss[0].pts[ss[0].pts.length - 1];
+    if (lastRec && !ss.some((s) => s.pr.some((p) => p.t > lastRec.t))) {
+      root.appendChild(svg("text", { x: x(lastRec.t) + 10, y: y(lastRec.v) + 4, class: "endlab" })).textContent = axisNum(+lastRec.v.toPrecision(3));
+    }
+    if (!multi && ss[0].pr.length) legend.appendChild(legendItem("pred", "predicted, with its interval"));
+    if (ref) legend.appendChild(legendItem("ref", "range printed on the reports"));
+    if (ss.some((s) => s.pts.some(outside))) legend.appendChild(legendItem("out", "outside its report's range"));
+
+    // Crosshair: the nearest date, every series' value there, its points ringed.
+    const stops = [...new Set(ss.flatMap((s) => s.pts.map((p) => p.t).concat(s.pr.map((p) => p.t))))].sort((a, b) => a - b);
+    const cross = root.appendChild(svg("line", { y1: T, y2: H - B, class: "cross", visibility: "hidden" }));
+    const rings = root.appendChild(svg("g", {}));
+    const hit = root.appendChild(svg("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" }));
+    const tip = el("div", "tip");
+    tip.hidden = true;
+    let at = stops.length - 1;
+    const show = (i) => {
+      at = Math.max(0, Math.min(stops.length - 1, i));
+      const t = stops[at];
+      cross.setAttribute("x1", x(t)); cross.setAttribute("x2", x(t)); cross.setAttribute("visibility", "visible");
+      rings.replaceChildren();
+      tip.replaceChildren(el("div", "when", day(t)));
+      const seen = new Set();
+      ss.forEach((s, i) => {
+        for (const p of s.pts.filter((q) => q.t === t)) {
+          if (seen.has(p.v)) continue;
+          seen.add(p.v);
+          rings.appendChild(svg("circle", { cx: x(p.t), cy: y(p.v), r: 8, class: "hl" }));
+          const row = tip.appendChild(el("div", "row"));
+          row.appendChild(key(outside(p) ? "out" : ""));
+          row.appendChild(el("b", null, fmt(p.v) + (unit ? " " + fmt(unit) : "")));
+          row.appendChild(el("span", "muted", "recorded" + (outside(p) ? ", outside its range" : "") + refText(p)));
+        }
+        for (const p of s.pr.filter((q) => q.t === t)) {
+          rings.appendChild(svg("circle", { cx: x(p.t), cy: y(p.e), r: 8, class: "hl" }));
+          const row = tip.appendChild(el("div", "row"));
+          row.appendChild(key(kind(i)));
+          row.appendChild(el("b", null, fmt(p.e)));
+          row.appendChild(el("span", "muted", (multi ? fmt(s.name).replace(/^.*:\s*/, "") : "predicted") + " (" + fmt(p.lo) + "–" + fmt(p.hi) + ")"));
+        }
+      });
+      tip.hidden = false;
+      const left = x(t) / W * box.clientWidth, w = tip.offsetWidth;
+      tip.style.left = Math.max(0, Math.min(box.clientWidth - w, left + 12 + w > box.clientWidth ? left - w - 12 : left + 12)) + "px";
+      tip.style.top = "36px";
+    };
+    const hide = () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); rings.replaceChildren(); };
+    const nearest = (px) => {
+      const t = t0 + (px - L) / (W - L - R) * (t1 - t0);
+      return stops.reduce((best, s, i) => (Math.abs(s - t) < Math.abs(stops[best] - t) ? i : best), 0);
+    };
+    hit.addEventListener("pointermove", (e) => {
+      const r = root.getBoundingClientRect();
+      show(nearest((e.clientX - r.left) / r.width * W));
+    });
+    hit.addEventListener("pointerleave", hide);
+    root.addEventListener("focus", () => show(at));
+    root.addEventListener("blur", hide);
+    root.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); show(at + (e.key === "ArrowRight" ? 1 : -1)); }
+      if (e.key === "Escape") hide();
+    });
+
+    // The same values as a table, one click away.
+    const rows = [];
+    ss.forEach((s, i) => {
+      if (!i) for (const p of s.pts) rows.push([day(p.t), fmt(p.v), "recorded", (refText(p).replace(/^ \(report range |\)$/g, "")).trim()]);
+      for (const p of s.pr) rows.push([day(p.t), fmt(p.e) + " (" + fmt(p.lo) + "–" + fmt(p.hi) + ")",
+        multi ? fmt(s.name).replace(/^.*:\s*/, "") : "predicted", ""]);
+    });
+    const tview = table({ columns: ["Date", "Value", "Kind", "Report range"], rows: rows.sort((a, b) => a[0] < b[0] ? -1 : 1) });
+    tview.classList.add("tview");
+    tview.hidden = true;
+    toggle.addEventListener("click", () => {
+      const on = toggle.getAttribute("aria-pressed") !== "true";
+      toggle.setAttribute("aria-pressed", String(on)); toggle.textContent = on ? "Chart" : "Table";
+      root.style.display = on ? "none" : ""; legend.hidden = on; tview.hidden = !on; hide();
     });
     box.appendChild(root);
-    if (ss.some((s) => s.pr.length)) { legend.appendChild(document.createTextNode("   ")); legend.appendChild(el("span", "p", "▮ predicted interval, ○ expected")); }
+    box.appendChild(tip);
     box.appendChild(legend);
+    box.appendChild(tview);
     return box;
   };
   const timeseries = (d) => {
-    const box = el("div"), groups = new Map();
+    const box = el("div", "charts"), groups = new Map();
     for (const s of (d.series || []).map((s) => s || {})) {
       const m = /^(.*):[^:]*$/.exec(String(s.name ?? "")), key = m ? m[1] + "\u0000" + (s.unit ?? "") : groups.size + "\u0001";
       if (!groups.has(key)) groups.set(key, []);
@@ -237,91 +477,250 @@ pre { background: var(--surface-2); padding: .75rem; border-radius: 8px; overflo
   };
 
   const LEVELS = ["info", "watch", "high"];
+  // Upcoming first, then Now, then the past newest first; filters and a "show all" for long histories.
   const timeline = (d) => {
-    const box = el("div");
     const evs = (d.events || []).map((e) => ({ ...e, t: Date.parse(e.t), te: Date.parse(e.t_end),
       lvl: LEVELS.includes(e.level) ? e.level : "info", pred: e.kind === "predicted" }))
-      .filter((e) => Number.isFinite(e.t)).sort((a, b) => a.t - b.t);
+      .filter((e) => Number.isFinite(e.t));
+    const box = el("div");
     if (!evs.length) { box.appendChild(el("p", "muted", "no events")); return box; }
-    const nowT = Date.parse(d.now);
-    const ts = evs.map((e) => e.t).concat(evs.map((e) => e.te).filter(Number.isFinite), Number.isFinite(nowT) ? [nowT] : []);
-    let t0 = Math.min(...ts), t1 = Math.max(...ts);
-    if (t1 === t0) { t0 -= 365 * DAY; t1 += 365 * DAY; }
-    const span = t1 - t0; t0 -= span * 0.03; t1 += span * 0.05;
-    const LANES = 4, LANE = 26, W = 960, L = 20, R = 30, MID = 30 + LANES * LANE, H = MID * 2 + 20;
-    const lin = (t, a, b, xa, xb) => xa + (t - a) / (b - a) * (xb - xa);
-    // the future gets 40% of the arrow however long the past is
-    const split = Number.isFinite(nowT) && nowT > t0 && nowT < t1 && evs.some((e) => e.t > nowT) ? L + 0.6 * (W - L - R) : null;
-    const x = (t) => split === null ? lin(t, t0, t1, L, W - R) : t <= nowT ? lin(t, t0, nowT, L, split) : lin(t, nowT, t1, split, W - R);
-    const root = svg("svg", { viewBox: "0 0 " + W + " " + H, class: "chart arrow", role: "img" });
-    root.appendChild(svg("title")).textContent = "life arrow";
-    if (split !== null) root.appendChild(svg("rect", { x: split, y: 8, width: W - R - split, height: H - 16, class: "future" }));
-    root.appendChild(svg("line", { x1: L, x2: W - 8, y1: MID, y2: MID, class: "axis" }));
-    root.appendChild(svg("polygon", { points: (W - 4) + "," + MID + " " + (W - 16) + "," + (MID - 6) + " " + (W - 16) + "," + (MID + 6), class: "dot" }));
-    let lastTick = -Infinity;
-    for (let yr = new Date(t0).getUTCFullYear() + 1; yr <= new Date(t1).getUTCFullYear(); yr++) {
-      const tx = x(Date.UTC(yr, 0, 1));
-      if (tx < L || tx > W - R || tx - lastTick < 42) continue;
-      lastTick = tx;
-      root.appendChild(svg("line", { x1: tx, x2: tx, y1: MID - 4, y2: MID + 4, class: "axis" }));
-      root.appendChild(svg("text", { x: tx, y: MID + 16, "text-anchor": "middle" })).textContent = yr;
-    }
-    if (Number.isFinite(nowT)) {
-      root.appendChild(svg("line", { x1: x(nowT), x2: x(nowT), y1: 8, y2: H - 8, class: "now" }));
-      root.appendChild(svg("text", { x: x(nowT) + 4, y: 14 })).textContent = "now";
-    }
-    const lastX = new Array(LANES * 2).fill(-Infinity);
-    let windows = 0;
-    evs.forEach((e, i) => {
-      const ex = x(e.t), up = i % 2 === 0;
-      let lane = 0;
-      for (let k = 0; k < LANES; k++) { const s = (up ? 0 : LANES) + k; if (ex - lastX[s] > 150) { lane = k; break; } lane = k; }
-      lastX[(up ? 0 : LANES) + lane] = ex;
-      const ly = up ? MID - 22 - lane * LANE : MID + 32 + lane * LANE;
-      root.appendChild(svg("line", { x1: ex, x2: ex, y1: MID, y2: ly + (up ? 4 : -10), class: "stem" }));
-      if (e.pred && Number.isFinite(e.te) && e.te > e.t) {
-        const wy = H - 14 - 8 * (windows++ % 3);
-        root.appendChild(svg("line", { x1: ex, x2: x(e.te), y1: wy, y2: wy, class: "window " + e.lvl }));
-        root.appendChild(svg("line", { x1: ex, x2: ex, y1: MID, y2: wy, class: "stem" }));
+    const nowT = Number.isFinite(Date.parse(d.now)) ? Date.parse(d.now) : Date.now();
+    const ahead = evs.filter((e) => e.pred || e.t > nowT).sort((a, b) => a.t - b.t);
+    const past = evs.filter((e) => !(e.pred || e.t > nowT)).sort((a, b) => b.t - a.t);
+    const attention = (e) => e.lvl !== "info";
+    const FILTERS = [["all", "All", evs.length], ["attention", "Needs attention", evs.filter(attention).length], ["ahead", "Upcoming", ahead.length]];
+    const bar = box.appendChild(el("div", "tlf"));
+    bar.setAttribute("role", "group"); bar.setAttribute("aria-label", "Show");
+    const list = box.appendChild(el("ol", "tl"));
+    const SHOWN = 10;
+    let mode = "all", full = false;
+    const item = (e) => {
+      const li = el("li", "tli " + e.lvl + (e.pred ? " pred" : ""));
+      li.appendChild(el("span", "dot"));
+      const when = li.appendChild(el("p", "when", day(e.t) + (Number.isFinite(e.te) ? " to " + day(e.te) : "")));
+      if (e.pred) when.appendChild(el("span", "chip", "predicted"));
+      if (e.lvl !== "info") { const c = when.appendChild(el("span", "lvl lvl-" + e.lvl, e.lvl)); c.title = e.lvl; }
+      if (e.probability !== null && e.probability !== undefined && Number.isFinite(+e.probability)) {
+        when.appendChild(el("span", "chip", Math.round(+e.probability * 100) + "% chance"));
       }
-      const m = root.appendChild(svg("circle", { cx: ex, cy: MID, r: e.lvl === "high" ? 7 : e.lvl === "watch" ? 6 : 5,
-        class: e.lvl + (e.pred ? " predicted" : "") }));
-      const p = Number.isFinite(+e.probability) && e.probability !== null && e.probability !== undefined
-        ? " (" + Math.round(+e.probability * 100) + "%)" : "";
-      const name = fmt(e.label) + p;
-      m.appendChild(svg("title")).textContent = day(e.t) + (Number.isFinite(e.te) ? " to " + day(e.te) : "") + ": " + name
-        + (e.detail ? " - " + fmt(e.detail) : "");
-      const lab = root.appendChild(svg("text", { x: ex, y: ly, "text-anchor": ex > W - 120 ? "end" : ex < 80 ? "start" : "middle", class: "label" }));
-      lab.textContent = name.length > 26 ? name.slice(0, 25) + "…" : name;
-    });
-    box.appendChild(root);
-    const legend = box.appendChild(el("p", "legend"));
-    legend.appendChild(el("span", "o", "● past"));
-    legend.appendChild(document.createTextNode("   "));
-    legend.appendChild(el("span", "p", "◌ predicted (bar = window, % = probability)"));
-    legend.appendChild(document.createTextNode("   colour: green info · amber watch · red high"));
-    const rows = evs.map((e) => [day(e.t) + (Number.isFinite(e.te) ? " to " + day(e.te) : ""), e.pred ? "predicted" : "past", e.lvl,
-      e.href ? { text: e.label, href: e.href } : e.label,
-      e.probability === null || e.probability === undefined ? "" : Math.round(+e.probability * 100) + "%", e.detail || ""]);
-    box.appendChild(table({ columns: ["when", "kind", "level", "event", "probability", "detail"], rows }));
+      li.appendChild(el("p", "what")).appendChild(e.href ? link(e.label, e.href) : document.createTextNode(fmt(e.label)));
+      if (e.detail) li.appendChild(el("p", "detail", fmt(e.detail)));
+      return li;
+    };
+    const draw = () => {
+      list.replaceChildren();
+      const keep = mode === "attention" ? attention : () => true;
+      const up = ahead.filter(keep);
+      const back = mode === "ahead" ? [] : past.filter(keep);
+      for (const e of up) list.appendChild(item(e));
+      if (mode !== "ahead") list.appendChild(el("li", "tlnow", "Now"));
+      for (const e of full ? back : back.slice(0, SHOWN)) list.appendChild(item(e));
+      if (!full && back.length > SHOWN) {
+        const more = list.appendChild(el("li", "tlmore")).appendChild(el("button", "ghost", "Show all " + back.length));
+        more.type = "button";
+        more.addEventListener("click", () => { full = true; draw(); });
+      }
+      if (!list.querySelector(".tli")) list.appendChild(el("li", "muted", "nothing here"));
+    };
+    for (const [id, label, n] of FILTERS) {
+      if (id !== "all" && !n) continue;
+      const b = bar.appendChild(el("button", "ghost", label + " · " + n));
+      b.type = "button"; b.dataset.mode = id; b.setAttribute("aria-pressed", String(id === mode));
+      b.addEventListener("click", () => {
+        mode = id; full = false;
+        for (const o of bar.children) o.setAttribute("aria-pressed", String(o.dataset.mode === mode));
+        draw();
+      });
+    }
+    draw();
     return box;
   };
 
-  const RENDERERS = { markdown, kv, table, timeseries, list, timeline };
+  const TONES = { info: "t-info", watch: "t-watch", high: "t-high", neutral: "t-neutral" };
+  const tone = (t, i) => (Object.prototype.hasOwnProperty.call(TONES, t) ? TONES[t] : "c" + (i % 3));
+  const pct = (share) => (share > 0 && share < 0.01 ? "<1%" : Math.round(share * 100) + "%");
+  // One whole split into parts: widths by value, each part's share inside it when it fits, names and counts below.
+  const parts = (d) => {
+    const items = (d.items || []).slice(0, 6).map((it, i) => ({ label: fmt(it && it.label), v: Math.max(0, num(it && it.value) || 0), cls: tone(it && it.tone, i) }));
+    const total = items.reduce((a, it) => a + it.v, 0), box = el("div");
+    if (!total) { box.appendChild(el("p", "muted", "nothing to show yet")); return box; }
+    const head = box.appendChild(el("p", "total"));
+    head.appendChild(el("b", null, fmt(total)));
+    head.appendChild(document.createTextNode(fmt(d.unit || "in total")));
+    const bar = box.appendChild(el("div", "pbar"));
+    bar.setAttribute("role", "img");
+    bar.setAttribute("aria-label", items.map((it) => it.label + ": " + fmt(it.v) + " (" + pct(it.v / total) + ")").join(", "));
+    for (const it of items) {
+      if (!it.v) continue;
+      const seg = bar.appendChild(el("div", "seg " + it.cls));
+      seg.style.flex = String(it.v);
+      seg.title = it.label + ": " + fmt(it.v) + " (" + pct(it.v / total) + ")";
+      seg.appendChild(el("span", null, pct(it.v / total)));
+    }
+    const legend = box.appendChild(el("p", "legend"));
+    for (const it of items) legend.appendChild(legendItem("sw " + it.cls, it.label + " · " + fmt(it.v)));
+    return box;
+  };
+  // One share against its total, on a track of the same hue.
+  const meter = (d) => {
+    const v = num(d.value), m = num(d.max), box = el("div");
+    if (!(m > 0) || !Number.isFinite(v)) { box.appendChild(el("p", "muted", "nothing to show yet")); return box; }
+    const head = box.appendChild(el("p", "total"));
+    head.appendChild(el("b", null, fmt(v) + " of " + fmt(m)));
+    head.appendChild(document.createTextNode(fmt(d.label || "")));
+    const track = box.appendChild(el("div", "meter"));
+    track.setAttribute("role", "meter");
+    track.setAttribute("aria-valuemin", "0"); track.setAttribute("aria-valuemax", String(m)); track.setAttribute("aria-valuenow", String(v));
+    track.setAttribute("aria-label", fmt(v) + " of " + fmt(m) + " " + fmt(d.label || ""));
+    const fill = track.appendChild(el("div", Object.prototype.hasOwnProperty.call(TONES, d.tone) ? TONES[d.tone] : ""));
+    fill.style.width = (Math.min(1, Math.max(0, v / m)) * 100) + "%";
+    return box;
+  };
+  // Line icons on a 24-unit grid, drawn with the text colour of the tile.
+  const ICONS = {
+    patient: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M4 21c0-4 3.6-6 8-6s8 2 8 6"],
+    panel: ["M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z", "M2.5 20c0-3.5 2.9-5.5 6.5-5.5s6.5 2 6.5 5.5", "M16 4.5a3.5 3.5 0 0 1 0 6.5", "M18 14.8c2 .7 3.5 2.4 3.5 5.2"],
+    visits: ["M4 6h16v15H4z", "M4 10h16", "M8 3v5", "M16 3v5", "M8 14h3"],
+    lab: ["M12 3c-3 4.6-6 7.8-6 11.3a6 6 0 0 0 12 0C18 10.8 15 7.6 12 3z", "M9.5 15a2.5 2.5 0 0 0 2.5 2.5"],
+    vitals: ["M20.4 5.6a5 5 0 0 0-7.1 0L12 6.9l-1.3-1.3a5 5 0 0 0-7.1 7.1L12 21l8.4-8.3a5 5 0 0 0 0-7.1z", "M3.5 12H8l1.5-3 3 6 1.5-3h6.5"],
+    device: ["M8 7h8v10H8z", "M9.5 7l.8-4h3.4l.8 4", "M9.5 17l.8 4h3.4l.8-4", "M12 10v2.5l1.5 1"],
+    medicine: ["M10.6 3.4a5 5 0 0 1 7.1 7.1l-7.2 7.2a5 5 0 0 1-7.1-7.1z", "M7 10l7 7"],
+    condition: ["M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z", "M12 9v6", "M9 12h6"],
+    diet: ["M5 20c0-9 6-15 15-15 0 9-6 15-15 15z", "M5 20l9-9"],
+    plan: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M12 12h.01"],
+    follow_up: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 7v5l3 2"],
+    file: ["M6 3h8l4 4v14H6z", "M14 3v4h4", "M9 13h6", "M9 17h4"],
+    trend: ["M3 17l6-6 4 4 8-8", "M15 7h6v6"],
+    alert: ["M12 3l9.5 17H2.5z", "M12 10v4", "M12 17h.01"],
+    note: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 11v5", "M12 8h.01"],
+    age: ["M6 3h12", "M6 21h12", "M7 3c0 5 10 5 10 9s-10 4-10 9", "M17 3c0 5-10 5-10 9s10 4 10 9"],
+  };
+  const icon = (name) => {
+    const tile = el("span", "ico");
+    tile.setAttribute("aria-hidden", "true");
+    const g = tile.appendChild(svg("svg", { viewBox: "0 0 24 24" }));
+    for (const d of ICONS[name]) g.appendChild(svg("path", { d }));
+    return tile;
+  };
+  const COMPACT = new Set(["parts", "meter"]);
+  // Marks on one number line, labels alternating above and below so close values stay readable.
+  const scale = (d) => {
+    const marks = (d.marks || []).map((m, i) => ({ label: fmt(m && m.label), v: num(m && m.value), cls: tone(m && m.tone, i) }))
+      .filter((m) => Number.isFinite(m.v)).sort((a, b) => a.v - b.v);
+    const box = el("div");
+    if (!marks.length) { box.appendChild(el("p", "muted", "nothing to show yet")); return box; }
+    const lo = Math.floor(Math.min(...marks.map((m) => m.v))) - 3, hi = Math.ceil(Math.max(...marks.map((m) => m.v))) + 3;
+    const line = box.appendChild(el("div", "scale"));
+    line.setAttribute("role", "img");
+    line.setAttribute("aria-label", marks.map((m) => m.label + " " + fmt(+m.v.toFixed(1))).join(", "));
+    line.appendChild(el("div", "axis"));
+    const at = (v) => ((v - lo) / (hi - lo) * 100) + "%";
+    for (const v of [lo, hi]) line.appendChild(el("div", "tick", fmt(v))).style.left = at(v);
+    marks.forEach((m, i) => {
+      line.appendChild(el("div", "pin " + m.cls)).style.left = at(m.v);
+      const lab = line.appendChild(el("div", "mlabel " + (i % 2 ? "down" : "up")));
+      lab.style.left = at(m.v);
+      lab.appendChild(el("b", null, fmt(+m.v.toFixed(1)) + (d.unit ? " " + fmt(d.unit) : "")));
+      lab.appendChild(el("span", null, m.label));
+    });
+    return box;
+  };
+  // Signed amounts around one zero line: positive to the right, negative to the left, the value at the bar's tip.
+  const bars = (d) => {
+    const items = (d.items || []).map((b) => ({ label: fmt(b && b.label), v: num(b && b.value), note: b && b.note }))
+      .filter((b) => Number.isFinite(b.v));
+    const box = el("div");
+    if (!items.length) { box.appendChild(el("p", "muted", "nothing to show yet")); return box; }
+    const span = Math.max(...items.map((b) => Math.abs(b.v)), 0.5) * 1.25;
+    const grid = box.appendChild(el("div", "bars"));
+    for (const b of items) {
+      grid.appendChild(el("div", "lab", b.label));
+      const track = grid.appendChild(el("div", "track"));
+      track.appendChild(el("div", "zero")).style.left = "50%";
+      const w = Math.abs(b.v) / span * 50;
+      const bar = track.appendChild(el("div", "bar " + (b.v >= 0 ? "pos" : "neg")));
+      bar.style.width = w + "%"; bar.style.left = (b.v >= 0 ? 50 : 50 - w) + "%";
+      const text = (b.v > 0 ? "+" : "") + fmt(+b.v.toFixed(1)) + (d.unit ? " " + fmt(d.unit) : "");
+      bar.title = b.label + ": " + text + (b.note ? " · " + fmt(b.note) : "");
+      const val = track.appendChild(el("div", "val", text));
+      if (b.v >= 0) val.style.left = "calc(" + (50 + w) + "% + 6px)"; else val.style.right = "calc(" + (50 + w) + "% + 6px)";
+    }
+    const note = grid.appendChild(el("div", "axisnote"));
+    note.appendChild(el("span", null, fmt(d.left || "makes it younger")));
+    note.appendChild(el("span", null, fmt(d.right || "makes it older")));
+    return box;
+  };
+
+  const RENDERERS = { markdown, kv, table, timeseries, list, timeline, parts, meter, scale, bars };
   let payload;
   try { payload = JSON.parse(document.getElementById("plsi-payload").textContent); }
   catch (e) { payload = { title: "PLSI report", blocks: [{ type: "markdown", data: { text: "The payload could not be parsed." } }] }; }
   document.title = fmt(payload.title || "PLSI report");
   document.getElementById("title").textContent = document.title;
-  document.getElementById("meta").textContent = [payload.subject_id, payload.generated_at].filter(Boolean).map(fmt).join(" · ");
+  const every = Number.isInteger(payload.refresh_seconds) && payload.refresh_seconds >= 60 ? payload.refresh_seconds : 0;
+  const when = Date.parse(payload.generated_at);
+  const updated = Number.isFinite(when) ? "Updated " + new Date(when).toLocaleString("en-GB", { day: "numeric", month: "short",
+    year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC" : "";
+  document.getElementById("meta").textContent = [updated, every ? "reloads every " + Math.round(every / 60) + " min" : ""]
+    .filter(Boolean).join(" · ");
   const app = document.getElementById("app");
-  for (const b of Array.isArray(payload.blocks) ? payload.blocks : []) {
-    const sec = app.appendChild(el("section"));
-    if (b && b.title) sec.appendChild(el("h2", null, fmt(b.title)));
-    const fn = b && Object.prototype.hasOwnProperty.call(RENDERERS, b.type) ? RENDERERS[b.type] : null;
-    let node;
-    try { node = fn ? fn(b.data || {}) : json(b); } catch (e) { node = json(b); }
-    sec.appendChild(node);
+  const blocks = (parent, list) => {
+    for (const b of Array.isArray(list) ? list : []) {
+      const sec = parent.appendChild(el("section", b && COMPACT.has(b.type) ? "compact" : null));
+      if (b && b.title) {
+        const h = sec.appendChild(el("h2"));
+        if (Object.prototype.hasOwnProperty.call(ICONS, b.icon)) h.appendChild(icon(b.icon));
+        h.appendChild(document.createTextNode(fmt(b.title)));
+      }
+      const fn = b && Object.prototype.hasOwnProperty.call(RENDERERS, b.type) ? RENDERERS[b.type] : null;
+      let node;
+      try { node = fn ? fn(b.data || {}) : json(b); } catch (e) { node = json(b); }
+      sec.appendChild(node);
+    }
+  };
+  blocks(app, payload.blocks);
+
+  // Tabs: one page each, the open one named in the address (#<id>), so a reload or a link keeps it.
+  const tabs = (Array.isArray(payload.tabs) ? payload.tabs : []).filter((t) => t && TAB_ID.test(String(t.id)));
+  if (tabs.length) {
+    const nav = app.appendChild(el("nav", "tabs")), pages = new Map();
+    nav.setAttribute("role", "tablist");
+    for (const t of tabs) {
+      if (pages.has(t.id)) continue;
+      const button = nav.appendChild(el("button", null, fmt(t.title || t.id)));
+      button.type = "button"; button.setAttribute("role", "tab"); button.dataset.tab = t.id;
+      const page = app.appendChild(el("div", "page"));
+      page.setAttribute("role", "tabpanel"); page.hidden = true;
+      blocks(page, t.blocks);
+      pages.set(t.id, [button, page]);
+    }
+    const show = (id) => {
+      const open = pages.has(id) ? id : pages.keys().next().value;
+      for (const [key, [button, page]] of pages) { button.setAttribute("aria-selected", String(key === open)); page.hidden = key !== open; }
+      if (location.hash.slice(1) !== open) {
+        try { history.replaceState(null, "", "#" + open); } catch (e) { /* some browsers refuse it for file:// */ }
+      }
+    };
+    nav.addEventListener("click", (e) => {
+      const button = e.target.closest("button[data-tab]");
+      if (button) { show(button.dataset.tab); window.scrollTo(0, 0); }
+    });
+    window.addEventListener("hashchange", () => { show(location.hash.slice(1)); window.scrollTo(0, 0); });
+    show(location.hash.slice(1));
+  }
+
+  // A file a command rewrites in place: reload it from disk, back to the same tab and scroll position.
+  if (every) {
+    const key = "plsi-scroll:" + location.pathname + location.hash;
+    try {
+      const y = +sessionStorage.getItem(key);
+      sessionStorage.removeItem(key);
+      if (y > 0) window.scrollTo(0, y);
+    } catch (e) { /* no storage: the reload starts at the top */ }
+    setTimeout(() => {
+      try { sessionStorage.setItem("plsi-scroll:" + location.pathname + location.hash, String(window.scrollY)); } catch (e) { /* ignore */ }
+      location.reload();
+    }, every * 1000);
   }
 })();
 </script>

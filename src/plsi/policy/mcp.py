@@ -12,6 +12,10 @@ from plsi.files import loads_json
 from plsi.models import sanitize_external
 
 CAP_ERROR = 500
+PROTOCOL_VERSION = "2024-11-05"
+CLIENT_INFO = {"name": "plsi", "version": "1"}
+RPC_TIMEOUT_S = 60.0  # one JSON-RPC exchange
+NOTIFY_TIMEOUT_S = 30.0
 
 
 def external(text: str, origin: str) -> dict[str, Any]:
@@ -22,7 +26,7 @@ def external(text: str, origin: str) -> dict[str, Any]:
 class McpClient:
     """Minimal MCP streamable-HTTP JSON-RPC client: initialize, then tools/list and tools/call."""
 
-    def __init__(self, url: str, token: str | None, *, deadline_s: float = 120.0) -> None:
+    def __init__(self, url: str, token: str | None, *, deadline_s: float) -> None:
         self.url, self._token = url, token
         self._deadline = time.monotonic() + deadline_s
         self._session: str | None = None
@@ -44,13 +48,12 @@ class McpClient:
         except ValueError:
             raise NetworkError(f"unparseable MCP reply from {net.strip_query(self.url)}", code="BAD_RESPONSE") from None
 
-    def _rpc(self, method: str, params: dict[str, Any], timeout: float = 60.0) -> dict[str, Any]:
+    def _rpc(self, method: str, params: dict[str, Any], timeout: float = RPC_TIMEOUT_S) -> dict[str, Any]:
         if not self._ready and method != "initialize":
             self._ready = True
-            self._rpc("initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
-                                     "clientInfo": {"name": "plsi", "version": "1"}})
+            self._rpc("initialize", {"protocolVersion": PROTOCOL_VERSION, "capabilities": {}, "clientInfo": CLIENT_INFO})
             try:
-                self._post({"jsonrpc": "2.0", "method": "notifications/initialized"}, 30.0)
+                self._post({"jsonrpc": "2.0", "method": "notifications/initialized"}, NOTIFY_TIMEOUT_S)
             except NetworkError:
                 pass  # some servers answer notifications with an error status; the session still works
         self._next_id += 1
@@ -73,7 +76,7 @@ class McpClient:
             if not (cursor := result.get("nextCursor")):
                 return tools
 
-    def call_tool(self, name: str, arguments: dict[str, Any], *, timeout: float = 60.0) -> Any:
+    def call_tool(self, name: str, arguments: dict[str, Any], *, timeout: float = RPC_TIMEOUT_S) -> Any:
         """structuredContent if present, else parsed content text JSON, else the text."""
         result = self._rpc("tools/call", {"name": name, "arguments": arguments}, timeout)
         texts = "\n".join(p.get("text", "") for p in result.get("content") or [] if p.get("type") == "text").strip()

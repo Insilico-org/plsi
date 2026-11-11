@@ -1,7 +1,8 @@
 """`plsi` CLI: one COMMANDS table (plsi.commands), one JSON envelope on stdout, fixed exit codes.
 
-Each command names ONE library function ("module:function"); it is called with the parsed arguments whose names
-match its parameters; an absent flag passes nothing, so the function's own default applies. Exit codes: 0 ok, 1 refused (gate/validation/not found), 2 usage, 3 environment.
+Each command names ONE library function ("module:function"); it is called with the parsed arguments, each of which
+must be one of its parameters; an absent flag passes nothing, so the function's own default applies. Exit codes: 0 ok,
+1 refused (gate/validation/not found), 2 usage, 3 environment.
 """
 
 from __future__ import annotations
@@ -22,10 +23,9 @@ from typing import Any
 import pydantic
 
 from plsi import __version__, errors, keys
-from plsi.cmdspec import Cmd
+from plsi.cmdspec import Cmd, Exclusive
 from plsi.commands import COMMANDS
 from plsi.models import Model, validation_error
-
 
 # ---------------------------------------------------------------- parser
 
@@ -47,9 +47,9 @@ def build_parser() -> argparse.ArgumentParser:
         parser = groups[words[:-1]].add_parser(words[-1], help=cmd.help, description=cmd.help)
         parser.set_defaults(_command=name)
         for spec in cmd.args:
-            if spec[0] == "__mx__":
-                group = parser.add_mutually_exclusive_group(required=spec[2])
-                for flags, kw in spec[1]:
+            if isinstance(spec, Exclusive):
+                group = parser.add_mutually_exclusive_group(required=spec.required)
+                for flags, kw in spec.args:
                     group.add_argument(*flags, **kw)
             else:
                 parser.add_argument(*spec[0], **spec[1])
@@ -65,8 +65,10 @@ def _resolve(target: str) -> Callable[..., Any]:
 
 def _call(cmd: Cmd, ns: argparse.Namespace) -> Any:
     func = _resolve(cmd.target)
-    params = inspect.signature(func).parameters
-    return func(**{k: getattr(ns, k) for k in params if getattr(ns, k, None) is not None})
+    given = {k: v for k, v in vars(ns).items() if not k.startswith("_")}
+    if extra := sorted(given.keys() - inspect.signature(func).parameters.keys()):
+        raise errors.PlsiError(f"{cmd.target} takes no {', '.join(extra)}", code="INTERNAL_ERROR")
+    return func(**{k: v for k, v in given.items() if v is not None})
 
 
 def _next(cmd: Cmd, ns: argparse.Namespace) -> list[str]:
@@ -139,7 +141,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         command = ns._command
         cmd = COMMANDS[command]
         data = _call(cmd, ns)
-        envelope = {"ok": True, "command": command, "data": data, "warnings": errors.drain_warnings(), "next": _next(cmd, ns)}
+        if cmd.refresh:
+            from plsi.clinic.dashboard import refresh_after  # the clinic loads only for a command that changes records
+
+            refresh_after(dry_run=bool(getattr(ns, "dry_run", False)))
+        warnings = [{**w, "message": keys.redact(w["message"])} for w in errors.drain_warnings()]
+        envelope = {"ok": True, "command": command, "data": data, "warnings": warnings, "next": _next(cmd, ns)}
         out, code = _dumps(envelope), 0  # serialised before writing: unserializable data fails here, not mid-write
     except SystemExit as exc:  # --help / --version
         return int(exc.code or 0)
@@ -151,35 +158,3 @@ def main(argv: Sequence[str] | None = None) -> int:
     sys.stdout.write(out + "\n")
     sys.stdout.flush()
     return code
-
-
-# ---------------------------------------------------------------- commands owned by the CLI
-
-def instance_status(instance: str) -> dict[str, Any]:
-    """Subject, event counts, stored states (hash-checked) and plans."""
-    from plsi.life.store import EventStore, event_counts
-    from plsi.map import mapper
-    from plsi.policy.plan import list_plans
-
-    store = EventStore(instance)
-    states = []
-    for latest in sorted((store.dir / "states").glob("*/latest.json")):
-        try:
-            doc = mapper.latest_state(instance, latest.parent.name)
-            states.append({"map_id": doc.map_id, "as_of": doc.as_of, "generated_at": doc.generated_at,
-                           "state_hash": doc.state_hash, "hash_ok": doc.verify_hash()})
-        except errors.PlsiError:
-            states.append({"map_id": latest.parent.name, "error": "unreadable latest.json"})
-    return {
-        "instance": instance,
-        "path": str(store.dir),
-        "subject": store.subject.dump(),
-        "events": event_counts(instance),
-        "states": states,
-        "user_maps": sorted(p.stem for p in (store.dir / "maps" / "user").glob("*.yaml")),
-        "plans": list_plans(instance),
-    }
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -20,8 +20,7 @@ build/
 .idea/
 .vscode/
 
-# Local test suite (the published repo is user-facing). Ignore contents, not the
-# directory itself, so MH contract tests can be re-included below.
+# Local test suite: ignore the contents, not the directory, so the tracked tests below can be re-included
 tests/*
 # MH contract tests (tracked): durable caution packaging
 !tests/test_mh_caution_packaging.py
@@ -29,6 +28,11 @@ tests/*
 !tests/test_mh_routing.py
 # MH wellbeing collection (PHQ-2/PSS-10 admin channel)
 !tests/test_mh_wellbeing.py
+!tests/test_note_gate.py
+!tests/test_units.py
+!tests/test_hevy.py
+!tests/test_net.py
+!tests/test_note_email.py
 !tests/fixtures/
 tests/fixtures/*
 !tests/fixtures/mh_caution/
@@ -40,3 +44,4 @@ tests/fixtures/mh_routing/*
 !tests/fixtures/mh_wellbeing/
 tests/fixtures/mh_wellbeing/*
 !tests/fixtures/mh_wellbeing/**
+uv.lock

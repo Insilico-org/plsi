@@ -5,7 +5,6 @@ description: Use as PLSI when the user has a doctor's visit coming or just had o
 
 # PLSI physicians
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI**.
 PLSI is the one bot that handles the user's communication with all their physicians, longevity physicians included.
 Finding a new physician goes to Navigator (`navigator/physicians`); Navigator is a specialist, so when it is not on
 the team finding is off: say so in one line and offer "Add PLSI Navigator?".
@@ -19,7 +18,7 @@ the team finding is off: say so in one line and offer "Add PLSI Navigator?".
 - The user wants to list, add, change or remove someone on their care team.
 
 Not this skill: a physician's patient (role physician): a patient's visit is Visit Prep (`visitprep/brief`), a
-message to a patient Liaison (`liaison/message`), as in `shared/team` Flows.
+message to a patient Liaison (`liaison/message`), as in `shared/hub` Flows.
 
 ## Steps
 
@@ -58,7 +57,7 @@ message to a patient Liaison (`liaison/message`), as in `shared/team` Flows.
    goes through Data Controller (`controller/egress`) as in step 8.
 
 5. **After the visit.** Save the user's notes, letter or photo unopened under `<PLSI_HOME>/inbox/` and hand the path
-   to Data Processor (`processor/intake`). If plans are active, continue with the **Review** flow in `shared/team`. New orders
+   to Data Processor (`processor/intake`). If plans are active, continue with the **Review** flow in `shared/hub`. New orders
    (tests, a referral, a medication change) are said back in one line and go into the follow-ups.
 
 6. **Follow-ups.** For each follow-up the physician set (repeat test, next visit, referral), add a row to the
@@ -68,9 +67,13 @@ message to a patient Liaison (`liaison/message`), as in `shared/team` Flows.
 7. **Finding a physician.** Send Navigator one request (`navigator/physicians`) with the specialty, the reason (gap,
    plan, condition), area, radius, budget band and language. Show the ranked options, with their licence status and
    Navigator's "not for emergencies, not a referral" line, in one question card ("Which one?"); the pick goes into the
-   care team (step 1) with its directory id. A `registry.json` from Navigator goes to Explorer
-   (`explorer/mothership`, Contribute; skipped when Explorer is not on the team), then to Data Controller
-   (`controller/egress`), and only a `cleared` one goes on its approval card; nothing else leaves the computer.
+   care team (step 1) with its directory id. A `registry.json` from Navigator goes on only when
+   `plsi mothership status` shows the user joined and Explorer is on the team (otherwise it stays on the computer,
+   nothing said): one round in the "Mothership sync" room (`orchestrator/mothership` step 3), where Explorer
+   packages it (`explorer/mothership`, Contribute) and hands it to Data Controller (`controller/egress`). Only a
+   `cleared` one goes on its approval card; Approve opens a new round there for Data Controller to send it; then
+   run `plsi mothership receipt --instance <instance> --wait 120` and say the outcome in one line. Nothing else
+   leaves the computer.
 
 8. **Contacting a physician.** Draft the exact message (email, portal message, booking request) and hand it to Data
    Controller (`controller/egress`); a `rejected` draft is rewritten as its findings say. Show only a `cleared` one,

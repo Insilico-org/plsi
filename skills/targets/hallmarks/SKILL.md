@@ -5,9 +5,6 @@ description: Use as PLSI Target Hunter when the researcher wants a target, pathw
 
 # PLSI hallmark framing
 
-Follow `persona.md` (repo root) and `shared/team`. Owner: **PLSI Target Hunter**. Reply only in handoffs to PLSI; never
-message the user.
-
 The framing is easily overstated, so the shape of the evidence matters more than the amount.
 
 ## When to use

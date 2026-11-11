@@ -1,19 +1,19 @@
-"""The frontier: why each direction is open, how far it is from a verdict, and the ranked queue of open work.
-
-Everything here is computed from the files on every read and never stored.
-"""
+"""The frontier: why each direction is open, how far it is from a verdict, the ranked queue of open work, and
+what the topic already covers. Everything here is computed from the files on every read and never stored."""
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
-from plsi.research.store import Graph, depth_of
-from plsi.research.verdict import (MIN_ABSENCE_ROUNDS, counts_for_support, evidence, independent,
-                                   is_recorded_absence, lines, live_hypotheses, question_verdict, verdict, weight)
-from plsi.research.working_set import clip
-from plsi.vocab.research import (LIVE, RESOLVED, QuestionLink, ResearchAngle, ResearchContinuation, ResearchDepth,
-                                 ResearchDesign, ResearchGap, ResearchMove, ResearchNodeKind, ResearchRoute,
-                                 ResearchVerdict, Stakes)
+from plsi.research.schema import search_counts
+from plsi.research.store import Graph, clip, depth_of
+from plsi.research.tuning import (CLOSED_IN_CONTEXT, CLOSED_REASON_CHARS, CONTINUATIONS_MAX,
+                                  DEPTH_ANSWER_FROM_FINDINGS, FRONTIER_IN_CONTEXT, MIN_ABSENCE_ROUNDS)
+from plsi.research.verdict import (counts_for_support, evidence, independent, is_recorded_absence, lines,
+                                   live_hypotheses, question_verdict, verdict, weight)
+from plsi.vocab.research import (LIVE, RESOLVED, QuestionLink, ResearchAngle, ResearchContinuation, ResearchDesign,
+                                 ResearchGap, ResearchMove, ResearchNodeKind, ResearchRoute, ResearchVerdict, Stakes)
 
 # distance to a verdict -> (the move due, how the queue describes it)
 STEPS = {0: (ResearchMove.TEST, "ready to answer"),
@@ -33,19 +33,6 @@ ANGLE_ASKS = {  # the question each angle opens, offered when a topic's frontier
     ResearchAngle.ALTERNATIVE: "what else would produce the same observation?",
     ResearchAngle.HARM: "what does it cost, and to whom?",
 }
-CONTINUATIONS_MAX = 8
-CLOSED_IN_CONTEXT = 5  # closed directions sent with each move; `status` carries them all
-CLOSED_REASON_CHARS = 200
-FRONTIER_IN_CONTEXT = 12  # open directions sent with each move; `frontier_total` says how many were not
-# How many independent lines make a leaf answerable without proposing a candidate; `None` means never, so the
-# direction goes through Explain. Above `standard` it is off because findings alone stop at `thin`, below the
-# `supported` floor those depths require.
-DEPTH_ANSWER_FROM_FINDINGS: dict[ResearchDepth, int | None] = {
-    ResearchDepth.FAST: 1,
-    ResearchDepth.STANDARD: 2,
-    ResearchDepth.DEEP: None,
-    ResearchDepth.EXHAUSTIVE: None,
-}
 
 
 def gap(graph: Graph, question: str) -> tuple[str | None, bool]:
@@ -56,10 +43,10 @@ def gap(graph: Graph, question: str) -> tuple[str | None, bool]:
         return ResearchGap.canonical(node["gap"]), False
     live = live_hypotheses(graph, question)
     if not graph.findings_of(question):
-        search = node.get("last_search") or {}
-        if not int(search.get("rounds") or 0):
+        search = search_counts(node)
+        if not search["rounds"]:
             return str(ResearchGap.UNSEARCHED), True
-        return str(ResearchGap.NOTHING_USABLE if int(search.get("hits") or 0) else ResearchGap.UNSTUDIED), True
+        return str(ResearchGap.NOTHING_USABLE if search["hits"] else ResearchGap.UNSTUDIED), True
     if any(verdict(graph, h["name"]) == ResearchVerdict.CONTESTED for h in live):
         return str(ResearchGap.DISPUTED), True
     if not live:
@@ -71,10 +58,9 @@ def gap(graph: Graph, question: str) -> tuple[str | None, bool]:
 
 def route(graph: Graph, question: str) -> str:
     """How much is left on a direction, shown to the bot. Descriptive only; the move comes from `distance`."""
-    node = graph.nodes.get(question, {})
-    search = node.get("last_search") or {}
+    search = search_counts(graph.nodes.get(question))
     findings = graph.findings_of(question)
-    if int(search.get("rounds") or 0) >= MIN_ABSENCE_ROUNDS and not int(search.get("hits") or 0) and not findings:
+    if search["rounds"] >= MIN_ABSENCE_ROUNDS and not search["hits"] and not findings:
         return str(ResearchRoute.ABSENT)
     if any(f.get("design") == ResearchDesign.AGGREGATE for f in findings):
         return str(ResearchRoute.SETTLED)
@@ -118,14 +104,12 @@ def distance(graph: Graph, question: str) -> int:
         return 3  # candidates with no evidence to meet: gather first
     if findings:
         return 2
-    rounds = int((graph.nodes.get(question, {}).get("last_search") or {}).get("rounds") or 0)
-    return 4 if rounds else 3
+    return 4 if search_counts(graph.nodes.get(question))["rounds"] else 3
 
 
 def _reachability(node: dict[str, Any]) -> int:
-    search = node.get("last_search") or {}
-    rounds, hits = int(search.get("rounds") or 0), int(search.get("hits") or 0)
-    return 0 if hits or not rounds else min(rounds, 3)
+    search = search_counts(node)
+    return 0 if search["hits"] or not search["rounds"] else min(search["rounds"], 3)
 
 
 def rank(graph: Graph) -> list[dict[str, Any]]:
@@ -207,7 +191,6 @@ def _closed(nodes: list[dict[str, Any]], reason_chars: int | None = None) -> lis
 
 
 def closed(graph: Graph) -> list[dict[str, Any]]:
-    """Every resolved question and why."""
     return _closed([n for n in graph.of_kind(ResearchNodeKind.QUESTION) if n.get("status") in RESOLVED])
 
 
@@ -227,3 +210,21 @@ def queue(graph: Graph) -> dict[str, Any]:
 def open_items(graph: Graph) -> list[str]:
     """Every open direction, so a stop says what was not reached."""
     return [e["question"] for e in rank(graph)]
+
+
+def coverage(graph: Graph, brief: bool = False) -> dict[str, Any]:
+    """What the topic already covers: angles, question states, outstanding gaps, designs, species, origins and
+    populations. `brief` (what `next` sends) gives counts for origins and populations instead of the lists."""
+    qs, fs = graph.of_kind(ResearchNodeKind.QUESTION), graph.of_kind(ResearchNodeKind.FINDING)
+    live_gaps = Counter(gap(graph, q["name"])[0] for q in qs if q.get("status") in LIVE)
+    origins = {str(f.get("origin")) for f in fs if f.get("origin")}
+    populations = {str(f.get("population")) for f in fs if f.get("population")}
+    return {
+        "angles_asked": dict(Counter(str(q["angle"]) for q in qs if q.get("angle"))),
+        "questions_by_state": dict(Counter(str(q.get("status")) for q in qs)),
+        "gaps_outstanding": {k: v for k, v in live_gaps.items() if k},
+        "designs_seen": sorted({str(f.get("design")) for f in fs if f.get("design")}),
+        "populations_seen": len(populations) if brief else sorted(populations),
+        "origins_seen": len(origins) if brief else sorted(origins),
+        "species": dict(Counter(str(f.get("species")) for f in fs if f.get("species"))),
+    }

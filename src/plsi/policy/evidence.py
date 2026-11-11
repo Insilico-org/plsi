@@ -13,12 +13,12 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from plsi import keys, net, references
+from plsi import extensions, keys, net, references
 from plsi.clock import now
-from plsi.errors import ValidationError, warn
+from plsi.errors import NetworkError, ValidationError, warn
 from plsi.files import append_jsonl, read_jsonl
 from plsi.map import registry
-from plsi.models import CAP_ABSTRACT, SourceRef, sanitize_external
+from plsi.models import CAP_ABSTRACT, SourceRef, parse, sanitize_external
 from plsi.paths import plsi_home
 from plsi.policy import ctgov
 from plsi.policy.models import Verification
@@ -41,6 +41,8 @@ CITED_AT = {  # source kind -> the reference whose cite_url is the record's cita
 }
 Result = dict[str, Any]
 RETRACTED = "retracted publication"  # a PubMed or Europe PMC publication type, lower-cased
+CAP_TITLE = 500  # a ledger entry's title
+MAX_RESULTS = 50
 
 
 def ledger_path() -> Path:
@@ -51,20 +53,27 @@ def _text(value: Any, origin: str) -> dict[str, Any]:
     return sanitize_external(str(value or ""), CAP_ABSTRACT, origin).model_dump(mode="json")
 
 
-def _result(kind: SourceKind, id: str, title: Any, url: str, origin: str, **extra: Any) -> Result:  # noqa: A002
-    ref = SourceRef(kind=kind, id=id, url=url)
-    out = {"ref": ref.dump(), "title": _text(title, origin), "url": _text(url, origin)}
-    for key, value in extra.items():
-        if value:
-            out[key] = (_text(value, origin) if key == "abstract"
-                        else [_text(v, origin) for v in (value if isinstance(value, list) else [value])] if key == "pub_types"
-                        else value)
+def _result(kind: SourceKind, ident: str, title: Any, origin: str, *, year: str | None = None,
+            pub_types: Any = None, abstract: Any = None) -> Result:
+    """One search hit, cited at its record's page; every relayed string is ExternalText."""
+    url = cite_url(kind, ident)
+    out = {"ref": SourceRef(kind=kind, id=ident, url=url).dump(), "title": _text(title, origin), "url": _text(url, origin)}
+    if year:
+        out["year"] = year
+    if pub_types:
+        out["pub_types"] = [_text(v, origin) for v in (pub_types if isinstance(pub_types, list) else [pub_types])]
+    if abstract:
+        out["abstract"] = _text(abstract, origin)
     return out
 
 
-def cite_url(kind: SourceKind, id: str) -> str | None:  # noqa: A002
+def _retracted(pub_types: list[Any]) -> bool:
+    return RETRACTED in (str(t).lower() for t in pub_types)
+
+
+def cite_url(kind: SourceKind, ident: str) -> str | None:
     """The citable page of one record (None for model and rule sources)."""
-    return references.get(CITED_AT[kind]).cite_url.format(id=id) if kind in CITED_AT else None
+    return references.get(CITED_AT[kind]).cite_url.format(id=ident) if kind in CITED_AT else None
 
 
 def _ncbi_params(**params: Any) -> dict[str, Any]:
@@ -82,9 +91,14 @@ def _titled(item: dict[str, Any]) -> bool:
 
 
 def label_query(search: str, limit: int, **params: Any) -> dict[str, Any]:
-    """openFDA drug label search (zero hits answer as an empty result)."""
-    return net.get_json(f"{references.api_base('openfda_label')}/drug/label.json",
-                        {"search": search, "limit": limit, **params, "api_key": keys.get("OPENFDA_API_KEY")})
+    """openFDA drug label search; zero hits (openFDA answers 404 NOT_FOUND) are an empty result."""
+    try:
+        return net.get_json(f"{references.api_base('openfda_label')}/drug/label.json",
+                            {"search": search, "limit": limit, **params, "api_key": keys.get("OPENFDA_API_KEY")})
+    except NetworkError as exc:
+        if exc.status == 404 and "NOT_FOUND" in exc.body:
+            return {"meta": {"results": {"total": 0}}, "results": []}
+        raise
 
 
 def label_title(label: dict[str, Any]) -> str | None:
@@ -104,7 +118,7 @@ def _pubmed(query: str, limit: int) -> list[Result]:
     for pmid in ids:
         item = summary.get(pmid) or {}
         if _titled(item):
-            out.append(_result(SourceKind.PMID, pmid, item["title"], cite_url(SourceKind.PMID, pmid), "pubmed",
+            out.append(_result(SourceKind.PMID, pmid, item["title"], "pubmed",
                                year=str(item.get("pubdate", ""))[:4], pub_types=item.get("pubtype")))
     return out
 
@@ -118,7 +132,7 @@ def _europepmc(query: str, limit: int) -> list[Result]:
         kind, id_ = (SourceKind.PMID, item.get("pmid")) if item.get("pmid") else (SourceKind.DOI, item.get("doi"))
         if id_ and re.match(ID_PATTERNS[kind], id_):
             types = item.get("pubTypeList", {}).get("pubType") or None
-            out.append(_result(kind, id_, item.get("title"), cite_url(kind, id_), "europepmc",
+            out.append(_result(kind, id_, item.get("title"), "europepmc",
                                year=item.get("pubYear"), pub_types=types, abstract=item.get("abstractText")))
     return out
 
@@ -128,7 +142,7 @@ def _ctgov(query: str, limit: int) -> list[Result]:
     out = []
     for study in (ctgov.record(raw) for raw in data.get("studies", [])[:limit]):
         if re.match(ID_PATTERNS[SourceKind.NCT], nct := study["nct"]):
-            out.append(_result(SourceKind.NCT, nct, study["title"], cite_url(SourceKind.NCT, nct), "ctgov",
+            out.append(_result(SourceKind.NCT, nct, study["title"], "ctgov",
                                year=(study["started"] or "")[:4], pub_types=[p for p in [*study["phases"], study["status"]] if p]))
     return out
 
@@ -142,7 +156,7 @@ def _openfda(query: str, limit: int) -> list[Result]:
         names = label.get("openfda", {})
         if re.match(ID_PATTERNS[SourceKind.LABEL], set_id):
             title = "; ".join(names.get("brand_name", []) + names.get("generic_name", [])) or set_id
-            out.append(_result(SourceKind.LABEL, set_id, title, cite_url(SourceKind.LABEL, set_id), "openfda",
+            out.append(_result(SourceKind.LABEL, set_id, title, "openfda",
                                year=str(label.get("effective_time", ""))[:4], pub_types=names.get("product_type")))
     return out
 
@@ -153,7 +167,7 @@ def _evipedia(query: str, limit: int) -> list[Result]:
     for item in data.get("results", [])[:limit]:
         slug = urllib.parse.urlsplit(item.get("url", "")).path.strip("/").removesuffix(".md")
         if re.match(ID_PATTERNS[SourceKind.EVIPEDIA], slug):
-            out.append(_result(SourceKind.EVIPEDIA, slug, item.get("topic"), cite_url(SourceKind.EVIPEDIA, slug), "evipedia"))
+            out.append(_result(SourceKind.EVIPEDIA, slug, item.get("topic"), "evipedia"))
     return out
 
 
@@ -167,30 +181,31 @@ SOURCES: dict[SearchSource, Callable[[str, int], list[Result]]] = {
 
 
 def _search_extension(source: str, query: str, limit: int) -> list[dict[str, Any]]:
-    """Results from an evidence_source extension. Items with a kind+id become SourceRefs (verify them); others are leads."""
-    from plsi import extensions
-
-    ext_id = source.removeprefix("ext:")
+    """Results from an evidence_source extension. Items with a kind+id become SourceRefs (verify them); others are leads.
+    An item that is not an object, or names a kind and an id no SourceRef can hold, raises EXTENSION_INVALID."""
     results = []
-    for item in extensions.evidence_source(ext_id)(query, limit)[:limit]:
+    for item in extensions.evidence_source(source.removeprefix("ext:"))(query, limit)[:limit]:
+        if not isinstance(item, dict):
+            raise ValidationError(f"{source} returned a result that is not an object", code="EXTENSION_INVALID")
         kind, rid = item.get("kind"), item.get("id")
-        ref = SourceRef(kind=kind, id=str(rid)).dump() if kind in {k.value for k in SourceKind} and rid else None
+        ref = (parse(SourceRef, {"kind": kind, "id": str(rid)}, f"{source} ref", code="EXTENSION_INVALID").dump()
+               if kind in {k.value for k in SourceKind} and rid else None)
         results.append({"ref": ref, "title": _text(item.get("title") or "", source), "url": _text(item.get("url"), source)})
     return results
 
 
 def search(source: str, query: str, limit: int = 10) -> dict[str, Any]:
     """`plsi evidence search` (network). Logs a Verification for every id it resolved, not ok when retracted."""
+    if not 1 <= limit <= MAX_RESULTS:
+        raise ValidationError(f"limit must be between 1 and {MAX_RESULTS}")
     if source.startswith("ext:"):
         results, note = _search_extension(source, query, limit), "extension results are leads; run plsi evidence verify on each ref before citing"
     else:
         if source not in {s.value for s in SearchSource}:
             raise ValidationError(f"unknown source {source!r}", hint=f"one of {', '.join(SearchSource)} or ext:<extension id>")
-        if not 1 <= limit <= 50:
-            raise ValidationError("limit must be between 1 and 50")
         results, note = SOURCES[SearchSource(source)](query, limit), None
         for r in results:
-            ok = RETRACTED not in (t["text"].lower() for t in r.get("pub_types", []))
+            ok = not _retracted([t["text"] for t in r.get("pub_types", [])])
             _log(SourceKind(r["ref"]["kind"]), r["ref"]["id"], ok, r["title"]["text"], r["ref"].get("url"))
     out: dict[str, Any] = {"source": source, "query": query, "count": len(results), "results": results}
     if note:
@@ -198,49 +213,50 @@ def search(source: str, query: str, limit: int = 10) -> dict[str, Any]:
     return out
 
 
-def _log(kind: SourceKind, id: str, ok: bool, title: str | None, url: str | None) -> Verification:  # noqa: A002
-    v = Verification(kind=kind, id=id, ok=ok, checked_at=now(), canonical_url=url,
-                     title=sanitize_external(title, 500, kind.value) if title else None)
+def _log(kind: SourceKind, ident: str, ok: bool, title: str | None, url: str | None) -> Verification:
+    v = Verification(kind=kind, id=ident, ok=ok, checked_at=now(), canonical_url=url,
+                     title=sanitize_external(title, CAP_TITLE, kind.value) if title else None)
     append_jsonl(ledger_path(), v.dump())
     return v
 
 
-def _check_pmid(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    item = _esummary([id]).get(id) or {}
-    if RETRACTED in map(str.lower, item.get("pubtype") or []):
+def _check_pmid(ident: str) -> tuple[bool, str | None]:
+    item = _esummary([ident]).get(ident) or {}
+    if _retracted(item.get("pubtype") or []):
         return False, f"Retracted: {item.get('title')}"
     return _titled(item), item.get("title")
 
 
-def _check_doi(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    data = net.get_json(f"{references.api_base('doi')}/{urllib.parse.quote(id, safe='/')}", missing=(404,))
+def _check_doi(ident: str) -> tuple[bool, str | None]:
+    data = net.get_json(f"{references.api_base('doi')}/{urllib.parse.quote(ident, safe='/')}", missing=(404,))
     return bool(data) and data.get("responseCode") == 1, None
 
 
-def _check_nct(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    data = ctgov.study(id, "NCTId,BriefTitle")
-    return data is not None, (data or {}).get("protocolSection", {}).get("identificationModule", {}).get("briefTitle")
+def _check_nct(ident: str) -> tuple[bool, str | None]:
+    data = ctgov.study(ident, "NCTId,BriefTitle")
+    return data is not None, (ctgov.record(data)["title"] or None) if data else None
 
 
-def _check_label(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    data = label_query(f'set_id:"{id}"', 1)
+def _check_label(ident: str) -> tuple[bool, str | None]:
+    data = label_query(f'set_id:"{ident}"', 1)
     labels = data.get("results", [])
-    return data.get("meta", {}).get("results", {}).get("total", 0) >= 1, ("; ".join(labels[0].get("openfda", {}).get("brand_name", [])) or None) if labels else None
+    brands = labels[0].get("openfda", {}).get("brand_name", []) if labels else []
+    return data.get("meta", {}).get("results", {}).get("total", 0) >= 1, "; ".join(brands) or None
 
 
-def _check_evipedia(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    text = net.get_text(f"{references.api_base('evipedia')}/{id}.md", missing=(404,))
+def _check_evipedia(ident: str) -> tuple[bool, str | None]:
+    text = net.get_text(f"{references.api_base('evipedia')}/{ident}.md", missing=(404,))
     heading = next((ln.lstrip("# ").strip() for ln in (text or "").splitlines() if ln.startswith("#")), None)
     return text is not None, heading
 
 
-def _check_model(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    ref = references.load().get(id)
+def _check_model(ident: str) -> tuple[bool, str | None]:
+    ref = references.load().get(ident)
     return ref is not None and ref.kind in (ReferenceKind.MODEL, ReferenceKind.ORACLE), ref.title if ref else None
 
 
-def _check_rule(id: str) -> tuple[bool, str | None]:  # noqa: A002
-    return id in registry.rule_ids(), None
+def _check_rule(ident: str) -> tuple[bool, str | None]:
+    return ident in registry.rule_ids(), None
 
 
 # kind -> check(id) -> (resolves, title); each contacts only the fixed host for its kind.
@@ -269,10 +285,10 @@ def verify(kind: str, id: str) -> dict[str, Any]:  # noqa: A002 - CLI dest name
     return _log(k, id, ok, title, url).dump()
 
 
-def latest_verification(kind: str, id: str) -> Verification | None:  # noqa: A002
-    """Newest ledger entry for (kind, id), or None."""
+def latest_verification(kind: str, ident: str) -> Verification | None:
+    """Newest ledger entry for (kind, ident), or None."""
     for raw in reversed(read_jsonl(ledger_path())):
-        if isinstance(raw, dict) and raw.get("kind") == kind and raw.get("id") == id:
+        if isinstance(raw, dict) and raw.get("kind") == kind and raw.get("id") == ident:
             try:
                 return Verification.model_validate(raw)
             except ValueError:

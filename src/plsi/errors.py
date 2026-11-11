@@ -74,6 +74,9 @@ class DependencyMissing(EnvironmentProblem):
     code = "DEPENDENCY_MISSING"
 
 
+CLOCKS_EXTRA = 'pip install -e ".[clocks]"'  # pandas and biolearn, for methylation clocks
+
+
 class InstanceLocked(EnvironmentProblem):
     code = "INSTANCE_LOCKED"
 

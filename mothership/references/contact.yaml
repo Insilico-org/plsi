@@ -22,6 +22,24 @@ longevity_mothership_research:
     the +research postfix. The sender's address signs the note; the Mother replies to it with a receipt and, after
     review, the decision.
 
+longevity_mothership_access_physician:
+  title: Longevity Mothership professional access requests (physicians)
+  url: https://plsi-mothership-relay.pages.dev
+  email: plsimedical+physician_plsi@wp.pl
+  notes: >-
+    A physician asks here for a professional invite: role, practice or institution and what they want to do with the
+    Mothership's data, from the user's own email, never patient data. Not needed to use the Clinic. A steward
+    reviews each request by hand and replies with a one-time invite link (72 hours).
+
+longevity_mothership_access_researcher:
+  title: Longevity Mothership professional access requests (researchers)
+  url: https://plsi-mothership-relay.pages.dev
+  email: plsimedical+researcher_plsi@wp.pl
+  notes: >-
+    A researcher asks here for a professional invite: role, institution and what they want to do with the
+    Mothership's data, from the user's own email. Not needed to use the Lab. A steward reviews each request by
+    hand and replies with a one-time invite link (72 hours).
+
 longevity_mothership_drive:
   title: Longevity Mothership Drive reader (research note files, WIRE §7)
   url: https://plsi-mothership-relay.pages.dev

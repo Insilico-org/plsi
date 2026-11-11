@@ -1,39 +1,56 @@
 ---
 name: research-graph
-description: Use when writing to or reading a research topic - the node kinds, the fields each one carries, what `plsi research save` accepts and what it refuses. Read it before any save; the move pages (autopilot/ask, gather, explain, test) say what to produce, this says how it is written down.
+description: Use when writing to or reading a research topic - the node kinds, the fields each one carries, what `plsi research save` accepts and what it refuses. Read it before any save; the move pages (lab/ask, gather, explain, test) say what to produce, this says how it is written down.
 ---
 
 # The research graph
 
-Follow persona.md norms and `shared/team`. Shared: PLSI Research Autopilot writes it; PLSI, Citizen Researcher,
-Challenger and Memory Hole read it.
+Follow persona.md norms and `shared/team`. Shared: PLSI Research Orchestrator writes it (`lab/run`); Challenger
+and Memory Hole read it.
 
-One topic is one folder under `<PLSI_HOME>/research/`; switching topic is switching folder. Topics never link to
-each other, and a topic folder is self-contained (it opens as an Obsidian vault).
+A topic is one folder under its project's `topics/`; switching topic is switching folder. Topics never link to
+each other, and a topic folder is self-contained (it opens as an Obsidian vault). A topic's name is unique across
+every project.
 
 ```
 <PLSI_HOME>/research/
-  day.json                 the day's allocation and the week's ceiling, shared by every topic
-  notes/<name>.md          research notes from asked sessions - never written by the loop
-  <topic>/
-    topic.md               the question in chief and the cursor
-    log.jsonl              append-only, one line per move
-    questions/<title>.md   hypotheses/<title>.md      findings/<title>.md
+  day.json                 the day's allocation and the week's ceiling, shared by every project
+  reservations.json        each project's reservation
+  projects/<title> · <id8>/
+    project.md             title, aim, status, owner and members
+    notes/<name>.md        research notes from asked sessions - never written by the loop
+    data/                  the notes' data files
+    topics/<topic>/
+      topic.md             the question in chief and the cursor
+      log.jsonl            append-only, one line per move
+      questions/<title>.md   hypotheses/<title>.md   findings/<title>.md
 ```
 
-The ledger and the notes sit beside the topics: one allocation covers every topic, and a note can exist without
-any topic. A note names its `topic` in frontmatter when one covers its question.
+One allocation covers every project. A project's notes sit beside its topics, so a note can exist without any
+topic; it names its `topic` in frontmatter when one covers its question.
+
+## Projects
+
+A **project** is the top of all research, one folder so it can later be shared whole. Its `id` is a uuid,
+`owner: self` and `members: []` until sharing exists. Any number of projects can be `active` at once; `--new` never
+touches another, `--close <p>` closes one, `--reopen <p>` opens it again with everything as it was, and `--show <p>`
+is the project map other bots read: its topics, every note with status, grade and links, the next steps from its
+notes, and what was sent to the Mothership and what came back. Every command that reads or writes inside a project
+takes `--project <id or title>`; without it, a command uses the only active project and refuses
+(`PROJECT_REQUIRED`) when several are. Each project has one active topic. A note's `project` is the project whose
+folder holds it, never inherited; its links (`builds_on`, `supersedes`, `contradicts`) name notes of the same
+project, and `plsi research check` refuses any other.
 
 ## Notes and findings do not mix
 
 A **note** is one session's graded judgment (`grade`, written by its author). A **finding** is one observation
 with its source, counted by `origin` into a `verdict` that nobody writes.
 
-1. **Different stores:** `research/notes/` against `research/<topic>/`.
+1. **Different stores:** a project's `notes/` against its `topics/<topic>/`.
 2. **The loader reads only `questions/`, `hypotheses/` and `findings/`**, and a file is what its frontmatter
    says: a note dropped into `findings/` is skipped with a `FOREIGN_NODE` warning.
-3. **Neither bot holds the other's commands.** The loop has `next/save/status`; a session has `notes`.
-   Whether a topic already covers a question is PLSI's check (`plsi research propose`), made on the card that
+3. **The loop and a session keep their own commands.** The loop has `next/save/status`; a session has
+   `notes`. Whether a topic already covers a question is checked with `plsi research propose`, on the card that
    starts a session.
 
 A note's `grade` and a node's `verdict` never become each other: a note that rests on nodes names them, and the
@@ -97,8 +114,9 @@ say what the source really is.
 
 `next` returns it as `depth` and `answer_must_reach`, and sizes the advisory `limits` from it. A topic short of
 its bar ends `exhausted`; the user may lower it with `plsi research topic --switch '<topic>' --depth standard`.
-The user may reframe the `question_in_chief` through PLSI (`plsi research reframe --question … --because …`):
-the old wording is kept in `superseded` and the graph is untouched.
+The user may reframe the `question_in_chief` through the Research Orchestrator
+(`plsi research reframe --question … --because …`): the old wording is kept in `superseded` and the graph is
+untouched.
 
 ## Three kinds of label
 
@@ -129,8 +147,8 @@ and whether a parent is ready to roll up. None is stored; all are recomputed fro
 ## The two calls
 
 ```bash
-plsi research next --topic "<topic>" --usage <percent of this week's limit used>
-plsi research save --topic "<topic>" --file move.json
+plsi research next --project <id> --usage <percent of this week's limit used>
+plsi research save --project <id> --file move.json
 ```
 
 `next` hands over everything one move needs: the question in chief, the current question, the move due, the
@@ -196,10 +214,12 @@ The budget is not a refusal: the cost arrives after the work. `next` ends the da
 ## Reading it without the loop
 
 ```bash
-plsi research status                 # the answer so far, the frontier, the budget and what it bought
-plsi research status --full          # also the log rows, the evidence lines and each finding's source ids
-plsi research budget                 # what a day and a week may use
-plsi research notes                  # research notes, by topic and status
+plsi research status --project <p>   # its active topic: the answer so far, the frontier, the budget and what it bought
+plsi research status --project <p> --full   # also the log rows, the evidence lines and each finding's source ids
+plsi research budget                 # what a day and a week may use, and each project's reservation
+plsi research notes                  # research notes of every project, by topic, status and project
+plsi research project                # every project; which are active
+plsi research project --show <p>     # the project map: topics, notes, links, next steps, what was sent
 plsi research retire                 # remove a note marked retire (Memory Hole's)
 plsi research topic                  # every topic and its cursor
 ```
@@ -211,5 +231,5 @@ plsi research topic                  # every topic and its cursor
   line and the threshold is two.
 - One claim per finding; two papers reporting the same result in the same cohort are one finding with two
   sources.
-- The report renders locally. Anything for the platform is built only from the public half of a topic and goes
+- The report renders locally. Anything for the Mothership is built only from the public half of a topic and goes
   through Data Controller (`controller/egress`); personal findings are referred to by name, never quoted.

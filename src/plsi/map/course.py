@@ -9,28 +9,35 @@ A baseline scenario with no change stays flat.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, Self
 
 from pydantic import Field, model_validator
 
 from plsi.files import load_json
-from plsi.map.models import Estimate
 from plsi.models import Model, parse
 
 
-class Change(Estimate):
-    """The steady-state change, in the start value's unit."""
+class Estimate(Model):
+    """A calculator input with its interval (plsi calc course, survival); a bare number is the expected value."""
+
+    expected: float
+    low: float | None = None
+    high: float | None = None
+
+    @classmethod
+    def of(cls, v: float | Self) -> Self:
+        return v if isinstance(v, cls) else cls(expected=v)
 
 
 class CourseScenario(Model):
     name: str = Field(min_length=1)
-    change: float | Change = 0.0  # the steady-state change, in the start value's unit
+    change: float | Estimate = 0.0  # the steady-state change, in the start value's unit
     half_life_days: float = Field(default=365, gt=0, le=3650)
     source: str | None = None
 
     @model_validator(mode="after")
-    def _sourced(self) -> "CourseScenario":
-        c = Change.of(self.change)
+    def _sourced(self) -> CourseScenario:
+        c = Estimate.of(self.change)
         if any(v for v in (c.expected, c.low, c.high)) and not self.source:
             raise ValueError(f"scenario {self.name!r} changes the course: cite its source")
         return self
@@ -60,7 +67,7 @@ def course(file: str) -> dict[str, Any]:
     days = sorted({*range(0, spec.horizon_days, spec.step_days), spec.horizon_days})
     out = []
     for sc in spec.scenarios:
-        c = Change.of(sc.change)
+        c = Estimate.of(sc.change)
         points = []
         for d in days:
             values = [_at(spec.start.v, x, sc.half_life_days, d) for x in (c.expected, c.low, c.high) if x is not None]

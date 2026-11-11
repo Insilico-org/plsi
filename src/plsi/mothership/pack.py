@@ -1,16 +1,10 @@
-"""The deidentified package for the Longevity Mothership, built from published states, recorded life events and
-prediction scores, gate-checked (plsi.mothership.gate) into the instance's outbox; plsi.mothership.send sends it.
-Coded fields only (WIRE §2): set items and life events go as their code, never their text, and a free or cpg code
-only when a shipped or installed map declares it, never an ethnicity, race or occupation code (plsi.codes.NEVER_SHARED:
-the subject carries the ethnicity group, sex and a five-year age band); a unit only when it is a map's canonical unit or a form of the
-unit table (plsi.life.normalize), else the value stays too. A structured dose goes as {value, unit} only when its
-unit is in DOSE_UNITS or a map's canonical unit; the dose as written never leaves.
-
-No age leaves (consent: an age band only). A coordinate computed from chronological age stays on this computer: every
-coordinate plsi.map.derive.age_based finds in the state's map (a derive given the age, any value in years such as a
-clock's age or age acceleration, and anything derived from those), plus LOCAL_COORDINATES, which give the age back
-with another coordinate.
-"""
+"""The deidentified package for the Longevity Mothership (WIRE §2), from published states, recorded life events and
+prediction scores, gate-checked into the instance's outbox. Coded fields only: items and events go as their code, a
+free or cpg code only when a map declares it, never a plsi.codes.NEVER_SHARED code (the subject is sex, a five-year age
+band and the ethnicity group); a unit only when it is a map's canonical unit or in the unit table (plsi.life.normalize),
+else its value stays too; a dose as {value, unit} only with a DOSE_UNITS or canonical unit, never as written.
+No age leaves: every coordinate plsi.map.derive.age_based finds in the state's map, and LOCAL_COORDINATES (which give
+the age back with another coordinate), stay on this computer."""
 
 from __future__ import annotations
 
@@ -20,15 +14,16 @@ from statistics import fmean
 from typing import Any
 
 from plsi import codes, files
-from plsi.clock import now, ts_filename
+from plsi.clock import now
 from plsi.life.store import EventStore
 from plsi.life.normalize import known_unit
 from plsi.map import derive, mapper, registry
 from plsi.map.models import CoordinateValue
 from plsi.models import Code
 from plsi.mothership import gate
-from plsi.mothership.enroll import active, folder
-from plsi.mothership.relay import SCHEMA_VERSION, address
+from plsi.mothership.content import SCORE_KEYS
+from plsi.mothership.enroll import active, outbox
+from plsi.mothership.relay import address, header
 from plsi.policy.score import calibration
 from plsi.vocab import ContributionKind, EventType, MothershipMessage, ObservationKind
 
@@ -116,10 +111,15 @@ class _Wire:
         return sorted(out, key=lambda i: (i["year"], i["kind"], i["code"]["system"], i["code"]["code"]))
 
 
+def _summary(scores: dict[str, Any]) -> dict[str, Any]:
+    """A calibration summary as the wire carries it: the content.SCORE_KEYS only."""
+    return {k: v for k, v in scores.items() if k in SCORE_KEYS}
+
+
 def _scores(store: EventStore) -> dict[str, Any]:
     cal = calibration(store.instance)
-    cells = {c: s for c, s in cal["by_coordinate"].items() if s["n_scored"] >= MIN_SCORES}
-    return {"overall": cal["overall"], "by_coordinate": cells} if cal["overall"]["n_scored"] >= MIN_SCORES else {}
+    cells = {c: _summary(s) for c, s in cal["by_coordinate"].items() if s["n_scored"] >= MIN_SCORES}
+    return {"overall": _summary(cal["overall"]), "by_coordinate": cells} if cal["overall"]["n_scored"] >= MIN_SCORES else {}
 
 
 def _age_band(birth_year: int | None, age_group: str | None) -> str | None:
@@ -136,21 +136,18 @@ def pack(instance: str, out: str | None = None) -> dict[str, Any]:
     record = active(instance)
     store = EventStore(instance)
     kinds = set(record["kinds"])
-    doc: dict[str, Any] = {"kind": MothershipMessage.CONTRIBUTION, "schema_version": SCHEMA_VERSION,
-                           "contributor_id": record["contributor_id"], "consent_version": record["consent_version"],
-                           "packed": _month(now()), "kinds": sorted(kinds),
-                           "subject": {k: v for k, v in {"sex": store.subject.sex.value,
-                                                         "age_band": _age_band(store.subject.birth_year, store.subject.age_group),
-                                                         "ethnicity": store.subject.ethnicity}.items() if v}}
+    subject = {"sex": store.subject.sex.value, "age_band": _age_band(store.subject.birth_year, store.subject.age_group),
+               "ethnicity": store.subject.ethnicity}
+    doc = header(MothershipMessage.CONTRIBUTION) | {
+        "contributor_id": record["contributor_id"], "consent_version": record["consent_version"], "packed": _month(now()),
+        "kinds": sorted(kinds), "subject": {k: v for k, v in subject.items() if v}}
     wire = _Wire(instance)
     build = {ContributionKind.STATES: wire.states, ContributionKind.LIFE_EVENTS: wire.life_events,
              ContributionKind.SCORES: _scores}
     doc |= {kind.value: section(store) for kind, section in build.items() if kind in kinds}
     gate.require(doc, instance, what="package")
-    path = Path(out) if out else folder(instance) / "outbox" / f"contribution-{ts_filename()}.json"
+    path = Path(out) if out else outbox(instance, "contribution")
     files.atomic_write_json(path, doc)
     counts = {"states": len(doc.get("states", [])), "life_events": len(doc.get("life_events", [])),
               "scored_predictions": doc.get("scores", {}).get("overall", {}).get("n_scored", 0)}
-    return {"file": str(path), "to": address(),
-            "package_hash": files.hash_json(doc), "counts": counts}
-
+    return {"file": str(path), "to": address(), "package_hash": files.hash_json(doc), "counts": counts}

@@ -50,9 +50,12 @@ class ClaimLevel(StrEnum):
 
 class BotRole(StrEnum):
     """The PLSI team on Grok Bot; the roster (slug -> display name, core vs opt-in specialists, skills) is skills/shared/team.
-    Every handoff has the orchestrator (PLSI) on one end; only PLSI talks to the user."""
+    The hubs (HUBS) talk to the user; the workers are shared by all hubs. Every handoff has a hub on at least one end."""
 
-    ORCHESTRATOR = "orchestrator"
+    ORCHESTRATOR = "orchestrator"  # PLSI · Health Orchestrator: the user's own health
+    LAB = "lab"  # PLSI · Research Orchestrator: runs the research moves itself
+    CLINIC = "clinic"  # PLSI · Clinic Orchestrator: panel, intake, roster
+    WARD = "ward"  # one per roster patient, pinned to that patient's instance
     PROCESSOR = "processor"
     CONSULTANT = "consultant"
     NOSTRADAMUS = "nostradamus"
@@ -66,8 +69,6 @@ class BotRole(StrEnum):
     COACH = "coach"
     SLEEP = "sleep"
     BIOHACKER = "biohacker"
-    RESEARCHER = "researcher"
-    AUTOPILOT = "autopilot"  # runs the research loop unattended
     EXPLORER = "explorer"
     NAVIGATOR = "navigator"
     SCOUT = "scout"
@@ -84,6 +85,10 @@ class BotRole(StrEnum):
     GRANTS = "grants"
 
 
+HUBS = frozenset({BotRole.ORCHESTRATOR, BotRole.LAB, BotRole.CLINIC, BotRole.WARD})  # the bots that talk to the user
+PRIMARY_HUBS = tuple(sorted(h.value for h in HUBS - {BotRole.WARD}))  # the hub that ran plsi.md; never a ward bot
+
+
 class UserRole(StrEnum):
     """Who the user is to PLSI (`plsi role set`); picks the sections of the team that are set up."""
 
@@ -93,10 +98,10 @@ class UserRole(StrEnum):
 
 
 class HandoffKind(StrEnum):
-    REQUEST = "request"  # orchestrator -> another bot: run a skill
-    RESULT = "result"  # another bot -> orchestrator
-    QUESTION = "question"  # another bot -> orchestrator: for the user (only the orchestrator asks the user)
-    ANSWER = "answer"  # orchestrator -> the asking bot: the user's answers
+    REQUEST = "request"  # hub -> worker or hub: run a skill
+    RESULT = "result"  # worker or hub -> the hub that sent the request
+    QUESTION = "question"  # worker -> hub: for the user (only a hub asks the user)
+    ANSWER = "answer"  # hub -> the asking worker: the user's answers
 
 
 class EventType(StrEnum):
@@ -167,13 +172,6 @@ class Sex(StrEnum):
     UNKNOWN = "unknown"
 
 
-class NoteTopic(StrEnum):
-    TARGET = "target"
-    REPURPOSING = "repurposing"
-    METHOD = "method"
-    HALLMARK = "hallmark"
-
-
 class Ethnicity(StrEnum):
     EUROPEAN = "european"
     AFRICAN = "african"
@@ -207,6 +205,24 @@ class RosterStatus(StrEnum):
     ACTIVE = "active"
     PAUSED = "paused"
     CLOSED = "closed"
+
+
+class ClinicFolder(StrEnum):
+    """A patient's clinic folder by the last word of its name, `PLSI <label> <name>` (`clinic sharing --folder`)."""
+
+    INBOX = "inbox"  # roster key `inbox`: the patient uploads
+    SHARED = "shared"  # roster key `shared_folder`: the patient reads
+
+
+class SyncStatus(StrEnum):
+    """A line of the clinic ledger, <PLSI_HOME>/work/panel/synced.jsonl."""
+
+    NEW = "new"
+    DUPLICATE = "duplicate"
+    HELD = "held"
+    UNROUTED = "unrouted"
+    FAILED = "failed"
+    PUBLISHED = "published"
 
 
 class Relation(StrEnum):
@@ -275,6 +291,9 @@ class PlanState(StrEnum):
     SUPERSEDED = "superseded"
 
 
+CLOSED_PLAN_STATES = frozenset({PlanState.STOPPED, PlanState.SUPERSEDED})  # no longer live: past, never charted
+
+
 class PlanDecision(StrEnum):
     ADOPT = "adopt"
     CONTINUE = "continue"
@@ -311,9 +330,48 @@ class BlockType(StrEnum):
     TIMESERIES = "timeseries"
     LIST = "list"
     TIMELINE = "timeline"
+    PARTS = "parts"  # one whole split into at most 6 parts
+    METER = "meter"  # one share against its total
+    SCALE = "scale"  # marks on one number line, e.g. ages
+    BARS = "bars"  # signed amounts around zero
 
 
-# Small enums the spec writes inline in section 3/4/8/9; kept here so there is one vocabulary.
+class BlockIcon(StrEnum):
+    """The line icon beside a dashboard section's title."""
+
+    PATIENT = "patient"
+    PANEL = "panel"
+    VISITS = "visits"
+    LAB = "lab"
+    VITALS = "vitals"
+    DEVICE = "device"
+    MEDICINE = "medicine"
+    CONDITION = "condition"
+    DIET = "diet"
+    PLAN = "plan"
+    FOLLOW_UP = "follow_up"
+    FILE = "file"
+    TREND = "trend"
+    ALERT = "alert"
+    NOTE = "note"
+    AGE = "age"
+
+
+class AlertLevel(StrEnum):
+    """How a dashboard marks a timeline event, a table cell or a part; neutral is a part with no status."""
+
+    INFO = "info"
+    WATCH = "watch"
+    HIGH = "high"
+    NEUTRAL = "neutral"
+
+
+class MeasureGroup(StrEnum):
+    """Where the clinic dashboard shows a measurement."""
+
+    LAB = "lab"  # carries a specimen, a report range, a lab flag, or came from a methylation array
+    DEVICE = "device"  # a wearable or importer extension
+    BODY = "body"  # everything else: weight, blood pressure and other vitals
 
 
 class Comparator(StrEnum):
@@ -345,6 +403,15 @@ class SourceStatus(StrEnum):
     OK = "ok"
     NOT_FOUND = "not_found"
     ERROR = "error"
+
+
+class HevySetType(StrEnum):
+    """A set in a Hevy routine, in Hevy's words."""
+
+    WARMUP = "warmup"
+    NORMAL = "normal"
+    FAILURE = "failure"
+    DROPSET = "dropset"
 
 
 class ReferenceKind(StrEnum):
@@ -445,13 +512,6 @@ class MothershipMessage(StrEnum):
     FEEDBACK = "plsi_feedback"  # by email only, never the relay
 
 
-class NoteKind(StrEnum):
-    """The `kind` of an Explorer contribution.json (`plsi mothership note`)."""
-
-    RESEARCH_NOTE = "research_note"
-    REGISTRY_UPDATE = "registry_update"
-
-
 class RegistryItemKind(StrEnum):
     PHYSICIAN = "physician"
     METHOD = "method"
@@ -463,7 +523,6 @@ class ProfessionalScope(StrEnum):
     RELEASES_READ = "releases:read"
     FINDINGS_READ = "findings:read"
     FINDINGS_SUBMIT = "findings:submit"
-
 
 
 class AnalysisOp(StrEnum):

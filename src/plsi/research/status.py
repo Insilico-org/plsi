@@ -1,25 +1,20 @@
-"""`research status`: where a topic stands, with its topic-wide counts (coverage, what counts for nothing, the
-metrics) and the list of topics."""
+"""`research status`: where a topic stands, with what counts for nothing and the metrics; and `research project`,
+whose `--show` is the project map other bots navigate a project by."""
 
 from __future__ import annotations
 
 from collections import Counter
 from typing import Any
 
-from plsi.research import frontier, ledger, store
+from plsi.errors import UsageError
+from plsi.research import adopt as adoption
+from plsi.research import frontier, ledger, notes, projects, store
 from plsi.research.store import Graph
+from plsi.research.tuning import ADOPT_AFTER, DEPTH_WORDS
 from plsi.research.verdict import (answered, evidence, floor_words, implicit_origin, independent, live_hypotheses,
-                                   question_verdict, verdicts, weakest)
-from plsi.vocab.research import (LIVE, OFF_TARGET_SPECIES, ResearchDepth, ResearchDesign, ResearchGap, ResearchMove,
-                                 ResearchNodeKind, ResearchVerdict)
-
-ADOPT_AFTER = 2  # a novel gap label used this many times is offered for adoption
-DEPTH_WORDS = {
-    ResearchDepth.FAST: "one pass. Whatever answer the evidence allows, including a thin one",
-    ResearchDepth.STANDARD: "an answer has to rest on something before the topic is finished",
-    ResearchDepth.DEEP: "replication before the topic is finished, and every direction goes through Explain",
-    ResearchDepth.EXHAUSTIVE: "the same bar as deep, with more room to branch",
-}
+                                   question_verdict, tested_against, verdicts, weakest)
+from plsi.vocab.research import (LIVE, OFF_TARGET_SPECIES, ProjectStatus, ResearchDesign, ResearchGap,
+                                 ResearchNodeKind, ResearchNoteStatus, ResearchVerdict)
 
 
 def counting_for_nothing(graph: Graph) -> list[dict[str, Any]]:
@@ -27,10 +22,10 @@ def counting_for_nothing(graph: Graph) -> list[dict[str, Any]]:
     them are marked `waiting` and listed after the real losses."""
     out = []
     live_h = {h["name"] for h in graph.of_kind(ResearchNodeKind.HYPOTHESIS) if h.get("status") in LIVE}
-    unattributed = [f for f in graph.of_kind(ResearchNodeKind.FINDING)
-                    if not f.get("origin") and not implicit_origin(f)]
+    unattributed = {f["name"] for f in graph.of_kind(ResearchNodeKind.FINDING)
+                    if not f.get("origin") and not implicit_origin(f)}
     for f in graph.of_kind(ResearchNodeKind.FINDING):
-        linked = set((f.get("supports") or []) + (f.get("contradicts") or []))
+        linked = tested_against(f)
         why, waiting = None, False
         if f.get("status") not in LIVE:
             why = "superseded by a later finding; it keeps its place and its sources"
@@ -43,7 +38,7 @@ def counting_for_nothing(graph: Graph) -> list[dict[str, Any]]:
                    "outside the count for a claim about people")
         elif f.get("design") == ResearchDesign.PERSONAL_RECORD and (f.get("supports") or []):
             why = "the user's own record is n = 1: it may refute a prediction about them, never support a claim"
-        elif not f.get("origin") and not implicit_origin(f) and len(unattributed) > 1:
+        elif f["name"] in unattributed and len(unattributed) > 1:
             why = (f"no origin recorded, so it shares one line with {len(unattributed) - 1} other "
                    "unattributed finding(s) - independence that cannot be shown has not been earned")
         if why:
@@ -51,26 +46,7 @@ def counting_for_nothing(graph: Graph) -> list[dict[str, Any]]:
     return sorted(out, key=lambda item: item["waiting"])
 
 
-def coverage(graph: Graph, brief: bool = False) -> dict[str, Any]:
-    """What the topic already covers: angles, question states, outstanding gaps, designs, species, origins and
-    populations. `brief` (what `next` sends) gives counts for origins and populations instead of the lists."""
-    qs, fs = graph.of_kind(ResearchNodeKind.QUESTION), graph.of_kind(ResearchNodeKind.FINDING)
-    live_gaps = Counter(frontier.gap(graph, q["name"])[0] for q in qs if q.get("status") in LIVE)
-    origins = {str(f.get("origin")) for f in fs if f.get("origin")}
-    populations = {str(f.get("population")) for f in fs if f.get("population")}
-    return {
-        "angles_asked": dict(Counter(str(q["angle"]) for q in qs if q.get("angle"))),
-        "questions_by_state": dict(Counter(str(q.get("status")) for q in qs)),
-        "gaps_outstanding": {k: v for k, v in live_gaps.items() if k},
-        "designs_seen": sorted({str(f.get("design")) for f in fs if f.get("design")}),
-        "populations_seen": len(populations) if brief else sorted(populations),
-        "origins_seen": len(origins) if brief else sorted(origins),
-        "species": dict(Counter(str(f.get("species")) for f in fs if f.get("species"))),
-    }
-
-
 def metrics(graph: Graph, log: list[dict[str, Any]]) -> dict[str, Any]:
-    """Every number read off frontmatter and the log."""
     qs, fs = graph.of_kind(ResearchNodeKind.QUESTION), graph.of_kind(ResearchNodeKind.FINDING)
     sources = [s for f in fs for s in (f.get("sources") or [])]
     moves = [line for line in log if line.get("move")]
@@ -95,26 +71,65 @@ def metrics(graph: Graph, log: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def summaries() -> list[dict[str, Any]]:
-    """Every topic, one entry each."""
-    out = []
-    for name in store.list_topics():
-        graph = store.load(name)
-        out.append({"topic": name, "status": str(graph.topic.get("status")),
-                    "question_in_chief": graph.topic.get("question_in_chief"),
-                    "depth": str(store.depth_of(graph)),
-                    "cursor": graph.topic.get("cursor"), "cycles": graph.topic.get("cycles", 0),
-                    "nodes": len(graph.nodes), "source": graph.topic.get("source") or {}})
-    return out
+def _map_note(note: dict[str, Any], superseded_by: dict[str, str]) -> dict[str, Any]:
+    keep = ("name", "title", "topic", "status", "grade", "evidence_class", "updated", "builds_on", "supersedes",
+            "contradicts", "decision_reason", "retire_reason", "error")
+    shown = {k: note[k] for k in keep if note.get(k) not in (None, [], "")}
+    if shown.get("supersedes"):
+        shown["supersedes"] = shown["supersedes"][0]  # one note; `research check` refuses a list
+    return {**shown, "sent": note.get("status") in notes.SENT, "superseded_by": superseded_by.get(note["name"])}
 
 
-def status(topic: str | None = None, full: bool = False) -> dict[str, Any]:
-    """`research status [--full]`: where the topic stands. `--full` adds every log row in order (moves with what
-    each cost and changed, days, readings, stops), each hypothesis's evidence lines for and against, and each
-    finding's source ids: what a dashboard of the topic is drawn from."""
-    name = topic or store.active_name(required=False)
+def project_map(ref: str) -> dict[str, Any]:
+    """`research project --show`: one project as a map: its topics, every note with its status and links, which
+    were sent to the Mothership and what came back, and the next steps its live notes name."""
+    meta = projects.resolve(ref)
+    found = notes.list_notes(project=meta["id"])
+    superseded_by = {old: n["name"] for n in found for old in n.get("supersedes") or []}
+    live = [n for n in found if n["name"] not in superseded_by
+            and n.get("status") not in (ResearchNoteStatus.RETIRE, notes.UNREADABLE)]
+    directory = projects.folder(meta["id"])
+    return {"project": meta, "folder": str(directory), "topics": store.summaries(directory),
+            "notes": [_map_note(n, superseded_by) for n in found],
+            "counts": dict(Counter(str(n.get("status")) for n in found)),
+            "next_steps": [{"note": n["name"], "next_step": s} for n in live for s in n.get("next_steps") or []]}
+
+
+def project(new: str | None = None, aim: str | None = None, close: str | None = None, reopen: str | None = None,
+            show: str | None = None, adopt: bool = False) -> dict[str, Any]:
+    """`research project`: list projects, or create, close, reopen, show or adopt. Nothing here changes a project
+    the command does not name."""
+    if aim and not new:
+        raise UsageError("--aim goes with --new", hint="plsi research project --new '<title>' --aim '<one line>'")
+    if new:
+        meta = projects.create(new, aim)
+        return {"created": projects.card(meta), "aim": meta["aim"], "folder": str(projects.folder(meta["id"])),
+                "active": projects.active_cards()}
+    if close or reopen:
+        key, to = ("closed", ProjectStatus.CLOSED) if close else ("reopened", ProjectStatus.ACTIVE)
+        return {key: projects.card(projects.set_status(close or reopen, to)), "active": projects.active_cards()}
+    if show:
+        return project_map(show)
+    if adopt:
+        return adoption.adopt()
+    return {"root": str(store.root() / store.PROJECTS_FOLDER), "active": projects.active_cards(),
+            "projects": projects.every()}
+
+
+def status(topic: str | None = None, full: bool = False, project: str | None = None) -> dict[str, Any]:
+    """`research status [--full]`: where the topic named stands, else the active topic of the project named (or of
+    the only active project). `--full` adds every log row, each hypothesis's evidence lines for and against and
+    each finding's source ids: what a dashboard of the topic is drawn from."""
+    name = topic
     if not name:
-        return {"root": str(store.root()), "topics": summaries(), "note": "no research topic yet"}
+        if not projects.every():
+            return {"root": str(store.root()), "topics": [], "note": "no research project yet"}
+        meta = projects.pick(project)
+        directory = projects.folder(meta["id"])
+        name = store.active_name(directory, required=False)
+        if not name:
+            return {"project": projects.card(meta), "topics": store.summaries(directory),
+                    "note": "this project has no active topic"}
     graph = store.load(name)
     log = store.read_log(graph)
     root = graph.root()
@@ -137,9 +152,9 @@ def status(topic: str | None = None, full: bool = False) -> dict[str, Any]:
         "cursor": graph.topic.get("cursor"),
         "metrics": metrics(graph, log),
         "counting_for_nothing": counting_for_nothing(graph),
-        "coverage": coverage(graph),
+        "coverage": frontier.coverage(graph),
         "progress": ledger.bar(log),
-        "budget": ledger.affordable(log, str((graph.topic.get("cursor") or {}).get("move") or ResearchMove.ASK)),
+        "budget": ledger.affordable(graph, log),
         "frontier": entries,
         "continue_with": frontier.continuations(graph) if not entries else [],
         "closed": frontier.closed(graph),

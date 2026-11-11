@@ -8,6 +8,7 @@ not in these sources and are listed as unknown.
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from plsi.models import external_str
@@ -24,16 +25,6 @@ MAX_CONDITION_STUDIES = 200  # one page; the total comes from the registry's own
 MAX_STOP_REASONS = 8
 
 
-def _molecules(rows: list[dict[str, Any]]) -> list[str]:
-    """Distinct molecules, salts collapsed, in the source's own spelling."""
-    seen: dict[str, str] = {}
-    for row in rows:
-        name = str(row.get("drug") or "").strip()
-        if name:
-            seen.setdefault(rank.molecule(name), name)
-    return sorted(seen.values())
-
-
 def by_condition(condition: str) -> dict[str, Any]:
     """Interventional trials registered against one disease, their statuses, and the sponsors' stop reasons,
     verbatim and unclassified. Counts are over the page read."""
@@ -42,9 +33,7 @@ def by_condition(condition: str) -> dict[str, Any]:
                           "pageSize": MAX_CONDITION_STUDIES, "countTotal": "true",
                           "fields": "NCTId,OverallStatus,Phase,WhyStopped,StartDate"})
     studies = [ctgov.record(raw) for raw in data.get("studies") or []]
-    statuses: dict[str, int] = {}
-    for study in studies:
-        statuses[study["status"]] = statuses.get(study["status"], 0) + 1
+    statuses = Counter(study["status"] for study in studies)
     reasons = [{"nct": s["nct"], "said": s["why_stopped"]} for s in studies if s["why_stopped"]]
     stopped = sum(count for status, count in statuses.items() if status in CTGOV_STOPPED)
     return {
@@ -70,14 +59,11 @@ def unmet(disease: str) -> dict[str, Any]:
     approved = [row for row, stage in staged if stage is ClinicalStage.APPROVED]
     late = [row for row, stage in staged if stage is not None and stage.rank >= LATE.rank
             and stage is not ClinicalStage.APPROVED]
-    by_stage: dict[str, int] = {}
-    for _, stage in staged:
-        key = stage.value if stage else "unrecognised"
-        by_stage[key] = by_stage.get(key, 0) + 1
+    by_stage = dict(Counter(stage.value if stage else "unrecognised" for _, stage in staged))
 
     approved_targets = sorted({t for row in approved for t in row["targets"]})
     all_targets = sorted({t for row in rows for t in row["targets"]})
-    molecules = _molecules(approved)
+    molecules = rank.molecules(approved)
 
     return {
         "disease": {"id": found["id"], "name": found["name"],

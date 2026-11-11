@@ -1,7 +1,4 @@
-"""Modality importers -> Imported (observations, rejections, warnings).
-
-No network calls. No plsi.map / plsi.policy imports.
-"""
+"""Modality importers (JSON, FHIR, canonical CSV, methylation) -> Imported. No network calls."""
 
 from __future__ import annotations
 
@@ -19,13 +16,13 @@ import pydantic
 from plsi.life.models import ORIGINAL_TEXT_MAX, ObservationInput
 from plsi.life.deid import contains_identifier, patient_identifiers, patient_subject_fields
 from plsi.clock import now
-from plsi.errors import DependencyMissing, ValidationError
-from plsi.files import atomic_write_bytes, sha256_hex
+from plsi.errors import CLOCKS_EXTRA, DependencyMissing, ValidationError
+from plsi.files import atomic_write_bytes, parse_input_json, sha256_hex
 from plsi.models import violations_from
 from plsi.vocab import ClinicalStatus, CodeSystem, Comparator, ObservationKind, OriginKind, TimeBasis
 
 CSV_COLUMNS = ("effective_at", "text", "value", "unit", "code_system", "code", "specimen", "kind", "fasting", "dose_quantity", "dose_unit")
-CSV_REQUIRED = CSV_COLUMNS[:4]
+CSV_REQUIRED = ("effective_at", "text", "value", "unit")
 FHIR_SYSTEMS = {
     "http://loinc.org": CodeSystem.LOINC,
     "http://www.nlm.nih.gov/research/umls/rxnorm": CodeSystem.RXNORM,
@@ -43,15 +40,15 @@ _KINDS = {
     "Condition": ObservationKind.CONDITION, "AllergyIntolerance": ObservationKind.ALLERGY,
 }
 _NUMBER_RE = re.compile(r"(<=|>=|<|>)?\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)")
-METHYLATION_HINT = 'pip install -e ".[clocks]"'
+_CSV_BOOL = {"true": True, "yes": True, "1": True, "false": False, "no": False, "0": False}
+METHYLATION_CHUNK_ROWS = 200_000  # CpG rows read at a time
 
 
 @dataclass
 class Imported:
     """Result of one importer run, consumed by plsi.life.ingest.ingest."""
 
-    observations: list[ObservationInput] = field(default_factory=list)
-    indexes: list[int] = field(default_factory=list)  # source index (entry, row, list item) of each observation
+    rows: list[tuple[int, ObservationInput]] = field(default_factory=list)  # (source index: entry, row, item; observation)
     rejected: list[dict[str, Any]] = field(default_factory=list)  # [{index, error}] (error = code: message)
     warnings: list[str] = field(default_factory=list)
     dropped_columns: list[str] = field(default_factory=list)  # CSV only; names only, never values
@@ -66,8 +63,7 @@ class Imported:
 
     def add(self, index: int, data: dict[str, Any]) -> None:
         try:
-            self.observations.append(ObservationInput.model_validate(data))
-            self.indexes.append(index)
+            self.rows.append((index, ObservationInput.model_validate(data)))
         except pydantic.ValidationError as exc:
             v = violations_from(exc)[0]
             where = "" if v["path"] == "$" else f"{v['path']}: "
@@ -80,6 +76,11 @@ def observation_items(data: Any) -> list[Any]:
     if not isinstance(items, list):
         raise ValidationError("expected a JSON list of ObservationInput (or {\"observations\": [...]})")
     return items
+
+
+def from_json(text: str) -> Imported:
+    """An ObservationInput JSON list (see observation_items)."""
+    return Imported.from_items(observation_items(parse_input_json(text)))
 
 
 # ---------------------------------------------------------------- FHIR
@@ -96,23 +97,27 @@ def _code(concept: dict[str, Any] | None) -> tuple[dict[str, str] | None, str | 
     return code, label or (code or {}).get("code")
 
 
-def _effective(res: dict[str, Any], *prefixes: str) -> tuple[str | None, str | None]:
-    for p in prefixes:
-        if res.get(f"{p}DateTime") or res.get(f"{p}Instant"):
-            return res.get(f"{p}DateTime") or res.get(f"{p}Instant"), None
-        if period := res.get(f"{p}Period"):
-            return period.get("start"), period.get("end")
+def _effective(res: dict[str, Any], prefix: str) -> tuple[str | None, str | None]:
+    """(start, end) from <prefix>DateTime/Instant/Period, else a recorded date."""
+    if at := res.get(f"{prefix}DateTime") or res.get(f"{prefix}Instant"):
+        return at, None
+    if period := res.get(f"{prefix}Period"):
+        return period.get("start"), period.get("end")
     for key in ("issued", "authoredOn", "recordedDate", "dateAsserted"):
         if res.get(key):
             return res[key], None
     return None, None
 
 
+def _quantity_unit(q: dict[str, Any]) -> str | None:
+    """A Quantity's UCUM code when it has one, else its printed unit."""
+    return q["code"] if q.get("system") == UCUM_SYSTEM and q.get("code") else q.get("unit")
+
+
 def _value(item: dict[str, Any]) -> dict[str, Any] | None:
     """value[x] -> ObservationInput value fields, or None when absent/unsupported."""
     if (q := item.get("valueQuantity")) is not None:
-        unit = q.get("code") if q.get("system") == UCUM_SYSTEM and q.get("code") else q.get("unit") or q.get("code")
-        out: dict[str, Any] = {"value_quantity": q.get("value"), "unit": unit}
+        out: dict[str, Any] = {"value_quantity": q.get("value"), "unit": _quantity_unit(q) or q.get("code")}
         if q.get("comparator") in {c.value for c in Comparator}:
             out["value_comparator"] = q["comparator"]
         return out
@@ -130,7 +135,7 @@ def _value(item: dict[str, Any]) -> dict[str, Any] | None:
 def _dose(dosage: dict[str, Any]) -> dict[str, Any]:
     """dosage[0].doseAndRate[0].doseQuantity -> {dose_quantity, dose_unit} (UCUM code, else the printed unit), or {}."""
     q = ((dosage.get("doseAndRate") or [{}])[0] or {}).get("doseQuantity") or {}
-    value, unit = q.get("value"), q.get("code") if q.get("system") == UCUM_SYSTEM and q.get("code") else q.get("unit")
+    value, unit = q.get("value"), _quantity_unit(q)
     ok = isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0 and isinstance(unit, str) and unit.strip()
     return {"dose_quantity": value, "dose_unit": unit.strip()} if ok else {}
 
@@ -240,7 +245,7 @@ def from_csv(text: str, file_sha256: str) -> Imported:
             value: dict[str, Any] = {"value_quantity": float(m[2]), "value_comparator": m[1]}
         else:
             value = {"value_text": cell["value"] or None}
-        fasting = {"true": True, "yes": True, "1": True, "false": False, "no": False, "0": False}.get(cell["fasting"].lower())
+        fasting = _CSV_BOOL.get(cell["fasting"].lower())
         data = {
             "kind": cell["kind"] or ObservationKind.MEASUREMENT.value, "original_text": cell["text"],
             "code": {"system": system, "code": code} if code else None, "unit": cell["unit"] or None,
@@ -264,7 +269,7 @@ def from_methylation(path: Path, instance_dir: Path, sample: str | None, file_sh
     try:
         import pandas as pd
     except ImportError:
-        raise DependencyMissing("methylation import needs pandas from the clocks extra", hint=METHYLATION_HINT) from None
+        raise DependencyMissing("methylation import needs pandas from the clocks extra", hint=CLOCKS_EXTRA) from None
     columns = list(pd.read_csv(path, nrows=0).columns)
     samples = columns[1:]
     if not samples:
@@ -277,7 +282,7 @@ def from_methylation(path: Path, instance_dir: Path, sample: str | None, file_sh
     buf, kept, dropped = io.StringIO(), 0, 0
     buf.write("cpg,beta\n")
     try:
-        for chunk in pd.read_csv(path, usecols=[columns[0], column], index_col=0, dtype={column: "float64"}, chunksize=200_000):
+        for chunk in pd.read_csv(path, usecols=[columns[0], column], index_col=0, dtype={column: "float64"}, chunksize=METHYLATION_CHUNK_ROWS):
             betas = chunk[column].dropna()
             probe = betas.index.astype(str)
             keep = ~(probe.str.startswith("rs") | probe.str.startswith("ch."))

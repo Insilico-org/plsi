@@ -28,8 +28,16 @@ def V(enum: type[StrEnum]) -> list[str]:
     return [m.value for m in enum]
 
 
-def MX(*args: tuple[tuple[str, ...], dict[str, Any]], required: bool = True) -> tuple[str, tuple, bool]:
-    return "__mx__", args, required
+@dataclass(frozen=True)
+class Exclusive:
+    """A mutually exclusive group of `A(...)` arguments; plsi.cli adds it with add_mutually_exclusive_group."""
+
+    args: tuple[tuple[tuple[str, ...], dict[str, Any]], ...]
+    required: bool = True
+
+
+def MX(*args: tuple[tuple[str, ...], dict[str, Any]], required: bool = True) -> Exclusive:
+    return Exclusive(args, required)
 
 
 INSTANCE = A("--instance", required=True, help="instance name")
@@ -43,10 +51,14 @@ HASH = A("--hash", dest="expected", required=True, help="package_hash of the che
 
 @dataclass(frozen=True)
 class Cmd:
+    """`target` "module:function" is called with the parsed arguments; `next` are suggested follow-up commands;
+    `refresh`: the command changes records, plans or the roster, so it rebuilds an existing clinic dashboard."""
+
     target: str
     args: tuple = ()
     help: str = ""
     next: tuple[str, ...] = ()
+    refresh: bool = False
 
 
 def merge(*tables: dict[str, Cmd]) -> dict[str, Cmd]:

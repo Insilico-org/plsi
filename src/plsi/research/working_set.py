@@ -4,22 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from plsi.research.store import Graph, prose
-from plsi.research.verdict import canonical_origin, evidence, question_verdict, verdict
+from plsi.research.store import Graph, clip, prose
+from plsi.research.tuning import NOTE_CHARS, WORKING_SET_MAX
+from plsi.research.verdict import canonical_origin, evidence, question_verdict, tested_against, verdict
 from plsi.vocab.research import LIVE, RESOLVED, ResearchNodeKind
-
-WORKING_SET_MAX = 40
-NOTE_CHARS = 1400
-
-
-def clip(text: str, limit: int) -> str:
-    """Shorten to `limit` characters at a sentence end where one is near, else at a word boundary."""
-    text = str(text or "").strip()
-    if len(text) <= limit:
-        return text
-    head = text[:limit]
-    cut = max(head.rfind(". "), head.rfind("? "), head.rfind("! "), head.rfind("\n"))
-    return (head[:cut + 1] if cut > limit // 2 else head.rsplit(" ", 1)[0]).rstrip() + " […]"
 
 
 def note(node: dict[str, Any]) -> str | None:
@@ -49,12 +37,8 @@ def working_set(graph: Graph, question: str | None) -> dict[str, Any]:
     here = {h["name"] for h in graph.hypotheses_of(question)}
     mine = {f["name"] for f in graph.findings_of(question)}
     elsewhere = [f for f in graph.of_kind(ResearchNodeKind.FINDING) if f["name"] not in mine
-                 and here & set((f.get("supports") or []) + (f.get("contradicts") or []))]
-    keep = []
-    for f in graph.findings_of(question) + elsewhere:
-        linked = set((f.get("supports") or []) + (f.get("contradicts") or []))
-        if not linked or linked - dead:
-            keep.append(f)
+                 and here & tested_against(f)]
+    keep = [f for f in graph.findings_of(question) + elsewhere if not tested_against(f) or tested_against(f) - dead]
     node = graph.nodes[question]
     return {
         "question": {**{k: v for k, v in node.items() if k != "body"}, "note": note(node)},

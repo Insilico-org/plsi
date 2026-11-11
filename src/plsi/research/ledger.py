@@ -1,9 +1,10 @@
-"""The budget: one allocation per day for all research, a weekly ceiling, and the meter readings that charge them.
+"""The budget: one allocation per day for all research, shared evenly by the active projects that have an active
+topic (`part`), a weekly ceiling, the meter readings that charge them, and today's reservations of billed
+PandaOmics Agent runs, one per project session.
 
-Code cannot read the platform meter. The bot reports the reading (percent of this week's limit used) on every
-save and on any `next` that follows unsaved work; code charges the rise since the last reading, records its own
-character count beside it, and stops the run when a reading went backwards. Enforcement is therefore over a
-self-reported number. The estimate for a move is its last observed cost; SEED_COST stands in until then.
+Code cannot read the platform meter: the bot reports the reading (percent of this week's limit used) on every save
+and on any `next` after unsaved work, and code charges the rise since the last one and stops the run when a reading
+went backwards. Enforcement is therefore over a self-reported number.
 """
 
 from __future__ import annotations
@@ -14,14 +15,14 @@ from pathlib import Path
 from typing import Any
 
 from plsi import files
-from plsi.errors import ValidationError, warn
-from plsi.research import store
+from plsi.errors import UsageError, ValidationError, warn
+from plsi.policy import oracles
+from plsi.research import projects, store
+from plsi.research.tuning import CEILING_MULTIPLE, HEADROOM, MOVES_PER_DIRECTION, SEED_COST
 from plsi.vocab.research import ResearchLogEvent, ResearchMove, ResearchSpend
 
-SEED_COST = 1.0  # percentage points of the weekly meter, until a move has been observed once
-MOVES_PER_DIRECTION = 3.5  # typical moves to bring one direction to a verdict
-CEILING_MULTIPLE = 4.0  # the default weekly ceiling, in days' worth of the daily share
-HEADROOM = 10.0  # percentage points of the weekly meter the user keeps for themselves, whatever the share is
+RESERVATIONS_FILE = "reservations.json"  # in research/, beside day.json
+BILLED = "pandaclaw"  # the oracle family a session's runs are reserved from
 BLANK = {"share_of_day": 0.0, "day": None, "opening_usage": None, "last_usage": None,
          "allocated": 0.0, "spent": 0.0, "week": None, "week_spent": 0.0}
 
@@ -36,20 +37,29 @@ def _path() -> Path:
     return store.root() / store.DAY_FILE
 
 
+def _load_object(path: Path, hint: str) -> dict[str, Any]:
+    """A ledger file's JSON object, {} while it does not exist; anything else is refused."""
+    saved = files.load_json(path) if path.is_file() else {}
+    if not isinstance(saved, dict):
+        raise ValidationError(f"{path} is not a JSON object", code="BAD_LEDGER", hint=hint)
+    return saved
+
+
 def state() -> dict[str, Any]:
     """The day's ledger, held once for all research in research/day.json, so switching topic cannot open a
     second allocation on the same day."""
-    saved = files.load_json(_path()) if _path().is_file() else {}
-    return {**BLANK, **(saved if isinstance(saved, dict) else {})}
+    return {**BLANK, **_load_object(_path(), "remove it and set the budget again: "
+                                             "plsi research budget --share <percent>")}
 
 
 def _save(budget: dict[str, Any]) -> None:
     files.atomic_write_json(_path(), budget)
 
 
-def ceiling() -> float:
-    """What research may take out of one week: the number the user named, else four days' worth of the share."""
-    budget = state()
+def ceiling(budget: dict[str, Any] | None = None) -> float:
+    """What research may take out of one week: the number the user named, else four days' worth of the share. Reads
+    the ledger unless `budget` is given."""
+    budget = state() if budget is None else budget
     named = budget.get("week_ceiling")
     if named is not None:
         return round(float(named), 4)
@@ -57,15 +67,18 @@ def ceiling() -> float:
 
 
 def set_share(share: float | None, today: str, week_ceiling: float | None = None) -> dict[str, Any]:
-    """Set the daily share and/or the weekly ceiling, any non-negative value. A new share applies to today's
-    allocation at once; spending already made is never clawed back."""
+    """Set the daily share and/or the weekly ceiling; a negative value is refused. A new share applies to
+    today's allocation at once; spending already made is never clawed back."""
+    if any(v is not None and not v >= 0 for v in (share, week_ceiling)):
+        raise ValidationError("a share or ceiling is a percent of the weekly meter, 0 or more",
+                              hint="plsi research budget --share 0 turns research off")
     budget = state()
     if share is not None:
-        budget["share_of_day"] = max(float(share), 0.0)
+        budget["share_of_day"] = float(share)
         if budget.get("day") == today:
-            budget["allocated"] = max(float(share), 0.0)
+            budget["allocated"] = float(share)
     if week_ceiling is not None:
-        budget["week_ceiling"] = max(float(week_ceiling), 0.0)
+        budget["week_ceiling"] = float(week_ceiling)
     _save(budget)
     return budget
 
@@ -97,13 +110,18 @@ def open_day(usage: float | None, today: str) -> bool:
         raise ValidationError("a new research day needs the current usage reading", code="USAGE_REQUIRED",
                               hint="plsi research next --topic <topic> --usage <percent of this week's limit used>")
     budget = state()
-    week = week_of(today)
+    week_spent = 0.0 if budget.get("week") != week_of(today) else budget.get("week_spent") or 0.0
+    _save(_open(budget, usage, today, week_spent))
+    return True
+
+
+def _open(budget: dict[str, Any], usage: float, today: str, week_spent: float) -> dict[str, Any]:
+    """Today's allocation at the full share, opened at `usage`; the week carries `week_spent`."""
     budget.pop("meter_fell", None)
     budget.update(day=today, opening_usage=float(usage), last_usage=float(usage),
-                  allocated=float(budget.get("share_of_day") or 0.0), spent=0.0,
-                  week=week, week_spent=0.0 if budget.get("week") != week else budget.get("week_spent") or 0.0)
-    _save(budget)
-    return True
+                  allocated=float(budget.get("share_of_day") or 0.0), spent=0.0, week=week_of(today),
+                  week_spent=week_spent)
+    return budget
 
 
 def _fell(usage: float, last: Any) -> bool:
@@ -111,13 +129,21 @@ def _fell(usage: float, last: Any) -> bool:
     return last is not None and float(usage) < float(last) - 1e-9
 
 
-def check_monotonic(usage: float) -> None:
-    """The meter only rises inside a week; a reading below the last one today is refused."""
-    last = state().get("last_usage")
-    if _fell(usage, last):
-        raise ValidationError(f"usage {usage} is below the last reading {last} for today",
-                              code="USAGE_WENT_BACKWARDS",
-                              hint="the meter only rises inside a week; re-read it, or start a new day")
+def meter_reset(usage: float, today: str) -> dict[str, Any]:
+    """The user confirmed that the weekly meter reset: open today and a fresh week at the reading just taken.
+
+    Code cannot tell a reset from a low reading, so only the user's answer opens the new week; a reading that is not
+    below the last one is no reset and is refused."""
+    budget = state()
+    last = budget.get("last_usage")
+    if not _fell(usage, last):
+        raise ValidationError(f"usage {usage} is not below the last reading {last}, so the meter did not reset",
+                              code="NO_METER_RESET",
+                              hint="plsi research next --usage <percent of this week's limit used, read now>")
+    budget = _open(budget, usage, today, 0.0)
+    budget["meter_reset"] = {"saw": float(usage), "after": float(last), "day": today}
+    _save(budget)
+    return budget
 
 
 def charge(usage: float, chars_in: int = 0, chars_out: int = 0) -> dict[str, Any]:
@@ -132,7 +158,8 @@ def charge(usage: float, chars_in: int = 0, chars_out: int = 0) -> dict[str, Any
         budget["meter_fell"] = {"saw": float(usage), "after": float(last), "day": budget.get("day")}
         _save(budget)
         warn("USAGE_WENT_BACKWARDS", f"the meter read {usage} after {last}. Either the week reset or the "
-                                     "reading was low; the run ends here and the next day opens fresh")
+                                     "reading was low; the run ends here. If the user confirms a reset: "
+                                     f"plsi research budget --meter-reset --usage {usage}")
         return {"delta": None, "chars": chars, "spent": budget.get("spent", 0.0), "reported": False,
                 "meter_fell": budget["meter_fell"]}
     delta = round(float(usage) - float(last if last is not None else usage), 4)
@@ -160,16 +187,21 @@ def headroom(usage: float | None) -> dict[str, Any]:
     return {"ok": left >= need, "left": left, "need": need, "keeps_back": HEADROOM}
 
 
-def clear_meter_fell() -> None:
-    """A fallen reading stops the day it happened on, not every day after it."""
+def meter_fell(today: str) -> dict[str, Any] | None:
+    """The fallen reading that stops today, if any. It stops the day it happened on, not every day after it."""
     budget = state()
-    if budget.pop("meter_fell", None) is not None:
+    fell = budget.get("meter_fell")
+    if fell and fell.get("day") != today:
+        budget.pop("meter_fell")
         _save(budget)
+        return None
+    return fell
 
 
 def is_off() -> bool:
     """A share or ceiling of zero is the user's "Off": no day opens and nothing is logged."""
-    return float(state().get("share_of_day") or 0.0) <= 0 or ceiling() <= 0
+    budget = state()
+    return float(budget.get("share_of_day") or 0.0) <= 0 or ceiling(budget) <= 0
 
 
 def _deltas(log: list[dict[str, Any]], move: str | None = None) -> list[float]:
@@ -194,21 +226,49 @@ def typical(log: list[dict[str, Any]]) -> float:
     return seen[len(seen) // 2] if seen else SEED_COST
 
 
-def affordable(log: list[dict[str, Any]], move: str) -> dict[str, Any]:
-    """Whether the remaining allocation covers this move, what each move would cost, and how far it reaches."""
-    budget = state()
+def _line_cost(line: dict[str, Any]) -> float:
+    """What one log line charged: an unsaved reading's rise or a saved move's cost; 0 for any other line."""
+    if line.get("event") == ResearchLogEvent.READING:
+        return float(line.get("delta") or 0.0)
+    return float((line.get("cost") or {}).get("delta") or 0.0)
+
+
+def _spent_by(logs: list[list[dict[str, Any]]], day: str | None) -> float:
+    """What these topics' logs charged on `day`."""
+    return round(sum(_line_cost(line) for log in logs for line in log if day is not None and line.get("day") == day),
+                 4)
+
+
+def part(graph: store.Graph) -> dict[str, Any]:
+    """This topic's project's part of today's allocation: the day split evenly across the active projects that
+    have an active topic, less what this project's topics charged today."""
+    sharing = [m for m in projects.actives() if store.active_name(projects.folder(m["id"]), required=False)]
+    logs = [files.read_jsonl(d / store.LOG_FILE) for d in store.topic_dirs(store.project_of(graph))]
+    budget, parts = state(), max(len(sharing), 1)
+    allocated = round(float(budget.get("allocated") or 0.0) / parts, 4)
+    spent = _spent_by(logs, budget.get("day"))
+    return {"projects_sharing": parts, "project_allocated": allocated, "project_spent": spent,
+            "project_remaining": round(allocated - spent, 4)}
+
+
+def affordable(graph: store.Graph, log: list[dict[str, Any]], move: str | None = None) -> dict[str, Any]:
+    """Whether what is left covers `move` (default: the move the topic's cursor holds), what each move would cost and
+    how far it reaches. What is left is the smaller of the day's remainder and the topic's project's `part`."""
+    move = str(move or (graph.topic.get("cursor") or {}).get("move") or ResearchMove.ASK)
+    share, budget = part(graph), state()
     allocated = float(budget.get("allocated") or 0.0)
     spent = float(budget.get("spent") or 0.0)
-    remaining = round(allocated - spent, 4)
+    remaining = min(round(allocated - spent, 4), share["project_remaining"])
     est = estimate(log, move)
     per_move = max(typical(log), est["cost"], 1e-6)
-    week_spent = float(budget.get("week_spent") or 0.0)
+    week_spent, cap = float(budget.get("week_spent") or 0.0), ceiling(budget)
     costs = {str(m): estimate(log, str(m))["cost"] for m in ResearchMove}
     return {
+        **share,
         "allocated": allocated, "spent": round(spent, 4), "remaining": remaining,
         "share_of_day": budget.get("share_of_day"), "day": budget.get("day"),
         "week": budget.get("week"), "week_spent": round(week_spent, 4),
-        "week_ceiling": ceiling(), "week_left": round(ceiling() - week_spent, 4),
+        "week_ceiling": cap, "week_left": round(cap - week_spent, 4),
         "next_move": move, "estimate": est["cost"], "estimate_basis": est["basis"],
         "ok": remaining >= est["cost"],
         "affordable": {m: round(c, 2) for m, c in costs.items() if remaining >= c},
@@ -229,11 +289,8 @@ def bar(log: list[dict[str, Any]]) -> dict[str, Any]:
     for line in log:
         if day is None or line.get("day") != day or line.get("event") == ResearchLogEvent.DAY:
             continue
-        if line.get("event") == ResearchLogEvent.READING:
-            segments[ResearchSpend.NOTHING] += float(line.get("delta") or 0.0)
-            continue
-        cost = float((line.get("cost") or {}).get("delta") or 0.0)
-        if not line.get("productive"):
+        cost = _line_cost(line)
+        if line.get("event") == ResearchLogEvent.READING or not line.get("productive"):
             segments[ResearchSpend.NOTHING] += cost
         elif (line.get("change") or {}).get("closed"):
             segments[ResearchSpend.CLOSED] += cost
@@ -243,3 +300,48 @@ def bar(log: list[dict[str, Any]]) -> dict[str, Any]:
     return {"allocated": allocated, "spent": spent, "remaining": round(allocated - spent, 4),
             "segments": {k: round(v, 4) for k, v in segments.items()},
             "moves": {str(move): sum(line.get("move") == move for line in log) for move in ResearchMove}}
+
+
+# ---------------------------------------------------------------- reserved billed runs, one entry per project
+
+def _reservations_path() -> Path:
+    return store.root() / RESERVATIONS_FILE
+
+
+def _reservations(day: str) -> dict[str, int]:
+    """Today's reservations by project id; yesterday's are gone with the UTC day's cap."""
+    saved = _load_object(_reservations_path(), "remove it; each session reserves again: "
+                                               "plsi research budget --reserve <runs> --project <p>")
+    return {k: int(v) for k, v in (saved.get("runs") or {}).items()} if saved.get("day") == day else {}
+
+
+def reserve(pid: str, runs: int) -> dict[str, Any]:
+    """Hold `runs` billed PandaOmics Agent runs of today's cap for one project's session, replacing what that
+    project held; refused when today's spend and every reservation together would pass the cap."""
+    if runs is None or runs < 0:
+        raise UsageError("reserve 0 or more runs", hint="plsi research budget --reserve <runs> --project <p>")
+    day = store.today()  # the oracle cap's day
+    with store.locked(store.root()):
+        held = _reservations(day)
+        cap = int(oracles.budget()["cap_per_oracle_per_day"])
+        spent = int(oracles.spent_today().get(BILLED, 0))
+        others = sum(n for k, n in held.items() if k != pid)
+        left = cap - spent - others
+        if runs > left:
+            raise ValidationError(f"{runs} run(s) asked, {max(left, 0)} left today: {spent} spent and {others} held "
+                                  f"by other projects of a cap of {cap}", code="BUDGET_EXCEEDED",
+                                  hint="ask for fewer runs, or release another project's: "
+                                       "plsi research budget --release --project <p>")
+        held[pid] = runs
+        files.atomic_write_json(_reservations_path(), {"day": day, "runs": held})
+    return {"project": pid, "reserved": runs, "day": day, "left_today": left - runs, "cap": cap, "spent_today": spent,
+            "note": "a reservation is a promise between sessions; the oracle's own cap is what stops a call"}
+
+
+def release(pid: str) -> dict[str, Any]:
+    day = store.today()  # the oracle cap's day
+    with store.locked(store.root()):
+        held = _reservations(day)
+        freed = held.pop(pid, 0)
+        files.atomic_write_json(_reservations_path(), {"day": day, "runs": held})
+    return {"project": pid, "released": freed, "day": day, "held": held}

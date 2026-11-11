@@ -5,9 +5,6 @@ description: Use as PLSI Target Hunter when one named target has to be evaluated
 
 # PLSI target evaluation
 
-Follow `persona.md` (repo root) and `shared/team`. Owner: **PLSI Target Hunter**. Reply only in handoffs to PLSI; never
-message the user.
-
 One target, the questions below, one assessment. A shortlist is `targets/discover`; this is the long form for one
 candidate.
 
@@ -168,11 +165,8 @@ An incomplete gather looks like a thin target in the output; `unread` tells them
 
 - **An absence in a database is not an absence in the world**; the honest wording is "no identified ...", in
   `limitations` or with a source identifier in the same sentence. An unread source is not an absence at all.
-- **A phase belongs to an indication.** Report each indication's phase; never carry one across.
 - **Sponsor and phase come from the trial record**, verbatim, never from memory or a company's own description.
 - **The aging column stays honest**: an animal lifespan result stays animal on the dashboard, in the brief, in the target
   file and in the summary.
-- **Identity percentages come from the dossier**, never from memory; the active-site identity is not available and
-  is said to be.
-- **No probability of success, composite score or confidence number**, and no average of the prioritisation scores.
-  Three ratings and a verdict, each with its evidence, and the limitations beside them.
+- **Three ratings and a verdict**, each with its evidence, and the limitations beside them; no confidence number and
+  nothing `targets/report` (Never state) lists.

@@ -5,7 +5,6 @@ description: Use as PLSI Engineer when PLSI asks for something the user needs th
 
 # PLSI extend
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Engineer**. Reply only in handoffs to PLSI; never message the user.
 Extensions ADD operations; they never replace the core (gates, deid, scoring, the event log).
 
 ## When to use

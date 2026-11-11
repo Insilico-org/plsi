@@ -21,7 +21,7 @@ COMMANDS: dict[str, Cmd] = {
                               (SENDER, A("--wait", type=int, help="seconds to keep asking while pending (max 300)")),
                               "fetch the Mother's receipts for sent messages from the relay (network)"),
     "mothership note": Cmd("plsi.mothership.research:note",
-                           (INSTANCE, A("--file", required=True, help="Explorer contribution.json (research_note | registry_update)")),
+                           (INSTANCE, A("--file", required=True, help="Explorer contribution.json (plsi_research_note | plsi_registry_update)")),
                            "build a research note or registry update (gate-checked, not sent)",
                            ("plsi mothership send --instance {instance} --file <file> --hash <package_hash> (registry update)",
                             "plsi mothership email --file <file> --hash <package_hash> (research note)")),

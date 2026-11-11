@@ -2,18 +2,20 @@
 
 - 10 s connect / per-read timeout, 60 s total, 10 MB response cap; `download` streams any size to a file (1 h).
 - GET retries once on a connection error or 5xx; POST is never retried.
-- Authorization is dropped on any redirect that changes scheme or host; a POST is never redirected to another scheme
-  or host, and no request follows an https -> http downgrade.
+- A credential header (`_credential`) is sent over plain http to loopback only (INSECURE_TRANSPORT), and is dropped
+  on any redirect that changes scheme or host; a POST is never redirected to another scheme or host, and no request
+  follows an https -> http downgrade.
 - Non-2xx -> NetworkError(status=..., body=...); `get_json` and `get_text` answer None for a status listed in
   `missing` (e.g. 404: the record does not exist).
-- `graphql`: a reply that is not JSON or carries `errors` raises NetworkError even at HTTP 200.
-- openFDA 404 NOT_FOUND counts as an empty result.
+- A body that is not JSON where JSON is read (`Reply.json`), or a GraphQL reply carrying `errors`, raises
+  BAD_RESPONSE even at HTTP 200.
 - Error messages are redacted and carry URLs without query strings.
 """
 
 from __future__ import annotations
 
 import http.client
+import ipaddress
 import json
 import os
 import ssl
@@ -25,9 +27,9 @@ from pathlib import Path
 from typing import Any
 
 from plsi import __version__
-from plsi.keys import redact
 from plsi.errors import NetworkError
 from plsi.files import loads_json
+from plsi.keys import redact
 from plsi.models import CAP_FIELD, sanitize_external
 
 CONNECT_TIMEOUT_S = 10.0
@@ -46,7 +48,10 @@ class Reply:
     url: str = ""
 
     def json(self) -> Any:
-        return loads_json(self.text)
+        try:
+            return loads_json(self.text)
+        except ValueError:
+            raise NetworkError(f"invalid JSON from {strip_query(self.url)}", code="BAD_RESPONSE") from None
 
 
 def strip_query(url: str) -> str:
@@ -85,19 +90,27 @@ def request(
     timeout: float = TOTAL_TIMEOUT_S,
 ) -> Reply:
     """One HTTP exchange with the rules above. Returns Reply for 2xx, raises NetworkError otherwise."""
-    full = _with_params(url, params)
-    hdrs = {"User-Agent": USER_AGENT, **(headers or {})}
-    attempts = 2 if method == "GET" else 1
-    for attempt in range(attempts):
-        retry = attempt + 1 < attempts
-        try:
-            return _once(method, full, hdrs, body, timeout)
-        except NetworkError as exc:
-            if retry and exc.code == "NETWORK_ERROR" and (exc.status is None or exc.status >= 500):
-                time.sleep(0.5)
-                continue
+    full, hdrs = _with_params(url, params), {"User-Agent": USER_AGENT, **(headers or {})}
+    try:
+        return _once(method, full, hdrs, body, timeout)
+    except NetworkError as exc:
+        if method != "GET" or exc.code != "NETWORK_ERROR" or (exc.status is not None and exc.status < 500):
             raise
-    raise AssertionError("unreachable")
+    time.sleep(0.5)
+    return _once(method, full, hdrs, body, timeout)
+
+
+def _loopback(host: str | None) -> bool:
+    try:
+        return host == "localhost" or ipaddress.ip_address(host or "").is_loopback
+    except ValueError:
+        return False
+
+
+def _credential(header: str) -> bool:
+    """A header that carries a secret (Authorization, api-key, cookies, tokens): never sent to another host."""
+    h = header.lower()
+    return h == "cookie" or any(w in h for w in ("auth", "key", "token", "secret", "session", "pass"))
 
 
 def _once(method: str, url: str, headers: dict[str, str], body: bytes | None, timeout: float, sink: Path | None = None) -> Reply:
@@ -107,6 +120,8 @@ def _once(method: str, url: str, headers: dict[str, str], body: bytes | None, ti
         shown = strip_query(url)
         if parts.scheme not in ("http", "https"):
             raise NetworkError(f"unsupported URL scheme: {shown}")
+        if parts.scheme == "http" and not _loopback(parts.hostname) and any(map(_credential, headers)):
+            raise NetworkError(f"refused to send a credential to {shown} over plain http", code="INSECURE_TRANSPORT")
         conn = _connection(parts, shown)
         try:
             conn.connect()
@@ -131,7 +146,7 @@ def _once(method: str, url: str, headers: dict[str, str], body: bytes | None, ti
             if method == "POST" and (target_parts.scheme, target_parts.netloc) != (parts.scheme, parts.netloc):
                 raise NetworkError(f"refused a redirect of POST {shown} to another scheme or host", code="REDIRECT_REFUSED")
             if (target_parts.scheme, target_parts.netloc) != (parts.scheme, parts.netloc):
-                headers = {k: v for k, v in headers.items() if k.lower() != "authorization"}
+                headers = {k: v for k, v in headers.items() if not _credential(k)}
             if resp.status == 303 or (resp.status in (301, 302) and method == "POST"):
                 method, body = "GET", None
             url = new
@@ -186,33 +201,27 @@ def download(url: str, dest: Path, headers: dict[str, str] | None = None, timeou
     return dest
 
 
-def get_text(url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None, *,
-             missing: tuple[int, ...] = ()) -> str | None:
-    """GET a body as text; a status in `missing` answers None."""
+def _get(url: str, params: dict[str, Any] | None, headers: dict[str, str] | None, missing: tuple[int, ...]) -> Reply | None:
     try:
-        return request("GET", url, params=params, headers=headers).text
+        return request("GET", url, params=params, headers=headers)
     except NetworkError as exc:
         if exc.status in missing:
             return None
         raise
+
+
+def get_text(url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None, *,
+             missing: tuple[int, ...] = ()) -> str | None:
+    """GET a body as text; a status in `missing` answers None."""
+    reply = _get(url, params, headers, missing)
+    return None if reply is None else reply.text
 
 
 def get_json(url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None, *,
              missing: tuple[int, ...] = ()) -> Any:
-    """GET and parse JSON (NaN rejected); a status in `missing` answers None. openFDA 404 NOT_FOUND ->
-    {"meta":{"results":{"total":0}},"results":[]}."""
-    try:
-        reply = request("GET", url, params=params, headers={"Accept": "application/json", **(headers or {})})
-    except NetworkError as exc:
-        if exc.status in missing:
-            return None
-        if exc.status == 404 and urllib.parse.urlsplit(url).netloc == "api.fda.gov" and "NOT_FOUND" in exc.body:
-            return {"meta": {"results": {"total": 0}}, "results": []}
-        raise
-    try:
-        return reply.json()
-    except ValueError:
-        raise NetworkError(f"invalid JSON from {strip_query(url)}", code="BAD_RESPONSE") from None
+    """GET and parse JSON (NaN rejected); a status in `missing` answers None."""
+    reply = _get(url, params, {"Accept": "application/json", **(headers or {})}, missing)
+    return None if reply is None else reply.json()
 
 
 def post_json(url: str, body: Any, headers: dict[str, str] | None = None, *, token: str | None = None,
@@ -230,10 +239,7 @@ def graphql(url: str, document: str, variables: dict[str, Any]) -> dict[str, Any
     """One GraphQL exchange (a POST, never retried) -> its `data` ({} when absent). A reply that is not a JSON
     object, or that carries `errors`, raises BAD_RESPONSE even at HTTP 200; the first error message is `remote`."""
     shown = strip_query(url)
-    try:
-        body = post_json(url, {"query": document, "variables": variables}).json()
-    except ValueError:
-        raise NetworkError(f"invalid JSON from {shown}", code="BAD_RESPONSE") from None
+    body = post_json(url, {"query": document, "variables": variables}).json()
     if not isinstance(body, dict):
         raise NetworkError(f"{shown} answered something other than a GraphQL reply", code="BAD_RESPONSE")
     if errors := body.get("errors"):

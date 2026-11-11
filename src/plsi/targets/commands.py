@@ -6,8 +6,6 @@ from plsi.cmdspec import FILE, A, V, Cmd
 from plsi.vocab.targets import AgingHallmark, TargetBand
 
 COMMANDS: dict[str, Cmd] = {
-    # target discovery (<PLSI_HOME>/targets/<gene>): free sources gather and count, the bot judges and is
-    # refused when the judgment is not grounded, and `brief` is the one way a dossier reaches the research bots
     "targets discover": Cmd("plsi.targets.discover:discover",
                             (A("--disease", help="the disease, by its clinical name or an EFO/MONDO id"),
                              A("--hallmark", choices=V(AgingHallmark),

@@ -5,8 +5,6 @@ description: Use as PLSI Explorer when PLSI's digest routine or the user asks fo
 
 # PLSI digest and insights
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Explorer**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - PLSI's "PLSI longevity digest" routine sends a `request` (thread `digest-<date>`, the start date in `summary`).

@@ -1,6 +1,7 @@
 """`plsi export`: everything one instance holds, as the bots exchange it - the deidentified subject, active
 observations, the published state documents, screenings, plans with their status, prediction scores and calibration -
-as one JSON bundle or as CSV tables. Writes only under the output folder; the log is never touched."""
+as one JSON bundle or as CSV tables. Writes only under the output folder; the log is never touched. `plsi status`:
+the instance overview."""
 
 from __future__ import annotations
 
@@ -12,27 +13,45 @@ from typing import Any
 
 from plsi import files, paths
 from plsi.clock import now, ts_filename
-from plsi.life.store import EventStore
+from plsi.errors import PlsiError
+from plsi.life.store import EventStore, event_counts
 from plsi.map import mapper
 from plsi.policy.fold import plans
+from plsi.policy.plan import list_plans
 from plsi.policy.score import calibration
 from plsi.vocab import EventType, ExportFormat
 
 
-def bundle(instance: str) -> dict[str, Any]:
+def _events(store: EventStore, t: EventType) -> list[dict[str, Any]]:
+    return [{"event_id": e.id, "recorded_at": e.recorded_at.isoformat(), **e.payload.dump()} for e in store.events(t)]
+
+
+def status(instance: str) -> dict[str, Any]:
+    """`plsi status`: subject, event counts, stored states (hash-checked) and plans."""
+    store = EventStore(instance)
+    states = []
+    for latest in sorted((store.dir / "states").glob("*/latest.json")):
+        try:
+            doc = mapper.latest_state(instance, latest.parent.name)
+            states.append({"map_id": doc.map_id, "as_of": doc.as_of, "generated_at": doc.generated_at,
+                           "state_hash": doc.state_hash, "hash_ok": doc.verify_hash()})
+        except PlsiError:
+            states.append({"map_id": latest.parent.name, "error": "unreadable latest.json"})
+    return {"instance": instance, "path": str(store.dir), "subject": store.subject.dump(), "events": event_counts(instance),
+            "states": states, "user_maps": sorted(p.stem for p in (store.dir / "maps" / "user").glob("*.yaml")),
+            "plans": list_plans(instance)}
+
+
+def _bundle(instance: str) -> dict[str, Any]:
     """The export document (kind plsi_export)."""
     store = EventStore(instance)
-
-    def events(t: EventType) -> list[dict[str, Any]]:
-        return [{"event_id": e.id, "recorded_at": e.recorded_at.isoformat(), **e.payload.dump()} for e in store.events(t)]
-
     states = [s.dump() for s in mapper.latest_states(instance)]
     plan_docs = [{**v.plan.dump(), "state": v.state.value, "statuses": [s.dump() for s in v.statuses]}
                  for v in plans(instance).values()]
     return {"kind": "plsi_export", "schema_version": 1, "exported_at": now().isoformat(), "instance": instance,
-            "subject": store.subject.dump(), "observations": events(EventType.OBSERVATION), "states": states,
-            "screenings": events(EventType.SCREENING), "plans": plan_docs, "scores": events(EventType.PREDICTION_SCORE),
-            "calibration": calibration(instance)}
+            "subject": store.subject.dump(), "observations": _events(store, EventType.OBSERVATION), "states": states,
+            "screenings": _events(store, EventType.SCREENING), "plans": plan_docs,
+            "scores": _events(store, EventType.PREDICTION_SCORE), "calibration": calibration(instance)}
 
 
 def _flat(row: dict[str, Any], prefix: str = "") -> dict[str, Any]:
@@ -62,7 +81,7 @@ def _csv(rows: list[dict[str, Any]]) -> str:
     return buf.getvalue()
 
 
-def tables(doc: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+def _tables(doc: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """The bundle as tables: one row per observation, state coordinate, gap, plan, prediction, screening, score."""
     coords = [{"map_id": s["map_id"], "state_hash": s["state_hash"], "as_of": s["as_of"], "coordinate": cid, **v}
               for s in doc["states"] for cid, v in s["coordinates"].items()]
@@ -73,20 +92,19 @@ def tables(doc: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
             "plans": plan_rows, "predictions": predictions, "screenings": doc["screenings"], "scores": doc["scores"]}
 
 
-def export(instance: str, format: str = "json", out: str | None = None) -> dict[str, Any]:  # noqa: A002 - CLI dest
-    """`plsi export --instance N [--format json|csv] [--out DIR]`: default DIR <instance>/exports/<timestamp>/."""
-    doc = bundle(instance)
-    folder = Path(out) if out else paths.instance_dir(instance) / "exports" / ts_filename(now())
+def export(instance: str, fmt: str = "json", out: str | None = None) -> dict[str, Any]:
+    """`plsi export --instance N [--format json|csv] [--out DIR]`: default DIR <instance>/exports/<timestamp>/.
+    Every file is owner-only: it holds health data."""
+    doc = _bundle(instance)
+    folder = Path(out) if out else paths.instance_dir(instance) / "exports" / ts_filename()
     folder.mkdir(parents=True, exist_ok=True)
-    rows_by_table = tables(doc)
-    if format == ExportFormat.JSON:
+    rows_by_table = _tables(doc)
+    if ExportFormat(fmt) == ExportFormat.JSON:
         written = [folder / f"{instance}.json"]
-        files.atomic_write_json(written[0], doc)
+        files.atomic_write_json(written[0], doc, private=True)
     else:
-        written = []
-        for name, rows in rows_by_table.items():
-            path = folder / f"{name}.csv"
-            files.atomic_write_text(path, _csv(rows))
-            written.append(path)
+        written = [folder / f"{name}.csv" for name in rows_by_table]
+        for path, rows in zip(written, rows_by_table.values()):
+            files.atomic_write_text(path, _csv(rows), private=True)
     counts = {k: len(v) for k, v in rows_by_table.items()}
-    return {"instance": instance, "format": format, "files": [str(p) for p in written], "counts": counts}
+    return {"instance": instance, "format": fmt, "files": [str(p) for p in written], "counts": counts}

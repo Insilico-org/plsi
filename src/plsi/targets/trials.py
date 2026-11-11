@@ -17,10 +17,11 @@ from plsi.policy import ctgov
 from plsi.vocab import fold
 from plsi.vocab.targets import ClinicalStage
 
-MAX_ASSETS = 12
+MAX_ASKED_ASSETS = 12
 MAX_STUDIES = 50  # per asset; beyond this the asset is too broadly named to roll up
 MAX_SYNONYMS = 8
 MAX_TITLED = 5
+NO_CONDITION = "(no condition recorded)"
 # An intervention entry named as a combination carries several drugs' names, so none is attributed to the asset.
 COMBINATION = (" in combination", " combined with", " plus ", " with ", " and ", "+", "/")
 MAX_SYNONYM_WORDS = 3  # longer intervention names are descriptions, not names
@@ -85,20 +86,15 @@ def _is_combination(name: str) -> bool:
     return any(marker in lowered for marker in COMBINATION)
 
 
-def _furthest(studies: list[dict[str, Any]]) -> str:
-    stages = [s for s in (ClinicalStage.parse(phase) for study in studies for phase in study["phases"]) if s]
-    return ClinicalStage.top(stages).value
-
-
 def _condition(name: str) -> str:
     """One condition folded mechanically (case, a trailing parenthetical, an inverted "Noun, Adjective" form,
     hyphens) so one disease's spellings make one row. Real synonyms ("cancer" / "carcinoma") stay apart."""
-    text_ = re.sub(r"\s*\([^)]*\)\s*$", "", str(name or "").strip())
-    if text_.count(",") == 1:
-        tail, head = (part.strip() for part in text_.split(","))
-        text_ = f"{head} {tail}"
-    text_ = re.sub(r"\s+", " ", text_.replace("-", " ")).strip()
-    return text_.lower().capitalize() or "(no condition recorded)"
+    text = re.sub(r"\s*\([^)]*\)\s*$", "", str(name or "").strip())
+    if text.count(",") == 1:
+        tail, head = (part.strip() for part in text.split(","))
+        text = f"{head} {tail}"
+    text = re.sub(r"\s+", " ", text.replace("-", " ")).strip()
+    return text.lower().capitalize() or NO_CONDITION
 
 
 def _by_indication(studies: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -106,13 +102,13 @@ def _by_indication(studies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     conditions counts under each, as registered."""
     grouped: dict[str, list[dict[str, Any]]] = {}
     for study in studies:
-        for condition in {_condition(c) for c in study["conditions"]} or {"(no condition recorded)"}:
+        for condition in {_condition(c) for c in study["conditions"]} or {NO_CONDITION}:
             grouped.setdefault(condition, []).append(study)
     rows = []
     for condition, group in grouped.items():
         rows.append({
             "indication": condition,
-            "stage": _furthest(group),
+            "stage": ClinicalStage.top(ClinicalStage.parse_all(p for s in group for p in s["phases"])).value,
             "trials": len(group),
             "statuses": sorted({s["status"] for s in group if s["status"]}),
             "with_results": sum(1 for s in group if s["has_results"]),
@@ -128,8 +124,8 @@ def rollup(gene: str, assets: list[str]) -> dict[str, Any]:
     """`plsi targets trials --gene <SYMBOL> --asset <NAME> ...`: each asset's trial records, for the NCT ids
     `harvested_assets` needs. Writes nothing."""
     names = [a for a in dict.fromkeys(a.strip() for a in assets or []) if a]
-    if not 1 <= len(names) <= MAX_ASSETS:
-        raise ValidationError(f"name between 1 and {MAX_ASSETS} assets",
+    if not 1 <= len(names) <= MAX_ASKED_ASSETS:
+        raise ValidationError(f"name between 1 and {MAX_ASKED_ASSETS} assets",
                               hint="plsi targets trials --gene <SYMBOL> --asset test-drug-a --asset test-drug-b")
     rows = []
     for name in names:
@@ -149,7 +145,7 @@ def rollup(gene: str, assets: list[str]) -> dict[str, Any]:
             "try_instead": sorted({given for s in titled for given in s["administers"]
                                    if fold(given) != fold(name)
                                    and given.lower() not in ("placebo", "comparator")}) if not kept else [],
-            "stage": _furthest(interventional),
+            "stage": ClinicalStage.top(ClinicalStage.parse_all(p for s in interventional for p in s["phases"])).value,
             "with_results": sum(1 for s in interventional if s["has_results"]),
             "by_indication": _by_indication(interventional),
             "records": [{k: s[k] for k in ("nct", "title", "status", "sponsor", "started", "completed",

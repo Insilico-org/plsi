@@ -1,7 +1,4 @@
-"""Plan gates G1-G8.
-
-Gates never trust trust-fields written by the bot. World access only via plsi.map (registry, mapper).
-"""
+"""Plan gates G1-G8. Gates never trust trust-fields written by the bot."""
 
 from __future__ import annotations
 
@@ -41,20 +38,16 @@ def numeric(cv: CoordinateValue | None) -> bool:
     return cv is not None and cv.status == ValueStatus.PRESENT and isinstance(cv.value, float)
 
 
-def _screening(instance: str, action_hash: str) -> list[Event]:
-    subject_id = mapper.subject(instance).subject_id
-    return [e for e in mapper.event_store(instance).events(EventType.SCREENING)
-            if e.subject_id == subject_id and e.payload.action_hash == action_hash]
-
-
 def _matching_screening(instance: str, plan: PlanInput) -> tuple[dict[str, Event], list[dict[str, str]]]:
     """G2 + G3: the newest valid screening event per action local_id, and the violations."""
-    care = mapper.context(instance)
+    care, subject_id = mapper.context(instance), mapper.subject(instance).subject_id
+    screenings = [e for e in mapper.event_store(instance).events(EventType.SCREENING) if e.subject_id == subject_id]
     found: dict[str, Event] = {}
     out = []
     for i, action in enumerate(plan.actions):
         path, hint = f"actions.{i}", f"plsi screen --instance {instance} --file plan.json"
-        events = _screening(instance, action.compute_action_hash())
+        action_hash = action.compute_action_hash()
+        events = [e for e in screenings if e.payload.action_hash == action_hash]
         ctx_hash = screening_context(care, plan, action).compute_context_hash()
         current = [e for e in events if e.payload.context_hash == ctx_hash]
         fresh = [e for e in current if now() - e.recorded_at <= timedelta(days=SCREEN_MAX_AGE_DAYS)]

@@ -5,14 +5,14 @@ description: Use as PLSI Visit Prep after the physician saw a patient - turn the
 
 # PLSI visit notes
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Visit Prep**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used.
+**Status: draft**.
 
 ## When to use
 
-- The physician typed or dictated their notes on a visit; PLSI saved them as `<PLSI_HOME>/work/<thread>/visit-notes.md`.
-- A letter, scan or lab report from the visit is a record: PLSI saves it under the inbox and hands it straight to
-  Data Processor (`processor/intake`); not this skill.
+- The physician typed or dictated their notes on a visit; the patient's ward bot saved them as
+  `<PLSI_HOME>/work/<thread>/visit-notes.md`.
+- A letter, scan or lab report from the visit is a record: the ward bot saves it under the inbox and hands it
+  straight to Data Processor (`processor/intake`); not this skill.
 
 ## Steps
 
@@ -29,8 +29,8 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Visit Prep**. Reply onl
    - **to tell the patient:** what the physician wants sent.
 
 3. **Return one `result`** naming each item's owner: Data Processor `processor/intake` with `visit-notes.md` in
-   `files` (it records only what the physician confirms on its own card); follow-ups for PLSI's reminders
-   (`orchestrator/nudge`); a plan change for Clinical Evidence `clinev/protocol`; a message for Liaison
+   `files` (it records only what the physician confirms on its own card); follow-ups for the ward bot's reminders
+   (`ward/patient` step 4); a plan change for Clinical Evidence `clinev/protocol`; a message for Liaison
    `liaison/message`. Anything unclear goes in ONE `question` first.
 
 ## Rules

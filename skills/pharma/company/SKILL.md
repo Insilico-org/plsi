@@ -5,8 +5,6 @@ description: Use as PLSI Pharma Analyst when PLSI asks about a pharma or biotech
 
 # PLSI pharma company dossier
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Pharma Analyst**. Reply only in handoffs to PLSI; never message the user.
-
 This is research about companies, not about the user: read no state, and put nothing about the user in a search.
 
 ## When to use

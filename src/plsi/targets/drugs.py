@@ -8,10 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from plsi.errors import NotFound
 from plsi.models import external_str
-from plsi.targets.opentargets import CAP_PROSE, DIRECTION_MEANING, query
-from plsi.vocab.targets import ClinicalStage
+from plsi.targets.opentargets import CAP_PROSE, entity, query
+from plsi.vocab.targets import DIRECTION_MEANING, ClinicalStage
 
 MAX_ASSETS = 40
 MAX_TRIALS = 4  # per asset
@@ -57,6 +56,14 @@ DISEASE_ASSETS = """query DiseaseAssets($efo: String!) {
   }
 }"""
 
+WARNINGS = """query Warnings($ids: [String!]!) {
+  drugs(chemblIds: $ids) {
+    id
+    drugWarnings { warningType toxicityClass description year country }
+  }
+}"""
+MAX_WARNINGS = 6  # per drug
+MAX_MARKETS = 3
 MAX_INDICATION_DRUGS = 200  # evidence rows read for one pair; the counts below are over these
 
 
@@ -64,13 +71,11 @@ def indication_drugs(ensembl_id: str, efo_id: str) -> dict[str, Any]:
     """The drugs against this target in this indication (Open Targets' `clinical_precedence` evidence), the
     furthest stage reached for this disease, and the source's direction-of-effect pairs. A pair outside
     `DIRECTION_MEANING` is counted as unrecognised."""
-    data = query(INDICATION_DRUGS, {"efo": efo_id, "ids": [ensembl_id], "n": MAX_INDICATION_DRUGS})
-    disease = data.get("disease")
-    if not disease:
-        raise NotFound(f"Open Targets has no disease {efo_id!r}", code="DISEASE_NOT_FOUND")
+    disease = entity(INDICATION_DRUGS, {"efo": efo_id, "ids": [ensembl_id], "n": MAX_INDICATION_DRUGS},
+                     "disease", efo_id)
     found = disease.get("evidences") or {}
     rows = found.get("rows") or []
-    stages = [s for s in (ClinicalStage.parse(external_str(r.get("clinicalStage"))) for r in rows) if s]
+    stages = ClinicalStage.parse_all(external_str(r.get("clinicalStage")) for r in rows)
     drugs: dict[str, str] = {}
     pairs: dict[tuple[str, str], int] = {}
     unread = 0
@@ -103,9 +108,7 @@ def indication_drugs(ensembl_id: str, efo_id: str) -> dict[str, Any]:
 
 def disease_assets(efo_id: str) -> dict[str, Any]:
     """Every drug and clinical candidate recorded in one indication, with the targets it acts on."""
-    disease = query(DISEASE_ASSETS, {"efo": efo_id}).get("disease")
-    if not disease:
-        raise NotFound(f"Open Targets has no disease {efo_id!r}", code="DISEASE_NOT_FOUND")
+    disease = entity(DISEASE_ASSETS, {"efo": efo_id}, "disease", efo_id)
     found = disease.get("drugAndClinicalCandidates") or {}
     rows = []
     for row in found.get("rows") or []:
@@ -128,9 +131,7 @@ def disease_assets(efo_id: str) -> dict[str, Any]:
 def assets(ensembl_id: str) -> dict[str, Any]:
     """Drugs and clinical candidates against the target, each with up to MAX_TRIALS of its trial records;
     `trials_total` says how many exist."""
-    data = query(ASSETS, {"id": ensembl_id}).get("target")
-    if not data:
-        raise NotFound(f"Open Targets has no target {ensembl_id!r}", code="TARGET_NOT_FOUND")
+    data = entity(ASSETS, {"id": ensembl_id}, "target", ensembl_id)
     candidates = data.get("drugAndClinicalCandidates") or {}
     rows = []
     for row in (candidates.get("rows") or [])[:MAX_ASSETS]:
@@ -158,23 +159,7 @@ def assets(ensembl_id: str) -> dict[str, Any]:
     for row in rows:
         row["warnings"] = warned.get(row["chembl_id"] or "", [])
     return {"symbol": external_str(data.get("approvedSymbol")), "total": candidates.get("count"),
-            "shown": len(rows), "rows": rows,
-            "withdrawn": sorted({r["drug"] for r in rows
-                                 if any(w["kind"] == WITHDRAWN for w in r["warnings"])}),
-            "black_boxed": sorted({r["drug"] for r in rows
-                                   if any(w["kind"] == BLACK_BOX for w in r["warnings"])})}
-
-
-WARNINGS = """query Warnings($ids: [String!]!) {
-  drugs(chemblIds: $ids) {
-    id
-    drugWarnings { warningType toxicityClass description year country }
-  }
-}"""
-WITHDRAWN = "Withdrawn"
-BLACK_BOX = "Black Box Warning"
-MAX_WARNINGS = 6  # per drug
-MAX_MARKETS = 3
+            "shown": len(rows), "rows": rows}
 
 
 def _markets(country: str) -> str | None:

@@ -2,12 +2,23 @@
   "$defs": {
     "Block": {
       "additionalProperties": false,
-      "description": "type: a BlockType, or any other string (rendered as pretty-printed JSON). data shapes:\nmarkdown {text} (#, **, *, - lists, [t](https://...) only; never raw HTML) · kv {items:[{key,value}]} ·\ntable {columns, rows} (cell = string | number | {text, href?}) ·\ntimeseries {series:[{name, unit, points:[{t,v,ref_low?,ref_high?,flag?}], predictions:[{t,expected,low,high}]}]} (v null = a gap; ref and flag = that report's own) · list {items:[{text, href?}]} ·\ntimeline {now?, events:[{t, label, kind: past|predicted, level?: info|watch|high, t_end?, probability?, detail?, href?}]}",
+      "description": "type: a BlockType, or any other string (rendered as pretty-printed JSON). data shapes:\nmarkdown {text} (#, **, *, - lists, [t](https://...) only; never raw HTML) · kv {items:[{key,value}]} ·\ntable {columns, rows} (cell = string | number | {text, href?, level?: AlertLevel}; href http(s) or #<tab id>) ·\ntimeseries {series:[{name, unit, points:[{t,v,ref_low?,ref_high?,flag?}], predictions:[{t,expected,low,high}]}]} (v null = a gap; ref and flag = that report's own) · list {items:[{text, href?}]} ·\ntimeline {now?, events:[{t, label, kind: past|predicted, level?: info|watch|high, t_end?, probability?, detail?,\nhref?}]} · parts {items:[{label, value, tone?: AlertLevel}], unit?} (at most 6) · meter {value, max, label, tone?} ·\nscale {unit?, marks:[{label, value}]} · bars {unit?, left?, right?, items:[{label, value, note?}]} (signed, around\nzero) · a kv item with hero: true (and unit?) is the view's one large figure",
       "properties": {
         "data": {
           "additionalProperties": true,
           "title": "Data",
           "type": "object"
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockIcon"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "title": {
           "anyOf": [
@@ -40,6 +51,29 @@
       "title": "Block",
       "type": "object"
     },
+    "BlockIcon": {
+      "description": "The line icon beside a dashboard section's title.",
+      "enum": [
+        "patient",
+        "panel",
+        "visits",
+        "lab",
+        "vitals",
+        "device",
+        "medicine",
+        "condition",
+        "diet",
+        "plan",
+        "follow_up",
+        "file",
+        "trend",
+        "alert",
+        "note",
+        "age"
+      ],
+      "title": "BlockIcon",
+      "type": "string"
+    },
     "BlockType": {
       "enum": [
         "markdown",
@@ -47,14 +81,50 @@
         "table",
         "timeseries",
         "list",
-        "timeline"
+        "timeline",
+        "parts",
+        "meter",
+        "scale",
+        "bars"
       ],
       "title": "BlockType",
       "type": "string"
+    },
+    "Tab": {
+      "additionalProperties": false,
+      "description": "One page of a tabbed dashboard, opened by `#<id>` in the address or a cell's link.",
+      "properties": {
+        "blocks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Block"
+          },
+          "title": "Blocks",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "Tab",
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
+  "description": "`blocks` above the tab bar; `refresh_seconds` reloads a file that a command rewrites in place.",
   "properties": {
     "blocks": {
       "default": [],
@@ -83,6 +153,20 @@
       "title": "Kind",
       "type": "string"
     },
+    "refresh_seconds": {
+      "anyOf": [
+        {
+          "maximum": 86400,
+          "minimum": 60,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Refresh Seconds"
+    },
     "schema_version": {
       "const": 1,
       "default": 1,
@@ -92,6 +176,14 @@
     "subject_id": {
       "title": "Subject Id",
       "type": "string"
+    },
+    "tabs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Tab"
+      },
+      "title": "Tabs",
+      "type": "array"
     },
     "title": {
       "title": "Title",

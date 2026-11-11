@@ -20,9 +20,16 @@ PARALOGUE_MARK_PCT = 60.0
 ORTHOLOGUE_MARK_PCT = 70.0
 
 
-def unread(found: dict[str, Any]) -> dict[str, Any] | None:
+def answered(block: dict[str, Any] | None) -> bool:
+    """Whether a block's source answered. Only an explicit False says no: `read` on a gathered block,
+    `source_read` on a computed read; a block without the key (or no block) has not been refused."""
+    block = block or {}
+    return block.get("read") is not False and block.get("source_read") is not False
+
+
+def _unanswered(found: dict[str, Any]) -> dict[str, Any] | None:
     """The block every read returns when its source did not answer, else None."""
-    if found.get("read") is False:
+    if not answered(found):
         return {"source_read": False, "known": False,
                 "evidence": found.get("note") or "the source did not answer"}
     return None
@@ -31,7 +38,7 @@ def unread(found: dict[str, Any]) -> dict[str, Any] | None:
 def structural(found: dict[str, Any]) -> dict[str, Any]:
     """Co-crystals (holo entries), apo entries and the predicted model. `co_crystals` counts the
     `entries_read`; `deposited` and `sampled` say when that is a floor."""
-    if gap := unread(found):
+    if gap := _unanswered(found):
         return {**gap, "deposited": None, "entries_read": 0, "co_crystals": 0,
                 "best_resolution_a": None, "best_pdb": None, "best_co_crystal": None,
                 "predicted_plddt": None, "sampled": False}
@@ -63,7 +70,7 @@ def structural(found: dict[str, Any]) -> dict[str, Any]:
 def chemical(found: dict[str, Any]) -> dict[str, Any]:
     """Whether measured chemical matter exists, split by inhibition and activation, and whether it is filed
     against a protein family rather than this protein alone."""
-    if gap := unread(found):
+    if gap := _unanswered(found):
         return {**gap, "potent_100nm": 0, "potent_10nm": 0, "curated": None}
     if found.get("curated") is not True:
         return {"source_read": True, "known": False, "curated": found.get("curated"),
@@ -119,7 +126,7 @@ def selectivity(homology: dict[str, Any]) -> dict[str, Any]:
 
 def development(found: dict[str, Any]) -> dict[str, Any]:
     """Pharos' target development level and patent series, passed through as Pharos' own."""
-    if gap := unread(found):
+    if gap := _unanswered(found):
         return {**gap, "level": None}
     if not found.get("known"):
         return {"source_read": True, "known": False, "level": None,
@@ -136,7 +143,7 @@ def development(found: dict[str, Any]) -> dict[str, Any]:
 def instruments(found: dict[str, Any], protein_coding: bool | None = None) -> dict[str, Any]:
     """The fine-mapped molecular QTLs on this gene, counted over the rows read. A pQTL is variation in the
     protein itself; an eQTL is variation in a transcript."""
-    if gap := unread(found):
+    if gap := _unanswered(found):
         return {**gap, "has_pqtl": None, "has_eqtl": None, "sets": 0}
     rows = found.get("by_type") or []
     pqtl = next((r for r in rows if r["type"] == "pqtl"), None)
@@ -163,7 +170,7 @@ def constraint_note(constraint: list[dict[str, Any]]) -> str | None:
 
 def protein(found: dict[str, Any]) -> dict[str, Any]:
     """Length, named domains, site counts, mutagenesis and activity regulation from UniProt."""
-    if gap := unread(found):
+    if gap := _unanswered(found):
         return {**gap, "length_aa": None, "domains": [], "binding_sites": 0, "active_sites": 0,
                 "transmembrane": 0}
     features = found.get("features") or {}

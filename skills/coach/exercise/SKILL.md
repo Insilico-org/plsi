@@ -1,16 +1,16 @@
 ---
 name: exercise
-description: Use as PLSI Coach when the user wants an exercise plan - dose exercise from their state and run-time evidence, predict it against a no-action control and propose it to PLSI for nostradamus/plan.
+description: Use as PLSI Coach when the user wants an exercise plan - dose exercise from their state and run-time evidence, predict it against a no-action control and propose it to PLSI for nostradamus/plan - or one next workout session, built from their recent Hevy workouts and sent to Hevy on approval.
 ---
 
 # PLSI exercise plan
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Coach**. Reply only in handoffs to PLSI; never message the user.
-**Status: placeholder** (designed); steps may change once it has been used.
+**Status: placeholder**.
 
 ## When to use
 
 - "Give me a workout plan", "I want to get fitter".
+- "Plan my next workout", "what should I do today?": **Next session** below, not the steps.
 - An activity picked in `navigator/activities`, or a goal in `personal_context` about fitness or exercise.
 - Not when the request `summary` names a `scope:` line (`orchestrator/urgent`): return a `result` that declines
   and names the care to point to.
@@ -70,6 +70,50 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Coach**. Reply only in 
    predictions to `work/<thread>/proposal-coach.json` (`shared/team` rule 3) and return a `result` with its path; Nostradamus merges them into the one plan, screens against `care_context`, runs `plan check`,
    has PLSI hand it to `challenger/challenge` and records and adopts only after PLSI's adoption card. Never check,
    record or adopt a plan yourself.
+
+## Next session
+
+One workout, not a plan: no predictions and no Nostradamus. A request for a program goes to the steps above.
+Only for the Hevy account's owner, the user's own instance (relation `self` in `plsi instances list`): one key is one person's log, so a session for anyone else
+(family, a patient) is a plan in chat, never a Hevy routine. Cues name the exercise and its form only (tempo,
+rest, range), a ladder written with commas ("50, 60, 70 kg"): never a reason drawn from the record (a
+condition, an injury, a medicine, a value).
+
+1. **Read** the ask (focus, minutes, what to leave out), an adopted exercise plan (`plsi status --instance
+   <instance>`, so the session fits it), the latest sleep, resting heart rate and HRV on `sleep_activity`,
+   limits in `care_context`, and the last two weeks of training:
+
+   ```bash
+   plsi hevy check
+   plsi hevy workouts --since <14 days ago> > <PLSI_HOME>/work/<thread>/hevy-workouts.json
+   ```
+
+   Hevy not connected: ask in ONE `question` what was trained in the last few days, and offer "Connect Hevy?"
+   (PLSI Wearables, `wearables/hevy`) when Wearables is on the team (`plsi team show`), else "Add PLSI Wearables to
+   connect Hevy?"; only Wearables connects it.
+
+2. **Compose** within the minutes, warm-up included: the muscle groups asked for, a muscle group worked hard in
+   the last 48 hours only lighter, and what the user excluded never. Exercises the user has done before come
+   first; their load starts from the user's own last sets of that exercise and moves up only after the last
+   session's sets were all done. A new exercise gets no weight: its note says to pick one that leaves two reps.
+   Sleep or recovery well below the user's own usual: a lighter session, and say why. Pick ids with:
+
+   ```bash
+   plsi hevy templates --muscle <muscle group>
+   plsi hevy templates --search <exercise name>
+   ```
+
+3. **Write** `<PLSI_HOME>/work/<thread>/session.json` (`title`; `notes`; `exercises` with
+   `exercise_template_id`, `rest_seconds`, short `notes` with cues and `sets` with `type`, `reps`, `weight_kg`,
+   `duration_seconds`) and check it; its notes are about the exercises only, never health details:
+
+   ```bash
+   plsi hevy routine --file <PLSI_HOME>/work/<thread>/session.json
+   ```
+
+4. **Return one `result`**: the session as the user reads it (exercise, sets × reps, weight, rest, about how many
+   minutes, and why it looks like this), `session.json` and its `session_hash` in `files`, and the card "Put it in
+   Hevy?" (Yes / Change something / No). Without Hevy: the session only.
 
 ## Rules
 

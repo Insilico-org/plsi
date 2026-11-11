@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import json
 import time
+from collections import Counter
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 from plsi import codes, files, keys, paths, references
 from plsi.clock import now
-from plsi.errors import EnvironmentProblem, GateFailed, NetworkError, NotFound, ValidationError, violation
+from plsi.errors import EnvironmentProblem, GateFailed, NetworkError, NotFound, UsageError, ValidationError, violation
 from plsi.files import load_json, sha256_hex
 from plsi.map import mapper, registry
 from plsi.models import CAP_REPLY, parse, sanitize_external
@@ -32,6 +33,11 @@ PANDACLAW_FAILED = {"failed", "error", "cancelled", "canceled"}
 MAX_WAIT_SECONDS = 60
 CAP_TOOL = 4_000
 CAP_SAVED = 500_000  # the --out file: the whole answer, still capped
+# Paid calls per oracle family per UTC day, counted off the egress ledgers before anything is sent. The default
+# is not a judgment about anybody's plan; PLSI_ORACLE_DAILY_CAP changes it.
+DAILY_CALL_CAP = 25
+CAP_ENV = "PLSI_ORACLE_DAILY_CAP"
+MCP_DEADLINE_S = 120.0
 
 
 def build_outbound(inp: OracleInput) -> str:
@@ -61,12 +67,6 @@ def build_outbound(inp: OracleInput) -> str:
         seen = f", observed {cv.observed_at:%Y-%m}" if cv.observed_at else ""
         lines.append(f"- {cid}: {value} ({cv.status.value}{seen})")
     return f"{prompt}\n\n" + "\n".join(lines)
-
-
-# Paid calls per oracle family per UTC day, counted off the egress ledgers before anything is sent. The default
-# is not a judgment about anybody's plan; PLSI_ORACLE_DAILY_CAP changes it.
-DAILY_CALL_CAP = 25
-CAP_ENV = "PLSI_ORACLE_DAILY_CAP"
 
 
 def _cap() -> int:
@@ -100,12 +100,9 @@ def _billed_rows() -> list[dict[str, Any]]:
 
 def spent_today() -> dict[str, int]:
     """Billed outbound calls made this UTC day, per oracle family."""
-    today, counts = now().date().isoformat(), {}
-    for row in _billed_rows():
-        if str(row.get("at") or "").startswith(today):
-            name = _family(row.get("oracle"))
-            counts[name] = counts.get(name, 0) + 1
-    return counts
+    today = now().date().isoformat()
+    return dict(Counter(_family(row.get("oracle")) for row in _billed_rows()
+                        if str(row.get("at") or "").startswith(today)))
 
 
 def asked(family: str, tool: str | None = None, days: int | None = None) -> bool:
@@ -154,11 +151,10 @@ def _reply(text: str, origin: str, sent: str, **extra: Any) -> dict[str, Any]:
 
 
 def token_env(service: str) -> str:
-    """The env name holding a service's bearer token."""
     return f"{service.upper()}_BEARER_TOKEN"
 
 
-def _client(service: str, deadline_s: float = 120.0) -> McpClient:
+def _client(service: str, deadline_s: float = MCP_DEADLINE_S) -> McpClient:
     """MCP client for a service; env <SERVICE>_MCP_URL overrides the reference api_base, <SERVICE>_BEARER_TOKEN is required."""
     url = keys.get(f"{service.upper()}_MCP_URL") or references.api_base(service)
     return McpClient(url, keys.require(token_env(service)), deadline_s=deadline_s)
@@ -171,8 +167,9 @@ def _work_file(out: str) -> Path:
     return path
 
 
-def _input(file: str) -> OracleInput:
-    return parse(OracleInput, load_json(file), "oracle input")
+def _as_text(result: Any) -> str:
+    """An MCP tool result as text: a string as it came, anything else as indented JSON."""
+    return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, indent=1)
 
 
 def pandaclaw(file: str | None = None, session_id: str | None = None, out: str | None = None,
@@ -181,16 +178,18 @@ def pandaclaw(file: str | None = None, session_id: str | None = None, out: str |
     read_answer only when the run did not fail. `--session S` follows a run that is still going (after a timeout or
     interruption) without asking again. `--out` keeps the whole answer in a work file, sanitized, its first line
     marking it external_text."""
+    if not (file or session_id):
+        raise UsageError("give --file F to ask, or --session S to follow a run")
     target = _work_file(out) if out else None
     args: dict[str, Any] = {"query": ""}
     instance = None
     if file:
-        inp = _input(file)
+        inp = parse(OracleInput, load_json(file), "oracle input")
         args, instance = {"query": build_outbound(inp), **({"skill": inp.skill} if inp.skill else {})}, inp.instance
     text = "" if session_id else json.dumps(args, ensure_ascii=False)  # the ask's arguments, as sent
-    client = client or _client("pandaclaw", PANDACLAW_DEADLINE_S + 120)
-    resuming, web_url, since = bool(session_id), None, 0
-    if not resuming:
+    client = client or _client("pandaclaw", PANDACLAW_DEADLINE_S + MCP_DEADLINE_S)
+    web_url, since = None, 0
+    if not session_id:
         _egress("pandaclaw", text, instance)
         opened = client.call_tool("ask", args, timeout=120)
         if not isinstance(opened, dict) or "session_id" not in opened:
@@ -245,8 +244,7 @@ def pandaclaw_skills(catalog: str = PandaclawCatalog.RECOMMENDED, topic: str | N
     args = {"catalog": str(catalog), **({"topic": topic} if topic else {})}
     client = _client("pandaclaw")
     _egress("pandaclaw:list_skills", json.dumps(args, ensure_ascii=False), billed=False)
-    skills = client.call_tool("list_skills", args)
-    text = skills if isinstance(skills, str) else json.dumps(skills, ensure_ascii=False, indent=1)
+    text = _as_text(client.call_tool("list_skills", args))
     return {"skills": sanitize_external(text, CAP_REPLY, "pandaclaw").model_dump(mode="json")}
 
 
@@ -266,6 +264,4 @@ def pandaomics_call(tool: str, file: str) -> dict[str, Any]:
     sent = json.dumps(args, ensure_ascii=False)
     client = _client("pandaomics")
     _egress(f"pandaomics:{tool}", sent)
-    result = client.call_tool(tool, args, timeout=120)
-    text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, indent=1)
-    return _reply(text, "pandaomics", sent)
+    return _reply(_as_text(client.call_tool(tool, args, timeout=120)), "pandaomics", sent)

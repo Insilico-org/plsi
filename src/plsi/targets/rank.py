@@ -11,9 +11,8 @@ import re
 from typing import Any
 
 from plsi.targets import gaps, reads, store
-from plsi.targets.drugs import BLACK_BOX, WITHDRAWN
-from plsi.targets.opentargets import CAUSAL_DATATYPES
-from plsi.vocab.targets import ClinicalStage, ModalityPrecedent, TargetBand, TargetModality
+from plsi.vocab.targets import (BLACK_BOX, CAUSAL_DATATYPES, WITHDRAWN, ClinicalStage, ModalityPrecedent,
+                                TargetBand, TargetModality)
 
 # Open Targets tractability buckets that mean a drug of that modality reached people. Any other true bucket
 # means chemical or structural matter exists and nothing has been dosed.
@@ -83,22 +82,32 @@ def molecule(name: str) -> str:
     return " ".join(words)
 
 
+def molecules(rows: list[dict[str, Any]]) -> list[str]:
+    """Distinct molecules among the rows' drugs, salt forms collapsed, in the source's own spelling."""
+    seen: dict[str, str] = {}
+    for row in rows:
+        if name := str(row.get("drug") or "").strip():
+            seen.setdefault(molecule(name), name)
+    return sorted(seen.values())
+
+
+def _warned(assets: list[dict[str, Any]], kind: str) -> list[str]:
+    """The assets carrying a ChEMBL warning of this kind (WITHDRAWN, BLACK_BOX)."""
+    return sorted({a.get("drug") for a in assets if any(w.get("kind") == kind for w in a.get("warnings") or [])})
+
+
 def stage(assets: list[dict[str, Any]], indication: dict[str, Any] | None = None) -> dict[str, Any]:
     """How far drugs against this target have gone: `stage` is scoped to the named indication (from Open
     Targets' per-pair drug evidence) and `stage_any_indication` is the furthest anywhere; `stage_read` is False
     when the per-indication evidence was not read. Stage words that are not stages are counted in `unrecognised`."""
-    known = [s for s in (ClinicalStage.parse(a.get("max_stage_as_sourced")) for a in assets) if s]
-    molecules = {molecule(a.get("drug")) for a in assets if str(a.get("drug") or "").strip()}
+    known = ClinicalStage.parse_all(a.get("max_stage_as_sourced") for a in assets)
+    distinct = len(molecules(assets)) or len(assets)
     anywhere = ClinicalStage.top(known).value
-    withdrawn = sorted({a.get("drug") for a in assets
-                        if any(w.get("kind") == WITHDRAWN for w in a.get("warnings") or [])})
-    boxed = sorted({a.get("drug") for a in assets
-                    if any(w.get("kind") == BLACK_BOX for w in a.get("warnings") or [])})
+    withdrawn, boxed = _warned(assets, WITHDRAWN), _warned(assets, BLACK_BOX)
     here = (indication or {}).get("drugs_here") or {}
-    scoped = here.get("stage") if here.get("read") is not False else None
+    scoped = here.get("stage") if reads.answered(here) else None
     out = {"stage_any_indication": anywhere, "assets": len(assets),
-           "molecules": len(molecules) or len(assets),
-           "salt_forms": max(0, len(assets) - (len(molecules) or len(assets))),
+           "molecules": distinct, "salt_forms": max(0, len(assets) - distinct),
            "unrecognised": len(assets) - len(known),
            "withdrawn": withdrawn, "black_boxed": boxed,
            "safety_precedent": (f"{len(withdrawn)} asset(s) withdrawn and {len(boxed)} carrying a boxed "
@@ -126,7 +135,7 @@ def direction(indication: dict[str, Any] | None) -> dict[str, Any]:
     here = (indication or {}).get("drugs_here") or {}
     if not indication:
         return {"known": False, "evidence": "no disease was named: a direction belongs to a pair"}
-    if here.get("read") is False:
+    if not reads.answered(here):
         return {"known": False, "source_read": False,
                 "evidence": "the per-indication evidence was not read on this gather"}
     rows = here.get("directions") or []
@@ -229,7 +238,7 @@ def show(gene: str) -> dict[str, Any]:
     """`plsi targets show --gene <SYMBOL>`: a stored dossier's identity, computed reads and assessment, read
     offline from <PLSI_HOME>/targets/<gene>/ (it contacts nothing)."""
     document = store.load(gene)
-    facts = document.get("facts") or {}
+    facts = document["facts"]
     target = facts.get("target") or {}
     return {"gene": document.get("gene"), "name": facts.get("name"), "gathered": document.get("gathered"),
             "ensembl_id": facts.get("ensembl_id"), "uniprot": target.get("uniprot"),

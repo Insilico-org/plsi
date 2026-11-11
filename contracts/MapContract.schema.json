@@ -115,6 +115,11 @@
           "title": "From Unit",
           "type": "string"
         },
+        "offset": {
+          "default": 0.0,
+          "title": "Offset",
+          "type": "number"
+        },
         "source": {
           "$ref": "#/$defs/SourceRef"
         }
@@ -188,6 +193,13 @@
           "minLength": 1,
           "title": "Model",
           "type": "string"
+        },
+        "window_days": {
+          "default": 0,
+          "maximum": 90,
+          "minimum": 0,
+          "title": "Window Days",
+          "type": "integer"
         }
       },
       "required": [

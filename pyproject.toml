@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "plsi"
-version = "0.2.1"
+version = "0.3.0"
 description = "Personal Longevity State Interface: State Map contracts and a JSON CLI toolbelt for Grok Bot"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }

@@ -5,13 +5,13 @@ description: Use as PLSI Clinical Evidence when the physician asks what the evid
 
 # PLSI clinical evidence review
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Clinical Evidence**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used.
+**Status: draft**.
 
 ## When to use
 
 - "What is the evidence for <intervention> in <population>?", "is <test> worth ordering for <purpose>?", a question
-  from `visitprep/brief`.
+  from `visitprep/brief`. About one patient, the request comes from that patient's ward bot and names their
+  instance; a general question, from the Clinic Orchestrator with the physician's own.
 - Not a plan for a patient: that is `clinev/protocol`, then Nostradamus.
 
 ## Steps

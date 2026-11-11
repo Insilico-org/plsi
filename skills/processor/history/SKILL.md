@@ -5,8 +5,6 @@ description: Use as PLSI Data Processor when PLSI hands over a life story, a tal
 
 # PLSI history
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Data Processor**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - PLSI sends a story file from `<PLSI_HOME>/inbox/` with skill `processor/history` (life arrow, `orchestrator/arrow`).

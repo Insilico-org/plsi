@@ -9,27 +9,22 @@ from __future__ import annotations
 
 from typing import Any
 
+from plsi.research.schema import search_counts
 from plsi.research.store import Graph
+from plsi.research.tuning import AGGREGATE_WEIGHT, DEPTH_FLOOR, MIN_ABSENCE_ROUNDS
 from plsi.vocab import fold
 from plsi.vocab.research import (LIVE, OFF_TARGET_SPECIES, RESOLVED, ResearchDepth, ResearchDesign, ResearchNodeKind,
                                  ResearchVerdict)
-
-AGGREGATE_WEIGHT = 2  # replicated by construction; never the pooled count, which is a number nobody can check
-MIN_ABSENCE_ROUNDS = 2  # "none found" is earned by two rounds with different vocabularies, not by one
-# The weakest verdict an answer may have for the topic to finish as `answered`; `None` is no bar. Below the
-# floor the topic ends `exhausted` once the frontier empties. `fast` has no bar because `refuted` is a real
-# result and ranks lowest.
-DEPTH_FLOOR: dict[ResearchDepth, ResearchVerdict | None] = {
-    ResearchDepth.FAST: None,
-    ResearchDepth.STANDARD: ResearchVerdict.THIN,
-    ResearchDepth.DEEP: ResearchVerdict.SUPPORTED,
-    ResearchDepth.EXHAUSTIVE: ResearchVerdict.SUPPORTED,
-}
 
 
 def floor_words(depth: ResearchDepth) -> str:
     """What an answer must reach for a topic at this depth to finish, as `answer_must_reach` says it."""
     return str(DEPTH_FLOOR[depth] or "any answer at all")
+
+
+def tested_against(finding: dict[str, Any]) -> set[str]:
+    """The hypotheses a finding is linked to, for or against."""
+    return set((finding.get("supports") or []) + (finding.get("contradicts") or []))
 
 
 def live_hypotheses(graph: Graph, question: str) -> list[dict[str, Any]]:
@@ -99,7 +94,7 @@ def evidence(graph: Graph, hypothesis: str) -> dict[str, Any]:
     against = [f for f in pool if hypothesis in (f.get("contradicts") or []) and f["name"] not in dissolved
                and str(f.get("species") or "") not in OFF_TARGET_SPECIES]
     set_aside = {f["name"] for f in pool
-                 if hypothesis in (f.get("supports") or []) + (f.get("contradicts") or [])
+                 if hypothesis in tested_against(f)
                  and (f["name"] in dissolved or str(f.get("species") or "") in OFF_TARGET_SPECIES
                       or (f.get("design") == ResearchDesign.PERSONAL_RECORD
                           and hypothesis in (f.get("supports") or [])))}
@@ -146,11 +141,11 @@ def question_verdict(graph: Graph, question: str, _seen: frozenset[str] = frozen
     node = graph.nodes.get(question, {})
     cited = [c for c in (node.get("cites") or []) if c in graph.nodes and c not in _seen]
     if str(node.get("answer") or "").strip() and cited:
-        return _answer_verdict(graph, question, cited, _seen | {question})["verdict"]
+        return _answer_verdict(graph, cited, _seen | {question})["verdict"]
     return weakest([verdict(graph, h["name"]) for h in live_hypotheses(graph, question)])
 
 
-def _answer_verdict(graph: Graph, question: str, cited: list[str], seen: frozenset[str]) -> dict[str, Any]:
+def _answer_verdict(graph: Graph, cited: list[str], seen: frozenset[str]) -> dict[str, Any]:
     """How strong an answer may be, and what caps it.
 
     Cited claims (live hypotheses and child questions) are steps and the answer takes the weakest of them.
@@ -181,7 +176,7 @@ def is_recorded_absence(graph: Graph, name: str) -> bool:
     """A question that was searched and holds nothing: a boundary of what is known, distinct from `untested`."""
     node = graph.nodes.get(name, {})
     return (node.get("kind") == ResearchNodeKind.QUESTION
-            and int((node.get("last_search") or {}).get("rounds") or 0) >= MIN_ABSENCE_ROUNDS
+            and search_counts(node)["rounds"] >= MIN_ABSENCE_ROUNDS
             and not graph.findings_of(name) and not graph.hypotheses_of(name))
 
 
@@ -191,7 +186,7 @@ def answered(graph: Graph, question: str) -> dict[str, Any] | None:
     if not str(node.get("answer") or "").strip():
         return None
     cited = [c for c in (node.get("cites") or []) if c in graph.nodes]
-    read = _answer_verdict(graph, question, cited, frozenset({question}))
+    read = _answer_verdict(graph, cited, frozenset({question}))
     return {"question": question, "answer": node["answer"], "verdict": read["verdict"],
             "cites": cited, "cited_verdicts": read["graded"], "ruled_out": read["ruled_out"],
             "rests_on": read["rests_on"], "limited_by": read["limited_by"],

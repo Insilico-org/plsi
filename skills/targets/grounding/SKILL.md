@@ -5,7 +5,7 @@ description: Use as PLSI Target Hunter on demand, before writing an assessment o
 
 # Grounding a target claim
 
-Follow `persona.md` (repo root) and `shared/team`. Owner: **PLSI Target Hunter**. Craft, read when needed, not on
+Craft, read when needed, not on
 every run.
 
 In a target report a sentence written from a paper looks the same as one written from memory. These rules keep them
@@ -116,9 +116,9 @@ identified ...", written in `limitations`, or elsewhere only with a source ident
 
 Check this before writing any sentence containing "no".
 
-## Handing a target to the research bots
+## Handing a target to the Research Orchestrator
 
-`plsi targets brief --gene <SYMBOL> --question "<question>"` is the only way a dossier reaches them; it writes
+`plsi targets brief --gene <SYMBOL> --question "<question>"` is the only way a dossier reaches it; it writes
 nothing into a research topic or a note. Each row hands over the claim, the identifier, the stored record and a
 suggested `design` and `species`. Save its output under `<PLSI_HOME>/work/<thread>/` and say, when passing it on:
 

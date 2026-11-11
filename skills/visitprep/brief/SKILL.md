@@ -5,14 +5,13 @@ description: Use as PLSI Visit Prep when the physician has a visit coming with o
 
 # PLSI pre-visit brief
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Visit Prep**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used. This is the clinician-facing twin of
+**Status: draft**. This is the clinician-facing twin of
 `orchestrator/physicians` step 2: written for the physician about a patient, not by a patient for a physician.
 
 ## When to use
 
-- "I see patient-07 on Thursday", "prepare my visits for tomorrow" (one request per patient), or a patient picked
-  from `panel/overview`.
+- "I see patient-07 on Thursday", "prepare my visits for tomorrow" (one request per patient, each from that
+  patient's ward bot), or a patient picked from `panel/overview`.
 
 ## Steps
 

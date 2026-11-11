@@ -5,7 +5,6 @@ description: Use as PLSI Nostradamus after every plan proposal, and when the use
 
 # PLSI trajectory
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Nostradamus**. Reply only in handoffs to PLSI; never message the user.
 Nostradamus predicts; PLSI renders it (`visualizer/dashboard`, scope "trajectory brief"). Every number comes from a
 state, a `plsi calc derive` output, a `base_rate` reference, a verified paper or the plan's predictions; nothing is
 estimated by hand.

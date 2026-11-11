@@ -1,12 +1,11 @@
 ---
 name: clinic
-description: Use as PLSI Panel when the physician wants a patient to exchange files with them through Google Drive - connect Drive once, set up a patient's inbox and shared folders, take in what patients uploaded (the clinic sync), and put a report the physician approved into the patient's shared folder. The patient needs only a Google account, not Grok.
+description: Use as PLSI Panel when the physician wants a patient to exchange files with them through Google Drive - connect Drive once, set up a patient's inbox and shared folders, take in what patients uploaded (the clinic sync), put a report the physician approved into the patient's shared folder, and keep the clinic dashboard. The patient needs only a Google account, not Grok.
 ---
 
 # PLSI clinic folders
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Panel**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used. The user here is a physician.
+**Status: draft**. The user here is a physician.
 
 Each patient on the panel can have two Drive folders: an **inbox** the patient uploads to (labs, letters, a PLSI
 export, an Apple Health export) and a **shared** folder the patient reads (reports the physician approved). Both ids
@@ -16,8 +15,12 @@ sit in the patient's row of `<PLSI_HOME>/work/panel/roster.json` (`panel/roster`
 ## When to use
 
 - "Let patient-07 send me files", "set up Drive for my patients".
-- The clinic sync: PLSI's routine (daily, when the physician turned it on) or "check what my patients sent".
-- A report for a patient the physician approved (`visualizer/dashboard`, scope **patient report**).
+- "Show my clinic dashboard", "a dashboard of all my patients".
+- The clinic sync: the Clinic Orchestrator's routine "PLSI clinic sync" (daily, when the physician turned it on) or
+  "check what my patients sent".
+- A report for a patient the physician approved (`visualizer/dashboard`, scope **patient report**), from that
+  patient's ward bot.
+- Setup, invites and sharing come from the Clinic Orchestrator; a report or a patient's files from the ward bot.
 
 ## Steps
 
@@ -82,7 +85,8 @@ sit in the patient's row of `<PLSI_HOME>/work/panel/roster.json` (`panel/roster`
    address. With the connector: share each folder with the notify option on (off by default, and then Drive tells
    the patient nothing), then pipe each folder's permissions to `plsi clinic sharing --patient <label> --folder
    inbox|shared` (stdin; it keeps nothing) and `plsi clinic link --patient <label> --patient-id <the patient's
-   permission id>`. Always offer the physician a `liaison/message` with both folder links.
+   permission id>`. Always offer the physician a `liaison/message` with both folder links (through that patient's ward
+   bot).
 
 3. **Clinic sync.** Service account: `plsi clinic sync` pulls every active inbox (files already taken in are not
    downloaded again). Connector: list each active inbox; skip a file whose id is in `synced.jsonl` unless Drive
@@ -94,10 +98,11 @@ sit in the patient's row of `<PLSI_HOME>/work/panel/roster.json` (`panel/roster`
    it, omitted for a Google Doc or Sheet you exported (Drive has no size for those). Run `plsi clinic sync --file
    listing.json`.
    Then:
-   - `new`: moved into `<PLSI_HOME>/inbox/<label>/`; never open them yourself. Any `.zip` goes to Wearables
-     (`wearables/import`, `plsi apple export`); one it answers `APPLE_EXPORT_FORMAT` for, and everything else, to
-     Data Processor (`processor/intake`) with the path and `document` (the Drive file id). `revised: true`: a new
-     version of a file already taken in; Data Processor applies it with `plsi revise --document <file id>`.
+   - `new`: moved into `<PLSI_HOME>/inbox/<label>/`; never open them yourself. List them per label as the work for
+     that patient's ward bot, which PLSI hands them to: any `.zip` for Wearables (`wearables/import`, `plsi apple
+     export`); one it answers `APPLE_EXPORT_FORMAT` for, and everything else, for Data Processor
+     (`processor/intake`) with the path and `document` (the Drive file id). `revised: true`: a new version of a file
+     already taken in; Data Processor applies it with `plsi revise --document <file id>`.
    - `duplicate`, `held` (paused, closed or no instance yet), `unrouted` (not a patient inbox): delete the download
      unopened; name held and unrouted ones once.
    - `failed` (an inbox that cannot be listed, a file too large or slow to download): never counted as taken in.
@@ -110,9 +115,9 @@ sit in the patient's row of `<PLSI_HOME>/work/panel/roster.json` (`panel/roster`
    patient's upload. After a sync, copy its `notice` lines (handle and label, counts only, "JD (patient-07): 2 new
    file(s), 1 failed") into the `result` unchanged; PLSI tells the physician in chat, and nothing when `notice` is
    empty.
-   Everything else waits for the weekly check-in (`panel/overview`): `waiting` files, held and unrouted ones; with
-   the connector, also each shared patient folder's permissions through `plsi clinic sharing`. Nothing ever goes
-   to the patient automatically.
+   Everything else waits for the weekly panel overview (`panel/overview`): `waiting` files, held and unrouted ones;
+   with the connector, also each shared patient folder's permissions through `plsi clinic sharing`. Nothing ever
+   goes to the patient automatically.
 
 5. **Publish a report.** Only a PDF that Data Controller cleared (`controller/egress`, kind "patient report") and the
    physician approved on its card, from that patient's own reports folder:
@@ -127,7 +132,17 @@ sit in the patient's row of `<PLSI_HOME>/work/panel/roster.json` (`panel/roster`
    rule, then `plsi clinic link --patient <label> --reviewed <as-of>`. Offer the physician a `liaison/message`
    telling the patient a report is in their folder (Drive does not say so).
 
-6. **Return one `result`**: per patient, what was set up, taken in, handed on, held, failed or published.
+6. **Clinic dashboard.** `plsi clinic dashboard` writes `<PLSI_HOME>/work/clinic-dashboard/dashboard.html`: a tab
+   for the whole panel and one per active or paused patient (visits and records, blood and lab tests, body and
+   vitals, wearables, medicines, conditions, diet and lifestyle, plans, follow-ups). Once it exists, every `plsi`
+   command that changes records, plans or the roster rebuilds it; after editing `roster.json` (`panel/roster`), run
+   it yourself. `ROSTER_INVALID`: `plsi clinic check` names the patients who could be confused;
+   `CLINIC_DASHBOARD_STALE` in a warning: run it and report the error. When the physician asks for it, put the path
+   in `files`; the Clinic Orchestrator sends it in the chat: it opens in a browser, and a downloaded copy does not
+   update. It holds handles and medicines as written: only for the physician, never in a message, a Drive folder or
+   a patient report.
+
+7. **Return one `result`**: per patient, what was set up, taken in, handed on, held, failed or published.
 
 ## Rules
 

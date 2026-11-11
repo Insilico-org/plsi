@@ -10,33 +10,24 @@ from pydantic import Field, model_validator
 from plsi.files import hash_json
 from plsi.events import register_payload
 from plsi.map.models import CareContext, CoordinateValue
-from plsi.models import (
-    Code,
-    EventId,
-    ExternalText,
-    Id,
-    LocalId,
-    Model,
-    PrefixedHash,
-    RealId,
-    SourceRef,
-    UtcTime,
-    coherence_errors,
-)
+from plsi.models import Code, EventId, ExternalText, Id, LocalId, Model, PrefixedHash, RealId, SourceRef, UtcTime
 from plsi.vocab import (
-    ActionCategory,
-    CodeSystem,
-    Direction,
-    EventType,
-    EvidenceClass,
-    PlanDecision,
-    PlanState,
-    PredictionTarget,
-    ScoreStatus,
-    Severity,
-    SourceKind,
-    SourceStatus,
+    LITERATURE_SOURCE_KINDS, ActionCategory, CodeSystem, Direction, EventType, EvidenceClass,
+    PlanDecision, PlanState, PredictionTarget, ScoreStatus, Severity, SourceKind, SourceStatus
 )
+
+
+def coherence_errors(evidence_class: EvidenceClass, sources: list[SourceRef]) -> list[str]:
+    """Source-kind coherence shared by claims and prediction bases."""
+    kinds = {s.kind for s in sources}
+    need = {
+        EvidenceClass.EVIDENCE_BACKED: (LITERATURE_SOURCE_KINDS, "pmid, doi, nct, label or evipedia"),
+        EvidenceClass.RULE_DERIVED: ({SourceKind.RULE}, "rule"),
+        EvidenceClass.MODEL_DERIVED: ({SourceKind.MODEL}, "model"),
+    }.get(evidence_class)
+    if need and not kinds & need[0]:
+        return [f"{evidence_class.value} requires at least one source of kind {need[1]}"]
+    return []
 
 
 class ActionInput(Model):
@@ -187,7 +178,6 @@ class PlanInput(Model):
         return hash_json(self.dump())
 
     def map_ids(self) -> list[str]:
-        """The maps the plan's predictions use, sorted."""
         return sorted({p.map_id for p in self.predictions})
 
 

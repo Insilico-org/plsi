@@ -1,4 +1,1 @@
-"""Map layer: State Maps (registry), projection of the event log into state documents (mapper), clocks, storyline.
-
-The only projection layer; Policy reads the world exclusively through it.
-"""
+"""Map layer: State Maps, the projection of the event log into state documents, clocks and calculators (see README.md)."""

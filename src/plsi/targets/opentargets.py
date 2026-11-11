@@ -13,26 +13,7 @@ from typing import Any
 from plsi import net, references
 from plsi.errors import NetworkError, NotFound, warn
 from plsi.models import TRUNCATED, external_str
-from plsi.vocab.targets import TargetModality
-
-MODALITY_CODES = {"SM": TargetModality.SMALL_MOLECULE, "AB": TargetModality.ANTIBODY,
-                  "PR": TargetModality.PROTAC, "OC": TargetModality.OTHER}
-
-# Open Targets association datatypes. An id outside this list warns (`UNKNOWN_DATATYPE`) and never decides a
-# band, so an upstream rename shows up instead of emptying a band.
-TARGET_DATATYPES = ("genetic_association", "genetic_literature", "somatic_mutation", "clinical",
-                    "affected_pathway", "rna_expression", "literature", "animal_model")
-# The datatypes that bear on causation. `genetic_literature` is text-mined, not a curated association, so it
-# is not among them.
-CAUSAL_DATATYPES = frozenset({"genetic_association", "somatic_mutation", "animal_model"})
-# The direction-of-effect pairs (directionOnTrait, directionOnTarget), in words. A pair outside these four is
-# counted as unrecognised.
-DIRECTION_MEANING: dict[tuple[str, str], str] = {
-    ("protect", "LoF"): "loss of function is assessed as protective",
-    ("risk", "GoF"): "gain of function is assessed as increasing risk",
-    ("protect", "GoF"): "gain of function is assessed as protective",
-    ("risk", "LoF"): "loss of function is assessed as increasing risk",
-}
+from plsi.vocab.targets import MODALITY_CODES, TARGET_DATATYPES
 
 CAP_PROSE = 1_000  # a description: a disease definition, a protein's function, a drug warning
 
@@ -79,6 +60,7 @@ ONE_ASSOCIATION = """query One($id: String!, $ids: [String!]) {
   }
 }"""
 
+
 def prose(value: Any) -> str:
     """A long description with UniProt's inline `(PubMed:...)` evidence tags removed (markup, not citations),
     cut at the last sentence that fits CAP_PROSE."""
@@ -89,9 +71,22 @@ def prose(value: Any) -> str:
     return external_str(clean, CAP_PROSE)
 
 
+def rounded(value: Any, digits: int = 4) -> float:
+    """A source's score as a float (a missing one is 0.0), rounded for the record."""
+    return round(float(value or 0.0), digits)
+
+
 def query(document: str, variables: dict[str, Any]) -> dict[str, Any]:
-    """One Open Targets GraphQL exchange (`net.graphql`)."""
     return net.graphql(references.api_base("open_targets"), document, variables)
+
+
+def entity(document: str, variables: dict[str, Any], kind: str, key: str) -> dict[str, Any]:
+    """The `target` or `disease` a query reads; NotFound (TARGET_NOT_FOUND, DISEASE_NOT_FOUND) when the
+    source holds none for `key`."""
+    found = query(document, variables).get(kind)
+    if not found:
+        raise NotFound(f"Open Targets has no {kind} {key!r}", code=f"{kind.upper()}_NOT_FOUND")
+    return found
 
 
 def _hits(term: str, kind: str, limit: int) -> list[dict[str, Any]]:
@@ -157,7 +152,7 @@ def scores(row: dict[str, Any]) -> dict[str, float]:
         if key not in TARGET_DATATYPES:
             warn("UNKNOWN_DATATYPE", f"Open Targets returned the datatype {key!r}, which this version does not "
                                      "know; it is shown but does not decide a band")
-        out[key] = round(float(item.get("score") or 0.0), 4)
+        out[key] = rounded(item.get("score"))
     return out
 
 
@@ -174,9 +169,7 @@ def tractability(items: list[dict[str, Any]] | None) -> dict[str, list[str]]:
 
 def associated_targets(efo_id: str, limit: int) -> dict[str, Any]:
     """Targets the evidence associates with a disease, ranked by Open Targets' own score (never ours)."""
-    disease = query(ASSOCIATED, {"efo": efo_id, "n": limit}).get("disease")
-    if not disease:
-        raise NotFound(f"Open Targets has no disease {efo_id!r}", code="DISEASE_NOT_FOUND")
+    disease = entity(ASSOCIATED, {"efo": efo_id, "n": limit}, "disease", efo_id)
     assoc = disease.get("associatedTargets") or {}
     rows = []
     for row in assoc.get("rows") or []:
@@ -185,7 +178,7 @@ def associated_targets(efo_id: str, limit: int) -> dict[str, Any]:
             "ensembl_id": target.get("id"), "symbol": external_str(target.get("approvedSymbol")),
             "name": external_str(target.get("approvedName")),
             "classes": [external_str(c.get("label")) for c in target.get("targetClass") or []][:4],
-            "association": round(float(row.get("score") or 0.0), 4),
+            "association": rounded(row.get("score")),
             "datatypes": scores(row),
             "tractability": tractability(target.get("tractability")),
             "essential": target.get("isEssential"),
@@ -198,7 +191,7 @@ def disease_row(row: dict[str, Any]) -> dict[str, Any]:
     """One `associatedDiseases` row: the disease, Open Targets' association score and its datatype breakdown."""
     disease = row.get("disease") or {}
     return {"id": disease.get("id"), "name": external_str(disease.get("name")),
-            "association": round(float(row.get("score") or 0.0), 4), "datatypes": scores(row)}
+            "association": rounded(row.get("score")), "datatypes": scores(row)}
 
 
 def association(ensembl_id: str, efo_id: str) -> dict[str, Any] | None:

@@ -9,6 +9,8 @@ from typing import Any
 
 from plsi import __version__, errors, keys, net, paths, references
 
+REACH_TIMEOUT_S = 15  # per reference, for --online
+
 
 def _version(dist: str) -> str | None:
     try:
@@ -19,20 +21,19 @@ def _version(dist: str) -> str | None:
 
 def _reachable(url: str) -> str:
     try:
-        net.request("GET", url, timeout=15)
+        net.request("GET", url, timeout=REACH_TIMEOUT_S)
         return "ok"
     except errors.NetworkError as exc:
         return "ok" if exc.status is not None else "unreachable"
 
 
 def doctor(online: bool = False) -> dict[str, Any]:
-    """`plsi doctor`."""
     versions = {"plsi": __version__, "python": platform.python_version(), "pydantic": _version("pydantic"),
                 "pyyaml": _version("PyYAML"), "biolearn": _version("biolearn")}
     home = paths.plsi_home()
     fixes: list[str] = []
     if versions["biolearn"] is None:
-        fixes.append('methylation clocks: python -m pip install -e "<repo>[clocks]"')
+        fixes.append(f"methylation clocks: {errors.CLOCKS_EXTRA}")
     if not keys.env_file().is_file():
         fixes.append("optional keys: copy .env.example to .env and fill only what you use")
     try:
@@ -48,7 +49,7 @@ def doctor(online: bool = False) -> dict[str, Any]:
         "plsi_home_exists": home.is_dir(),
         "keys": {name: {"set": is_set, "unlocks": keys.UNLOCKS[name]} for name, is_set in status.items()},
         "references": len(refs),
-        "maps": sorted(p.stem for p in (paths.REPO_ROOT / "maps").glob("*.yaml")),
+        "maps": sorted(p.stem for p in paths.MAPS_DIR.glob("*.yaml")),
         "fixes": fixes,
     }
     if online:

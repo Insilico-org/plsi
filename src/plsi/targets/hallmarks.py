@@ -46,7 +46,7 @@ AGING_MECHANISMS: dict[str, tuple[int | None, tuple[AgingHallmark, ...]]] = {
 }
 
 # Hallmarks no Open Genes mechanism maps onto: the source has no vocabulary for them.
-HALLMARKS_NOT_IN_OPEN_GENES = frozenset({AgingHallmark.DYSBIOSIS})
+HALLMARKS_NOT_IN_OPEN_GENES = frozenset(AgingHallmark) - {h for _, under in AGING_MECHANISMS.values() for h in under}
 
 
 def _hallmarks_of(mechanisms: list[str]) -> tuple[dict[str, list[str]], list[str]]:
@@ -108,8 +108,7 @@ def frame(facts: dict[str, Any]) -> dict[str, Any]:
 def hallmarks(gene: str) -> dict[str, Any]:
     """`plsi targets hallmarks --gene <SYMBOL>`: the aging frame for a gathered target (no network)."""
     document = store.load(gene)
-    facts = document.get("facts") or {}
-    found = frame(facts)
+    found = frame(document["facts"])
     return {**found, "gathered": document.get("gathered"),
             "empty": "this target has no Open Genes record, so there is no hallmark evidence to frame - "
                      "which is an absence of curation and not a statement that it has nothing to do with "
@@ -123,7 +122,7 @@ def candidates(name: str, limit: int) -> dict[str, Any]:
     (no disease is named) and no ranking. `name` is one of the closed AgingHallmark values."""
     hallmark = AgingHallmark(name)
     under = {mechanism: entry for mechanism, entry in AGING_MECHANISMS.items() if hallmark in entry[1]}
-    if hallmark in HALLMARKS_NOT_IN_OPEN_GENES or not under:
+    if hallmark in HALLMARKS_NOT_IN_OPEN_GENES:
         return {"hallmark": hallmark.value, "mechanisms": [], "candidates": [], "found": 0, "shown": 0,
                 "unsearchable": [],
                 "empty": f"Open Genes has no mechanism vocabulary under {hallmark.value!r}, so this hallmark "

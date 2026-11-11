@@ -21,6 +21,7 @@ OPEN_GENES_METHYLATION = {"1": "methylation correlates with age", "0": "no corre
 MAX_EXPERIMENTS = 12
 MAX_ASSOCIATIONS = 8
 MAX_AGE_CHANGES = 8
+MAX_MECHANISM_GENES = 200  # one page of the source's own search
 
 
 def _source(item: dict[str, Any]) -> dict[str, str] | None:
@@ -111,7 +112,9 @@ def _association(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-MAX_MECHANISM_GENES = 200  # one page of the source's own search
+def _named(items: list[dict[str, Any]] | None, cap: int) -> list[str]:
+    """The `name` of each of the first `cap` entries, as relayed text."""
+    return [external_str(item.get("name")) for item in items or []][:cap]
 
 
 def _search(params: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -150,9 +153,9 @@ def by_mechanism(mechanism: str, mechanism_id: int, limit: int = MAX_MECHANISM_G
         row = {
             "symbol": external_str(item.get("symbol")), "name": external_str(item.get("name")),
             "confidence": external_str((item.get("confidenceLevel") or {}).get("name")) or None,
-            "mechanisms": [external_str(m.get("name")) for m in item.get("agingMechanisms") or []][:8],
-            "clusters": [external_str(c.get("name")) for c in item.get("functionalClusters") or []][:6],
-            "why": [external_str(c.get("name")) for c in item.get("commentCause") or []][:6],
+            "mechanisms": _named(item.get("agingMechanisms"), 8),
+            "clusters": _named(item.get("functionalClusters"), 6),
+            "why": _named(item.get("commentCause"), 6),
         }
         (rows if wanted in names else mismatched).append(row)
     return {
@@ -207,12 +210,11 @@ def relevance(symbol: str) -> dict[str, Any]:
     return {
         "curated": True,
         "confidence": external_str((record.get("confidenceLevel") or {}).get("name")) or None,
-        # The clade the gene family first appears in, with the source's age estimate.
         "family_origin": _origin(record.get("familyOrigin")),
         "methylation_with_age": _methylation(record.get("methylationCorrelation")),
-        "mechanisms": [external_str(m.get("name")) for m in record.get("agingMechanisms") or []][:8],
-        "clusters": [external_str(c.get("name")) for c in record.get("functionalClusters") or []][:8],
-        "why": [external_str(c.get("name")) for c in record.get("commentCause") or []][:8],
+        "mechanisms": _named(record.get("agingMechanisms"), 8),
+        "clusters": _named(record.get("functionalClusters"), 8),
+        "why": _named(record.get("commentCause"), 8),
         "lifespan": lifespan,
         "longevity": longevity,
         "age_related": age_related,

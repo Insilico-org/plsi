@@ -1,17 +1,16 @@
-"""What a contribution may carry (WIRE §2): coded fields only, no free text. Every section is an object or list of
-the fields below and nothing else; codes are {system, code}, valid in their system (plsi.codes); identifiers match
-ID, units UNIT, months YYYY-MM, years YEARS; numbers are finite, not bool and at most MAX_NUMBER in size. The same
-rules, rule names and paths as the Mother's gate: a coordinate key is `#key[<n>]`, an unknown key `#unknown[<n>]`
-(n = its position), never the key text. Violations are {path, rule}."""
+"""What a contribution may carry (WIRE §2): coded fields only, the field tables below and nothing else; codes valid
+in their system (plsi.codes), finite bounded numbers. The same rules, rule names and paths as the Mother's gate: a
+coordinate key is `#key[<n>]`, an unknown key `#unknown[<n>]` (n = its position), never the key text."""
 
 from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from functools import partial
 from typing import Any
 
 from plsi import codes
-from plsi.mothership.scan import HEX64, ID, MAX_NUMBER, MONTH, flag
+from plsi.mothership.scan import HEX64, ID, MAX_NUMBER, MONTH, flag, keyed, listed
 from plsi.vocab import ClinicalStatus, Comparator, ContributionKind, Ethnicity, Sex, ValueStatus
 
 CONSENT_VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
@@ -28,11 +27,6 @@ def number(v: Any) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) <= MAX_NUMBER  # False for NaN, inf
 
 
-def code_ok(code: Any) -> bool:
-    """Exactly {system, code}, a valid code of its system."""
-    return isinstance(code, dict) and set(code) == {"system", "code"} and codes.valid(code["system"], code["code"])
-
-
 def _num(v: Any, at: str) -> list[dict[str, str]]:
     return [] if number(v) else [flag(at, "bad_number")]
 
@@ -45,105 +39,101 @@ def _positive(v: Any, at: str) -> list[dict[str, str]]:
     return [] if number(v) and v > 0 else [flag(at, "bad_number")]
 
 
-def _rate(v: Any, at: str) -> list[dict[str, str]]:
-    return [] if v is None else _num(v, at)
-
-
-def _match(pattern: re.Pattern[str], rule: str = "bad_format") -> Check:
-    return lambda v, at: [] if isinstance(v, str) and pattern.fullmatch(v) else [flag(at, rule)]
-
-
-def _one_of(allowed: frozenset[str]) -> Check:
-    return lambda v, at: [] if isinstance(v, str) and v in allowed else [flag(at, "bad_format")]
-
-
-def _code(v: Any, at: str) -> list[dict[str, str]]:
-    return [] if code_ok(v) else [flag(at, "bad_code")]
-
-
-def _list(check: Check) -> Check:
-    def run(v: Any, at: str) -> list[dict[str, str]]:
-        if not isinstance(v, list):
-            return [flag(at, "bad_section")]
-        return [x for n, item in enumerate(v) for x in check(item, f"{at}[{n}]")]
-    return run
-
-
-def _object(required: set[str], fields: dict[str, Check]) -> Check:
-    """An object of these fields only (`unknown_field`), the required ones present (`missing_field`)."""
-    def run(v: Any, at: str) -> list[dict[str, str]]:
-        if not isinstance(v, dict):
-            return [flag(at, "bad_section")]
-        out = [flag(f"{at}.{k}", "missing_field") for k in sorted(required - set(v))]
-        for n, (k, item) in enumerate(v.items()):
-            out += fields[k](item, f"{at}.{k}") if k in fields else [flag(f"{at}.#unknown[{n}]", "unknown_field")]
-        return out
-    return run
-
-
-def _keyed(check: Check) -> Check:
-    """An object keyed by identifiers (`bad_id`), each key shown as `#key[<n>]`, each value checked."""
-    def run(v: Any, at: str) -> list[dict[str, str]]:
-        if not isinstance(v, dict):
-            return [flag(at, "bad_section")]
-        out = []
-        for n, (k, item) in enumerate(v.items()):
-            sub = f"{at}.#key[{n}]"
-            out += ([] if isinstance(k, str) and ID.fullmatch(k) else [flag(sub, "bad_id")]) + check(item, sub)
-        return out
-    return run
-
-
-_id = _match(ID, "bad_id")
-_month = _match(MONTH)
-_unit = _match(UNIT)
-_summary = _object(set(), dict.fromkeys(SCORE_KEYS, _rate))
-DOSE = _object({"value", "unit"}, {"value": _positive, "unit": _unit})
 def _count(v: Any, at: str) -> list[dict[str, str]]:
     """How many values a mean covers: an integer of at least 1."""
     return [] if isinstance(v, int) and not isinstance(v, bool) and v >= 1 else [flag(at, "bad_number")]
 
 
+def _rate(v: Any, at: str) -> list[dict[str, str]]:
+    return [] if v is None else _num(v, at)
+
+
+def _code(v: Any, at: str) -> list[dict[str, str]]:
+    """Exactly {system, code}, a valid code of its system."""
+    ok = isinstance(v, dict) and set(v) == {"system", "code"} and codes.valid(v["system"], v["code"])
+    return [] if ok else [flag(at, "bad_code")]
+
+
+def check_match(pattern: re.Pattern[str], rule: str, v: Any, at: str) -> list[dict[str, str]]:
+    """`rule` at `at` unless `v` is a string all in `pattern`."""
+    return [] if isinstance(v, str) and pattern.fullmatch(v) else [flag(at, rule)]
+
+
+def _one_of(allowed: frozenset[str], v: Any, at: str) -> list[dict[str, str]]:
+    return [] if isinstance(v, str) and v in allowed else [flag(at, "bad_format")]
+
+
+def _each(check: Check, v: Any, at: str) -> list[dict[str, str]]:
+    if not isinstance(v, list):
+        return [flag(at, "bad_section")]
+    return [x for n, item in enumerate(v) for x in check(item, f"{at}[{n}]")]
+
+
+def _fields(required: set[str], fields: dict[str, Check], v: Any, at: str) -> list[dict[str, str]]:
+    """An object of these fields only (`unknown_field`), the required ones present (`missing_field`)."""
+    if not isinstance(v, dict):
+        return [flag(at, "bad_section")]
+    out = [flag(f"{at}.{k}", "missing_field") for k in sorted(required - set(v))]
+    for n, (k, item) in enumerate(v.items()):
+        out += fields[k](item, f"{at}.{k}") if k in fields else [flag(f"{at}.#unknown[{n}]", "unknown_field")]
+    return out
+
+
+def _keyed(check: Check, v: Any, at: str) -> list[dict[str, str]]:
+    """An object keyed by identifiers (`bad_id`), each key shown as `#key[<n>]`, each value checked."""
+    if not isinstance(v, dict):
+        return [flag(at, "bad_section")]
+    out = []
+    for n, (k, item) in enumerate(v.items()):
+        sub = f"{at}.#key[{n}]"
+        out += ([] if isinstance(k, str) and ID.fullmatch(k) else [flag(sub, "bad_id")]) + check(item, sub)
+    return out
+
+
+def _closed(values: type) -> Check:
+    return partial(_one_of, frozenset(values))
+
+
+_id = partial(check_match, ID, "bad_id")
+_month = partial(check_match, MONTH, "bad_format")
+_unit = partial(check_match, UNIT, "bad_format")
+POINT = {"t": _month, "value": _num, "n": _count}
+
+
 def _series(v: Any, at: str) -> list[dict[str, str]]:
     """Points of {t, value}, at most one per month: a month is the finest grain a package carries."""
-    out = _list(_object({"t", "value"}, {"t": _month, "value": _num, "n": _count}))(v, at)
+    out = _each(partial(_fields, {"t", "value"}, POINT), v, at)
     months = [p.get("t") for p in v if isinstance(p, dict)] if isinstance(v, list) else []
     return out + [flag(f"{at}[{n}]", "repeat_month") for n, m in enumerate(months) if m in months[:n]]
 
 
-COORDINATE = _object(set(), {
-    "status": _one_of(frozenset(ValueStatus)), "value": _num, "unit": _unit, "comparator": _one_of(frozenset(Comparator)), "observed": _month,
-    "series": _series,
-    "items": _list(_object({"code"}, {"code": _code, "clinical_status": _one_of(frozenset(ClinicalStatus)), "dose": DOSE}))})
-STATE = _object({"map_id", "coordinates"}, {
-    "map_id": _id, "map_version": _match(MAP_VERSION), "map_hash": _match(HEX64), "as_of": _month,
-    "gaps": _list(_id), "coordinates": _keyed(COORDINATE)})
-EVENT = _object({"kind", "year", "basis", "code"}, {
-    "kind": _id, "year": _year, "until": _year, "basis": _id, "code": _code, "value": _num, "unit": _unit,
-    "clinical_status": _one_of(frozenset(ClinicalStatus)), "dose": DOSE})
-SECTIONS = {ContributionKind.STATES: _list(STATE), ContributionKind.LIFE_EVENTS: _list(EVENT),
-            ContributionKind.SCORES: _object(set(), {"overall": _summary, "by_coordinate": _keyed(_summary)})}
-SUBJECT = _object(set(), {"sex": _one_of(frozenset(Sex)), "age_band": _one_of(AGE_BANDS),
-                          "ethnicity": _one_of(frozenset(Ethnicity))})
+SUMMARY = dict.fromkeys(SCORE_KEYS, _rate)
+DOSE = {"value": _positive, "unit": _unit}
+ITEM = {"code": _code, "clinical_status": _closed(ClinicalStatus), "dose": partial(_fields, {"value", "unit"}, DOSE)}
+COORDINATE = {"status": _closed(ValueStatus), "value": _num, "unit": _unit, "comparator": _closed(Comparator),
+              "observed": _month, "series": _series, "items": partial(_each, partial(_fields, {"code"}, ITEM))}
+STATE = {"map_id": _id, "map_version": partial(check_match, MAP_VERSION, "bad_format"),
+         "map_hash": partial(check_match, HEX64, "bad_format"), "as_of": _month, "gaps": partial(_each, _id),
+         "coordinates": partial(_keyed, partial(_fields, set(), COORDINATE))}
+EVENT = {"kind": _id, "year": _year, "until": _year, "basis": _id, "code": _code, "value": _num, "unit": _unit,
+         "clinical_status": ITEM["clinical_status"], "dose": ITEM["dose"]}
+SCORES = {"overall": partial(_fields, set(), SUMMARY), "by_coordinate": partial(_keyed, partial(_fields, set(), SUMMARY))}
+SUBJECT = {"sex": _closed(Sex), "age_band": partial(_one_of, AGE_BANDS), "ethnicity": _closed(Ethnicity)}
+SECTIONS = {ContributionKind.STATES: partial(_each, partial(_fields, {"map_id", "coordinates"}, STATE)),
+            ContributionKind.LIFE_EVENTS: partial(_each, partial(_fields, {"kind", "year", "basis", "code"}, EVENT)),
+            ContributionKind.SCORES: partial(_fields, set(), SCORES)}
 # every field name above: the only key text a path shows
-NAMES = frozenset({"map_id", "map_version", "map_hash", "as_of", "gaps", "coordinates", "status", "value", "unit",
-                   "comparator", "observed", "series", "t", "n", "items", "code", "system", "clinical_status", "kind",
-                   "year", "until", "basis", "dose", "overall", "by_coordinate", "sex", "age_band", "ethnicity",
-                   *SCORE_KEYS})
+NAMES = frozenset({"system", *(k for fields in (POINT, SUMMARY, DOSE, ITEM, COORDINATE, STATE, EVENT, SCORES, SUBJECT)
+                               for k in fields)})
 
 
 def code_objects(doc: dict[str, Any]) -> dict[str, tuple[Any, Any]]:
     """{path: (system, code)} of every code object (a dict) of the set items and life events."""
-    found = {}
-    states = doc.get("states") if isinstance(doc.get("states"), list) else []
-    for n, state in enumerate(states):
-        coordinates = state.get("coordinates") if isinstance(state, dict) else None
-        for c, value in enumerate(coordinates.values() if isinstance(coordinates, dict) else ()):
-            items = value.get("items") if isinstance(value, dict) else None
-            for j, item in enumerate(items if isinstance(items, list) else ()):
-                found[f"states[{n}].coordinates.#key[{c}].items[{j}].code"] = item.get("code") if isinstance(item, dict) else None
-    events = doc.get("life_events") if isinstance(doc.get("life_events"), list) else []
-    found |= {f"life_events[{n}].code": e.get("code") if isinstance(e, dict) else None for n, e in enumerate(events)}
+    found = {f"states[{n}].coordinates.#key[{c}].items[{j}].code": keyed(item).get("code")
+             for n, state in enumerate(listed(doc.get("states")))
+             for c, value in enumerate(keyed(keyed(state).get("coordinates")).values())
+             for j, item in enumerate(listed(keyed(value).get("items")))}
+    found |= {f"life_events[{n}].code": keyed(e).get("code") for n, e in enumerate(listed(doc.get("life_events")))}
     return {at: (code.get("system"), code.get("code")) for at, code in found.items() if isinstance(code, dict)}
 
 
@@ -155,5 +145,6 @@ def violations(doc: dict[str, Any]) -> list[dict[str, str]]:
         out.append(flag("kinds", "unknown_kind"))
     else:
         out += [flag(s, "not_in_kinds") for s in ContributionKind if s in doc and s not in kinds]
-    checks = {"packed": _month, "consent_version": _match(CONSENT_VERSION), "subject": SUBJECT, **SECTIONS}
+    checks = {"packed": _month, "consent_version": partial(check_match, CONSENT_VERSION, "bad_format"),
+              "subject": partial(_fields, set(), SUBJECT), **SECTIONS}
     return out + [x for field, check in checks.items() if field in doc for x in check(doc[field], field)]

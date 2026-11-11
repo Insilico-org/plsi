@@ -1,8 +1,5 @@
-"""Turning one save payload into node files.
-
-Names are allocated before anything is written so nodes in one save can link to each other, and every shape is
-checked before the first write.
-"""
+"""Turning one save payload into node files. Names are allocated before anything is written so nodes in one save
+can link to each other, and every shape is checked before the first write."""
 
 from __future__ import annotations
 
@@ -12,7 +9,7 @@ from typing import Any
 from plsi import files
 from plsi.errors import ValidationError
 from plsi.research import store
-from plsi.research.schema import check_fields, check_vocabulary, meta_of
+from plsi.research.schema import LIST_LINKS, NAME_LINKS, check_fields, check_vocabulary, meta_of, where
 from plsi.vocab.research import ResearchNodeKind, ResearchStatus, Stakes
 
 
@@ -42,21 +39,20 @@ def check_shapes(graph: store.Graph, nodes: list[dict[str, Any]], updates: list[
     stored; closed vocabularies only on what the payload writes."""
     for index, node in enumerate(nodes):
         meta = _node_meta(node)
-        try:
-            check_fields(str(node["kind"]), meta)
-            check_vocabulary(str(node["kind"]), meta)
-        except ValidationError as exc:
-            raise ValidationError(f"nodes[{index}] {node.get('title') or ''}: {exc.message}",
-                                  code=exc.code, hint=exc.hint) from None
+        _check(where("nodes", index, node.get("title")), str(node["kind"]), meta, meta)
     for index, update in enumerate(updates):
         node = graph.nodes[str(update["name"])]
         written = {k: v for k, v in update.items() if k != "name"}
-        try:
-            check_fields(str(node["kind"]), {**meta_of(node), **written}, written)
-            check_vocabulary(str(node["kind"]), written)
-        except ValidationError as exc:
-            raise ValidationError(f"update[{index}] {update['name']}: {exc.message}",
-                                  code=exc.code, hint=exc.hint) from None
+        _check(where("update", index, update["name"]), str(node["kind"]), {**meta_of(node), **written}, written)
+
+
+def _check(place: str, kind: str, meta: dict[str, Any], written: dict[str, Any]) -> None:
+    """One node's fields and closed vocabularies, with its place in the payload named in the error."""
+    try:
+        check_fields(kind, meta, written)
+        check_vocabulary(kind, written)
+    except ValidationError as exc:
+        raise ValidationError(f"{place}: {exc.message}", code=exc.code, hint=exc.hint) from None
 
 
 def allocate(graph: store.Graph, nodes: list[dict[str, Any]]) -> dict[int, str]:
@@ -64,7 +60,7 @@ def allocate(graph: store.Graph, nodes: list[dict[str, Any]]) -> dict[int, str]:
     provisional = store.Graph(name=graph.name, dir=graph.dir, topic=graph.topic, nodes=dict(graph.nodes))
     names: dict[int, str] = {}
     for index, node in enumerate(nodes):
-        if not node.get("kind") or node["kind"] not in tuple(ResearchNodeKind) or node["kind"] == ResearchNodeKind.TOPIC:
+        if str(node.get("kind") or "") not in store.FOLDERS:
             raise ValidationError(f"nodes[{index}]: kind must be question, hypothesis or finding")
         names[index] = store.unique_name(provisional, node.get("title") or "")
         provisional.nodes[names[index]] = {"kind": node["kind"], "name": names[index]}
@@ -76,12 +72,12 @@ def resolve_name(value: str, by_title: dict[str, str]) -> str:
     return by_title.get(store.sanitise(value), value)
 
 
-def _as_names(value: Any, where: str, by_title: dict[str, str]) -> list[str]:
+def _as_names(value: Any, key: str, by_title: dict[str, str]) -> list[str]:
     if isinstance(value, str):
         value = [value]
     if not isinstance(value, (list, tuple)):
-        raise ValidationError(f"{where} is one node name or a list of them, not {type(value).__name__}",
-                              code="NOT_A_NAME_LIST", hint=f'{where}: ["<a node>", "<another>"]')
+        raise ValidationError(f"{key} is one node name or a list of them, not {type(value).__name__}",
+                              code="NOT_A_NAME_LIST", hint=f'{key}: ["<a node>", "<another>"]')
     return [resolve_name(str(v), by_title) for v in value]
 
 
@@ -97,10 +93,10 @@ def resolve_links(graph: store.Graph, nodes: list[dict[str, Any]], updates: list
             continue
         by_title[key] = names[index]
     for item in [*nodes, *updates]:
-        for key in ("parent", "question"):
+        for key in NAME_LINKS:
             if item.get(key):
                 item[key] = resolve_name(str(item[key]), by_title)
-        for key in ("tested_by", "supports", "contradicts", "cites"):
+        for key in LIST_LINKS:
             if item.get(key):
                 item[key] = _as_names(item[key], key, by_title)
         boundaries = item.get("boundaries")

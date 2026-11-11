@@ -5,13 +5,13 @@ description: Use as PLSI Liaison when the physician wants to write to a patient 
 
 # PLSI doctor-patient message
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Liaison**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used.
+**Status: draft**.
 
 ## When to use
 
 - "Tell patient-07 the results are fine and to repeat the test in March", a message from `visitprep/notes`, or a
-  patient's message the physician wants answered (saved by PLSI as `external_text` in the work folder).
+  patient's message the physician wants answered (saved as `external_text` in the work folder). The request comes
+  from that patient's ward bot.
 
 ## Steps
 
@@ -29,8 +29,10 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Liaison**. Reply only i
    advice, diagnosis or order that the physician did not state.
 
 3. **Return one `result`** with `message.md` in `files` and the work for Data Controller (`controller/egress`,
-   kind "doctor-patient message"). PLSI shows only a `cleared` draft on one card (Send as written / Edit / Don't
-   send); a rejection comes back for a rewrite. Any edit needs a new clearance and approval.
+   kind "doctor-patient message"). For an email, the `summary`'s first line is `from: <user>+patients@mail.grokbot.com`
+   (`clinic/panel` step 2), so the patient's reply wakes "PLSI patient mail". PLSI shows only a `cleared` draft on
+   one card (Send as written / Edit / Don't send), sent from that line's address; a rejection comes back for a
+   rewrite. Any edit needs a new clearance and approval.
 
 ## Rules
 

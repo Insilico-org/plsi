@@ -12,24 +12,17 @@ from typing import Any
 from plsi import files
 from plsi.errors import ValidationError
 from plsi.research import cursor as cursors
-from plsi.research import frontier, ledger, refusals, store, write
-from plsi.research.store import active_name, today
-from plsi.research.verdict import MIN_ABSENCE_ROUNDS, verdicts
+from plsi.research import frontier, ledger, projects, refusals, store, write
+from plsi.research.schema import search_counts
+from plsi.research.store import today
+from plsi.research.tuning import MIN_ABSENCE_ROUNDS, STAGNATION_NOVELTY
+from plsi.research.verdict import verdicts
 from plsi.vocab.research import RESOLVED, ResearchDesign, ResearchMove, ResearchStatus
 
-STAGNATION_NOVELTY = 0.2  # a gather whose new share of hits is below this is quiet
 SECTIONS = ("expanded", "dropped", "open", "requests")  # the move's own account, kept in the log
 # every top-level key a payload may carry; `stop` is listed so that its own refusal explains it
 PAYLOAD_KEYS = frozenset({"move", "usage", "chars_in", "chars_out", "nodes", "update", "question",
                           "close_direction", "stop", *SECTIONS})
-
-
-def _known_keys(payload: dict[str, Any]) -> None:
-    """Refuse a top-level key the save does not read, so a misspelt one cannot be silently dropped."""
-    unknown = sorted(set(payload) - PAYLOAD_KEYS)
-    if unknown:
-        raise ValidationError(f"unknown save field {', '.join(map(repr, unknown))}", code="UNKNOWN_FIELD",
-                              hint=f"a save carries: {', '.join(sorted(PAYLOAD_KEYS - {'stop'}))}. Nothing was written")
 
 
 def _chars(payload: dict[str, Any], key: str) -> int:
@@ -43,7 +36,6 @@ def _chars(payload: dict[str, Any], key: str) -> int:
 def _started(graph: store.Graph, cursor: dict[str, Any]) -> None:
     """Refuse a save that no `next` started: the topic must be active, research on, today's day open and the
     cursor issued. Recording a move that `next` started and that then ran over its estimate stays allowed."""
-    hint = "plsi research next --topic <topic> --usage <percent used>, then work the move it returns"
     if graph.topic.get("status") != ResearchStatus.ACTIVE:
         raise ValidationError(f"topic {graph.name!r} is {graph.topic.get('status')}, so no move can be saved",
                               code="NEXT_REQUIRED",
@@ -52,19 +44,18 @@ def _started(graph: store.Graph, cursor: dict[str, Any]) -> None:
         raise ValidationError("research is Off, so no move can be saved", code="NEXT_REQUIRED",
                               hint="plsi research budget --share <percent of the weekly meter per day>")
     if not ledger.day_is_open(today()) or int(cursor.get("attempt") or 0) <= 0:
-        raise ValidationError("no move is open: run plsi research next first", code="NEXT_REQUIRED", hint=hint)
+        raise ValidationError("no move is open: run plsi research next first", code="NEXT_REQUIRED",
+                              hint="plsi research next --topic <topic> --usage <percent used>, "
+                                   "then work the move it returns")
 
 
-def save(topic: str | None = None, file: str | None = None) -> dict[str, Any]:  # noqa: A002 - CLI dest name
-    """Validate the payload, write its nodes and updates, charge the reading, log the move and move the cursor.
-    Every refusal is raised before the first write; a failed write removes what this save created."""
-    payload = files.load_json(file)
-    if not isinstance(payload, dict):
-        raise ValidationError("the save payload is a JSON object", hint="see skills/shared/research-graph")
-    _known_keys(payload)
-    usage = ledger.reading(payload.get("usage"))
-    chars_in, chars_out = _chars(payload, "chars_in"), _chars(payload, "chars_out")
-    graph = store.load(topic or active_name())
+def save(topic: str | None = None, file: str | None = None,  # noqa: A002 - CLI dest name
+         project: str | None = None) -> dict[str, Any]:
+    """Validate the payload, write its nodes and updates, charge the reading, log the move and move the cursor, on
+    the topic named, else on the active topic of the project named (or of the only active project). Every refusal
+    is raised before the first write; a failed write removes what this save created."""
+    payload, usage, chars_in, chars_out = _read_payload(file)
+    graph = store.load(topic or projects.active_topic(project))
     log = store.read_log(graph)
     cursor = dict(graph.topic.get("cursor") or {})
     _started(graph, cursor)
@@ -79,8 +70,9 @@ def save(topic: str | None = None, file: str | None = None) -> dict[str, Any]:  
                               code="AMBIGUOUS_STOP",
                               hint="to close the direction you are on, use close_direction: '<why it is finished>'. "
                                    "The run ends by itself when the allocation is spent")
-    nodes = list(payload.get("nodes") or [])
-    updates = list(payload.get("update") or [])
+    nodes, updates = list(payload.get("nodes") or []), list(payload.get("update") or [])
+    if not all(isinstance(item, dict) for item in nodes + updates):
+        raise ValidationError("`nodes` and `update` are lists of objects", hint="see skills/shared/research-graph")
     names = write.allocate(graph, nodes)
     by_title = write.resolve_links(graph, nodes, updates, names)
     # the worked question may be one this same save creates
@@ -135,7 +127,7 @@ def save(topic: str | None = None, file: str | None = None) -> dict[str, Any]:  
         "quiet": quiet, "sections": {k: payload.get(k) for k in SECTIONS if payload.get(k)},
     })
 
-    budget = ledger.affordable(store.read_log(graph), str(cursor["move"]))
+    budget = ledger.affordable(graph, store.read_log(graph), cursor["move"])
     return {
         "topic": graph.name, "move": move, "change": change, "productive": productive, "cost": cost,
         "instead_of": recommended if chose_otherwise else None,
@@ -146,6 +138,18 @@ def save(topic: str | None = None, file: str | None = None) -> dict[str, Any]:  
         "unspent": None if budget["ok"] else budget["remaining"],
         "open": frontier.open_items(graph),
     }
+
+
+def _read_payload(file: str | None) -> tuple[dict[str, Any], float, int, int]:
+    """The payload, its meter reading and its character counts, each refused before the topic is read. A key the
+    save does not read is refused, so a misspelt one cannot be silently dropped."""
+    payload = files.load_json(file)
+    if not isinstance(payload, dict):
+        raise ValidationError("the save payload is a JSON object", hint="see skills/shared/research-graph")
+    if unknown := sorted(set(payload) - PAYLOAD_KEYS):
+        raise ValidationError(f"unknown save field {', '.join(map(repr, unknown))}", code="UNKNOWN_FIELD",
+                              hint=f"a save carries: {', '.join(sorted(PAYLOAD_KEYS - {'stop'}))}. Nothing was written")
+    return payload, ledger.reading(payload.get("usage")), _chars(payload, "chars_in"), _chars(payload, "chars_out")
 
 
 def _productive(change: dict[str, Any], updates: list[dict[str, Any]]) -> bool:
@@ -160,15 +164,10 @@ def _productive(change: dict[str, Any], updates: list[dict[str, Any]]) -> bool:
     return any(int((u.get("last_search") or {}).get("hits") or 0) for u in bookkeeping)
 
 
-def _search(graph: store.Graph, question: str | None) -> dict[str, Any]:
-    return (graph.nodes.get(question or "") or {}).get("last_search") or {}
-
-
 def _quiet(graph: store.Graph, move: str, question: str | None) -> bool:
     """Whether this move was a gather whose new share of the hits is below STAGNATION_NOVELTY."""
-    search = _search(graph, question)
-    hits, new = int(search.get("hits") or 0), int(search.get("new") or 0)
-    return move == ResearchMove.GATHER and bool(hits) and new / hits < STAGNATION_NOVELTY
+    search = search_counts(graph.nodes.get(question or ""))
+    return move == ResearchMove.GATHER and bool(search["hits"]) and search["new"] / search["hits"] < STAGNATION_NOVELTY
 
 
 def _signals(graph: store.Graph, log: list[dict[str, Any]], move: str, question: str | None,
@@ -177,10 +176,10 @@ def _signals(graph: store.Graph, log: list[dict[str, Any]], move: str, question:
     if not question or question not in graph.nodes:
         return []
     out = []
-    search = _search(graph, question)
-    hits, rounds = int(search.get("hits") or 0), int(search.get("rounds") or 0)
+    search = search_counts(graph.nodes[question])
+    hits, rounds = search["hits"], search["rounds"]
     if quiet:
-        out.append(f"{int(search.get('new') or 0)} of {hits} retrieved sources were new. Either the topic is "
+        out.append(f"{search['new']} of {hits} retrieved sources were new. Either the topic is "
                    "worked out or the query is; close the direction with close_direction if you judge it the first")
     if move == ResearchMove.GATHER and not hits and rounds >= MIN_ABSENCE_ROUNDS:
         out.append(f"{rounds} rounds, nothing retrieved. A recorded absence is a result; close the direction if "

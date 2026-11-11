@@ -5,8 +5,6 @@ description: Use as PLSI Nostradamus when PLSI asks for options to improve a coo
 
 # PLSI plan
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Nostradamus**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - The user asks what they could try, or wants to start, change or compare interventions.

@@ -1,8 +1,5 @@
-"""Due predictions, scoring and calibration.
-
-Observed values come only from plsi.map.mapper.coordinate_observations() resolved through each prediction's map snapshot.
-Retracted plans drop out of the fold; stop/modify write void scores. One score event per prediction (dedupe key).
-"""
+"""Due predictions, scoring and calibration. Observed values come only from plsi.map.mapper.coordinate_observations()
+through each prediction's map snapshot; one score event per prediction (dedupe key). Stop/modify write void scores."""
 
 from __future__ import annotations
 
@@ -119,22 +116,22 @@ def score(instance: str) -> dict[str, Any]:
     return {"scored": scored, "calibration": calibration(instance)}
 
 
+def _rate(values: list[bool | None]) -> float | None:
+    known = [float(v) for v in values if v is not None]
+    return fmean(known) if known else None
+
+
 def _summary(rows: list[tuple[Prediction, PredictionScore]]) -> dict[str, Any]:
     scored = [(p, s) for p, s in rows if s.status == ScoreStatus.SCORED]
     hits = [(p, s) for p, s in scored if s.within_interval is not None]
-
-    def rate(values: list[bool | None]) -> float | None:
-        known = [float(v) for v in values if v is not None]
-        return fmean(known) if known else None
-
     return {
         "n_scored": len(scored),
         "n_missed": sum(s.status == ScoreStatus.MISSED for _, s in rows),
-        "within_interval_rate": rate([s.within_interval for _, s in hits]),
+        "within_interval_rate": _rate([s.within_interval for _, s in hits]),
         "nominal_level": fmean(p.interval_level for p, _ in hits) if hits else None,
         "mean_abs_error": fmean(s.abs_error or 0.0 for _, s in scored) if scored else None,
-        "beat_persistence_rate": rate([s.beat_persistence for _, s in scored]),
-        "direction_accuracy": rate([s.direction_correct for _, s in scored]),
+        "beat_persistence_rate": _rate([s.beat_persistence for _, s in scored]),
+        "direction_accuracy": _rate([s.direction_correct for _, s in scored]),
     }
 
 

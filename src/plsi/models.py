@@ -1,8 +1,7 @@
 """Shared model base and value types used by every layer: ids, times, Code, SourceRef, ExternalText.
 
-Layer-specific models live in plsi.life.models, plsi.map.models and plsi.policy.models.
-`*Input` models are what the bot writes (with `local_id`s); `extra="forbid"` makes them reject any
-bookkeeping field. Stored models extend them with tool-assigned ids and fields.
+`*Input` models are what the bot writes (with `local_id`s); `extra="forbid"` makes them reject any bookkeeping
+field. Stored models extend them with tool-assigned ids and fields.
 """
 
 from __future__ import annotations
@@ -16,9 +15,10 @@ import pydantic
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, WithJsonSchema, model_validator
 
 from plsi.clock import parse_time
+from plsi.codes import PATTERNS
 from plsi.errors import ValidationError, violation
 from plsi.paths import ID_RE, is_valid_id
-from plsi.vocab import LITERATURE_SOURCE_KINDS, CodeSystem, EvidenceClass, SourceKind
+from plsi.vocab import CodeSystem, SourceKind
 
 CAP_ABSTRACT = 4_000
 CAP_LABEL = 8_000
@@ -41,12 +41,12 @@ def _check_id(value: str) -> str:
     return value
 
 
-LOINC_RE = re.compile(r"^\d{1,7}-\d$")
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
 Id = Annotated[str, Field(pattern=ID_RE.pattern), AfterValidator(_check_id)]
 LocalId = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")]
 EventId = Annotated[str, Field(pattern=r"^evt_[0-9a-f]{8,32}$")]
 RealId = Annotated[str, Field(pattern=r"^[a-z]+_[0-9a-f]{8,32}$")]
-Sha256Hex = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+Sha256Hex = Annotated[str, Field(pattern=f"^{SHA256_RE.pattern}$")]
 PrefixedHash = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
 # Aware UTC datetime; input may be an ISO date (-> T12:00:00Z) or datetime (naive = UTC).
 UtcTime = Annotated[
@@ -63,8 +63,8 @@ class Code(Model):
 
     @model_validator(mode="after")
     def _loinc_format(self) -> Code:
-        if self.system == CodeSystem.LOINC and not LOINC_RE.match(self.code):
-            raise ValueError(f"LOINC code must match {LOINC_RE.pattern}")
+        if self.system == CodeSystem.LOINC and not PATTERNS[CodeSystem.LOINC].fullmatch(self.code):
+            raise ValueError(f"LOINC code must match {PATTERNS[CodeSystem.LOINC].pattern}")
         return self
 
 
@@ -108,19 +108,6 @@ def external_str(value: Any, cap: int = CAP_FIELD) -> str:
     complete."""
     clean = _clean(str(value or ""))
     return clean if len(clean) <= cap else clean[:cap - len(TRUNCATED)] + TRUNCATED
-
-
-def coherence_errors(evidence_class: EvidenceClass, sources: list[SourceRef]) -> list[str]:
-    """Source-kind coherence shared by claims and prediction bases."""
-    kinds = {s.kind for s in sources}
-    need = {
-        EvidenceClass.EVIDENCE_BACKED: (LITERATURE_SOURCE_KINDS, "pmid, doi, nct, label or evipedia"),
-        EvidenceClass.RULE_DERIVED: ({SourceKind.RULE}, "rule"),
-        EvidenceClass.MODEL_DERIVED: ({SourceKind.MODEL}, "model"),
-    }.get(evidence_class)
-    if need and not kinds & need[0]:
-        return [f"{evidence_class.value} requires at least one source of kind {need[1]}"]
-    return []
 
 
 M = TypeVar("M", bound=BaseModel)

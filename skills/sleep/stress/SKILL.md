@@ -5,8 +5,6 @@ description: Use as PLSI Sleep when the user wants to reduce stress or improve m
 
 # PLSI stress and wellbeing plan
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Sleep**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - "I'm stressed all the time", "help me relax", a wellbeing goal in `personal_context`, or PLSI routes

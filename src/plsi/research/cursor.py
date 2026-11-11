@@ -5,14 +5,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from plsi.research import frontier, store
+from plsi.research import frontier, projects, store
 from plsi.research.schema import meta_of
-from plsi.research.verdict import DEPTH_FLOOR, answered, meets
+from plsi.research.tuning import DEPTH_FLOOR, UNPRODUCTIVE_STOP
+from plsi.research.verdict import answered, meets
 from plsi.vocab.research import (RESOLVED, ResearchLogEvent, ResearchMove, ResearchStatus, ResearchStop,
                                  ResearchVerdict)
-
-MAX_ATTEMPTS = 3  # unsaved attempts on one direction before it is closed as stuck
-UNPRODUCTIVE_STOP = 3  # moves in a row on one direction that changed nothing before it is closed
 
 
 def move_for(graph: store.Graph, question: str | None) -> str:
@@ -20,16 +18,22 @@ def move_for(graph: store.Graph, question: str | None) -> str:
     return str(frontier.STEPS[frontier.distance(graph, question)][0]) if question else str(ResearchMove.ASK)
 
 
-def select(graph: store.Graph, after_cycle: bool, prefer: str | None = None) -> dict[str, Any]:
+def _on(graph: store.Graph, question: str | None) -> dict[str, Any]:
+    """A fresh cursor on a direction, with the move due on it."""
+    return {"question": question, "move": move_for(graph, question), "attempt": 0}
+
+
+def select(graph: store.Graph, after_cycle: bool) -> dict[str, Any]:
     """The top of the frontier with the move its distance implies. An empty frontier gives `question: None`,
     which asks for the question in chief to be decomposed further."""
     entries = frontier.rank(graph)
     if after_cycle:
         graph.topic["cycles"] = int(graph.topic.get("cycles") or 0) + 1
-    if not entries:
-        return {"question": None, "move": str(ResearchMove.ASK), "attempt": 0}
-    top = next((e for e in entries if e["question"] == prefer), entries[0])
-    return {"question": top["question"], "move": move_for(graph, top["question"]), "attempt": 0}
+    return _on(graph, entries[0]["question"] if entries else None)
+
+
+def _gone(graph: store.Graph, question: str) -> bool:
+    return question not in graph.nodes or graph.nodes[question].get("status") in RESOLVED
 
 
 def current(graph: store.Graph) -> dict[str, Any]:
@@ -37,8 +41,7 @@ def current(graph: store.Graph) -> dict[str, Any]:
     frontier has work."""
     cursor = dict(graph.topic.get("cursor") or {})
     question = cursor.get("question")
-    stale = question and (question not in graph.nodes or graph.nodes[question].get("status") in RESOLVED)
-    if stale or (not question and frontier.rank(graph)):
+    if (question and _gone(graph, question)) or (not question and frontier.rank(graph)):
         return select(graph, after_cycle=False)
     cursor.setdefault("move", str(ResearchMove.ASK))
     cursor.setdefault("attempt", 0)
@@ -49,28 +52,26 @@ def advance(graph: store.Graph, cursor: dict[str, Any], move: str, stopped: bool
     """The cursor after a save: stay on the direction while it is still open, else move to the top of the
     frontier. After an Ask the new children are the work and the parent waits for them."""
     question = cursor.get("question")
-    resolved = (not question or question not in graph.nodes
-                or graph.nodes[question].get("status") in RESOLVED)
-    if stopped or resolved:
+    if stopped or not question or _gone(graph, question):
         return select(graph, after_cycle=True)
     entries = frontier.rank(graph)
     if move == ResearchMove.ASK:
         here = [e for e in entries
                 if e["question"] in {question, *(c["name"] for c in graph.children(question))}]
         if here:
-            return {"question": here[0]["question"], "move": move_for(graph, here[0]["question"]), "attempt": 0}
+            return _on(graph, here[0]["question"])
         return select(graph, after_cycle=True)
     if question not in {e["question"] for e in entries}:
         return select(graph, after_cycle=True)  # children opened under it, or it resolved
-    return {"question": question, "move": move_for(graph, question), "attempt": 0}
+    return _on(graph, question)
 
 
 def close(graph: store.Graph, question: str, reason: str) -> str | None:
     """Close a direction with a reason: `answered` if it has an answer, else `closed`. Returns its name, or None
     when it was missing or already resolved."""
-    node = graph.nodes.get(question)
-    if not node or node.get("status") in RESOLVED:
+    if _gone(graph, question):
         return None
+    node = graph.nodes[question]
     meta = meta_of(node)
     meta["status"] = str(ResearchStatus.ANSWERED if meta.get("answer") else ResearchStatus.CLOSED)
     meta["closed_reason"] = reason
@@ -129,6 +130,7 @@ def finished(graph: store.Graph, budget: dict[str, Any], why: ResearchStop, beca
                        ended_reason=f"{why}: {because}")
     store.write_topic(graph)
     store.append_log(graph, {"event": str(ResearchLogEvent.STOP), "why": str(why), "unspent": budget["remaining"]})
+    projects.topic_asked(store.project_of(graph), store.today())  # the cards below ask for the project's next topic
     return {
         "topic": graph.name, "stop": str(why), "why": because, "budget": budget,
         "unspent": budget["remaining"],

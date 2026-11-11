@@ -14,7 +14,7 @@ longevity_llm_playground:
     (shared/l-llm). Cite answers as longevity_llm.
 
 pandaclaw:
-  title: PandaOmics Agent (Insilico Medicine bioinformatics agent, MCP; formerly PandaClaw)
+  title: PandaOmics Agent (Insilico Medicine bioinformatics agent, MCP; oracle id pandaclaw)
   url: https://pandaomics.com/pandaclaw-mcp
   api_base: https://pandaomics.com/pandaclaw-mcp
   key_env: [PANDACLAW_MCP_URL, PANDACLAW_BEARER_TOKEN]

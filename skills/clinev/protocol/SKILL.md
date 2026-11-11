@@ -5,13 +5,12 @@ description: Use as PLSI Clinical Evidence when the physician wants a plan optio
 
 # PLSI protocol proposal
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Clinical Evidence**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used.
+**Status: draft**.
 
 ## When to use
 
-- The physician asks for a protocol for a patient ("a plan to lower patient-07's ApoB"), or `visitprep/notes`
-  returned a plan change.
+- The physician asks that patient's ward bot for a protocol ("a plan to lower patient-07's ApoB"), or
+  `visitprep/notes` returned a plan change.
 - Not for the physician's own health: their own plans go through the specialists and Nostradamus as usual.
 
 ## Steps

@@ -5,8 +5,6 @@ description: Use as PLSI Wearables when PLSI asks to connect Google Health or pu
 
 # PLSI Google Health
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Wearables**. Reply only in handoffs to PLSI; never message the user.
-
 Google Health is pulled with **Google Health API OAuth only** (`plsi refs show google_health`): never an invented
 Apple Health web API (Apple Health comes through the P.R.O. app, `wearables/apple-health`), never scraping a vendor
 dashboard. The daily rows then go through `wearables/import` steps 3-6.
@@ -78,8 +76,7 @@ dashboard. The daily rows then go through `wearables/import` steps 3-6.
 
 ## Rules
 
-- Secrets (client secret, refresh and access tokens, authorization codes) live only in Grok's secret store as
-  environment variables: never in chat, a handoff, a log, a file in the repo or under `<PLSI_HOME>`. A secret
+- Secrets (client secret, refresh and access tokens, authorization codes) follow `shared/team` rule 15. A secret
   pasted in chat: say so in the `result` so PLSI tells the user to rotate it.
 - Keys are read only with `plsi.keys.get`, which also follows the key mappings PLSI made; never use
   credentials from files or an earlier setup outside it. Credentials found under another name: put the NAMES (never

@@ -6,6 +6,7 @@ target is preferred and the kind is reported. pChEMBL is -log10(molar): 7 is 100
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from plsi import net, references
@@ -31,23 +32,17 @@ def _targets(accession: str) -> list[dict[str, Any]]:
     return data.get("targets") or []
 
 
-def _count(target_id: str, minimum: float) -> int:
-    """How many measured activities clear a potency floor, from `page_meta.total_count` (one row fetched)."""
+def _activities(target_id: str, minimum: float, **params: Any) -> tuple[int, list[dict[str, Any]]]:
+    """Measured activities against one target at or above a pChEMBL floor -> (ChEMBL's total, the rows read)."""
     data = _get("activity.json", {"target_chembl_id": target_id, "standard_type__in": ACTIVITY_TYPES,
-                                  "pchembl_value__gte": minimum, "limit": 1})
-    return int((data.get("page_meta") or {}).get("total_count") or 0)
+                                  "pchembl_value__gte": minimum, **params})
+    return int((data.get("page_meta") or {}).get("total_count") or 0), data.get("activities") or []
 
 
 def _measures(target_id: str, minimum: float) -> dict[str, int]:
     """How the potent measurements split between inhibition and activation, over one page of them."""
-    data = _get("activity.json", {"target_chembl_id": target_id, "standard_type__in": ACTIVITY_TYPES,
-                                  "pchembl_value__gte": minimum, "limit": MAX_MEASURE_SAMPLE})
-    rows = data.get("activities") or []
-    out: dict[str, int] = {}
-    for row in rows:
-        kind = external_str(row.get("standard_type")).upper()
-        if kind:
-            out[kind] = out.get(kind, 0) + 1
+    rows = _activities(target_id, minimum, limit=MAX_MEASURE_SAMPLE)[1]
+    out = dict(Counter(kind for row in rows if (kind := external_str(row.get("standard_type")).upper())))
     return {"sampled": len(rows), "by_measure": out,
             "inhibition": sum(n for k, n in out.items() if k in INHIBITION_MEASURES),
             "activation": sum(n for k, n in out.items() if k not in INHIBITION_MEASURES)}
@@ -55,12 +50,9 @@ def _measures(target_id: str, minimum: float) -> dict[str, int]:
 
 def _best(target_id: str) -> tuple[int, list[dict[str, Any]]]:
     """The most potent distinct compounds and how many measurements reach 10 nM, in one request."""
-    data = _get("activity.json", {"target_chembl_id": target_id, "standard_type__in": ACTIVITY_TYPES,
-                                  "pchembl_value__gte": VERY_POTENT, "order_by": "-pchembl_value",
-                                  "limit": MAX_COMPOUNDS * 3})
-    total = int((data.get("page_meta") or {}).get("total_count") or 0)
+    total, rows = _activities(target_id, VERY_POTENT, order_by="-pchembl_value", limit=MAX_COMPOUNDS * 3)
     seen: dict[str, dict[str, Any]] = {}
-    for row in data.get("activities") or []:
+    for row in rows:
         molecule = external_str(row.get("molecule_chembl_id"))
         if not molecule or molecule in seen:
             continue
@@ -86,7 +78,7 @@ def ligandability(accession: str) -> dict[str, Any]:
     chosen = (single or targets)[0]
     target_id = external_str(chosen.get("target_chembl_id"))
     very, compounds = _best(target_id)
-    potent = _count(target_id, POTENT)
+    potent = _activities(target_id, POTENT, limit=1)[0]  # ChEMBL's own total; one row fetched
     measures = _measures(target_id, POTENT) if potent else {"sampled": 0, "by_measure": {},
                                                             "inhibition": 0, "activation": 0}
     return {

@@ -5,8 +5,7 @@ description: Use as PLSI Cohort Analyst when the researcher picked a hypothesis 
 
 # PLSI preregister, run, report
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Cohort Analyst**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used. The numbers come only from `plsi mothership analyze`;
+**Status: draft**. The numbers come only from `plsi mothership analyze`;
 the Mother reruns the same spec on the same release and must get the same result.
 
 ## When to use

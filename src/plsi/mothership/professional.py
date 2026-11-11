@@ -1,7 +1,6 @@
-"""A physician's or researcher's Mothership identity: the professional token the relay steward mints, read
-from MOTHERSHIP_PROFESSIONAL_TOKEN via plsi.keys and decoded locally (only the relay checks its signature); and the
-preregistrations and findings built from it into <PLSI_HOME>/mothership/outbox. A professional message never carries
-a contributor id, and the professional folder is never an instance's."""
+"""A professional's Mothership identity: the steward-minted token from MOTHERSHIP_PROFESSIONAL_TOKEN (plsi.keys),
+decoded locally (only the relay checks its signature), and the preregistrations and findings built with it into
+<PLSI_HOME>/mothership/outbox, never an instance's folder and never with a contributor id."""
 
 from __future__ import annotations
 
@@ -15,7 +14,7 @@ from plsi import files, keys, paths, role
 from plsi.clock import now
 from plsi.errors import NotFound, ValidationError
 from plsi.mothership import gate, stats
-from plsi.mothership.relay import SCHEMA_VERSION
+from plsi.mothership.relay import header
 from plsi.vocab import HypothesisDirection, MothershipMessage, ProfessionalScope
 
 TOKEN_ENV = "MOTHERSHIP_PROFESSIONAL_TOKEN"
@@ -48,13 +47,17 @@ def _payload(value: str) -> dict[str, Any]:
     return found
 
 
-def payload(scope: ProfessionalScope | None = None) -> dict[str, Any]:
-    """The decoded token payload {pid, role, scopes, exp}; raises when missing, expired or lacking `scope`."""
+def _required() -> str:
     value = token()
     if value is None:
         raise NotFound("no Mothership professional token is set", code="NOT_REGISTERED",
                        hint=f"after the steward's review, set {TOKEN_ENV} with the Grok secret card (see .env.example)")
-    found = _payload(value)
+    return value
+
+
+def payload(scope: ProfessionalScope | None = None) -> dict[str, Any]:
+    """The decoded token payload {pid, role, scopes, exp}; raises when missing, expired or lacking `scope`."""
+    found = _payload(_required())
     if found["exp"] <= now().timestamp():
         raise ValidationError("the Mothership professional token has expired", code="TOKEN_EXPIRED",
                               hint="ask the Mothership steward to renew it")
@@ -66,10 +69,7 @@ def payload(scope: ProfessionalScope | None = None) -> dict[str, Any]:
 
 def whoami() -> dict[str, Any]:
     """`mothership whoami`: role, scopes and expiry of the professional token; the professional id masked."""
-    value = token()
-    if value is None:
-        payload()  # raises NOT_REGISTERED
-    found = _payload(value)
+    found = _payload(_required())
     exp = datetime.fromtimestamp(found["exp"], UTC)
     return {"role": found["role"], "scopes": found["scopes"], "expires_at": exp.isoformat(),
             "expired": exp <= now(), "pid": f"{str(found['pid'])[:4]}…"}
@@ -87,29 +87,34 @@ def prereg(spec: str) -> dict[str, Any]:
     with a new pr_ id, gate-checked into the professional outbox; nothing is sent."""
     pid = payload(ProfessionalScope.FINDINGS_SUBMIT)["pid"]
     given = files.load_json(spec)
+    if not isinstance(given, dict):
+        raise ValidationError("the preregistration is not a JSON object", code="BAD_SPEC")
     if missing := [k for k in PREREG_FIELDS if k not in given]:
         raise ValidationError(f"the preregistration lacks {', '.join(missing)}", code="BAD_SPEC")
     if not isinstance(given["alpha"], (int, float)) or not 0 < given["alpha"] < 1:
         raise ValidationError("alpha must be a number between 0 and 1", code="BAD_SPEC")
+    if given["direction"] not in tuple(HypothesisDirection):
+        raise ValidationError(f"direction must be one of {', '.join(HypothesisDirection)}", code="BAD_SPEC")
     stats.check_spec(given["analysis"])
-    doc = {"kind": MothershipMessage.PREREGISTRATION.value, "schema_version": SCHEMA_VERSION, "professional_id": pid,
+    doc = header(MothershipMessage.PREREGISTRATION) | {"professional_id": pid,
            "preregistration_id": paths.new_id("pr"), **{k: given[k] for k in PREREG_FIELDS},
-           "parents": list(given.get("parents", []))}
-    doc["direction"] = HypothesisDirection(doc["direction"]).value
+           "parents": given.get("parents", [])}  # anything but a list of f_ ids is refused by the gate
     return _write(doc, pid, f"preregistration-{doc['preregistration_id']}") | {"preregistration_id": doc["preregistration_id"]}
 
 
-def finding(prereg: str, release: str, summary: str) -> dict[str, Any]:  # noqa: A002
+def finding(prereg: str, release: str, summary: str) -> dict[str, Any]:
     """`mothership finding`: run the preregistered analysis on the release and build the finding (new f_ id)."""
     pid = payload(ProfessionalScope.FINDINGS_SUBMIT)["pid"]
     registered = files.load_json(prereg)
-    if registered.get("kind") != MothershipMessage.PREREGISTRATION or registered.get("professional_id") != pid:
+    if not isinstance(registered, dict) or registered.get("kind") != MothershipMessage.PREREGISTRATION \
+            or registered.get("professional_id") != pid or not {"preregistration_id", "release", "analysis"} <= set(registered):
         raise ValidationError("--prereg is not a preregistration of this professional", code="BAD_PREREGISTRATION")
     data = files.load_json(release)
-    if data.get("version") != registered["release"]:
-        raise ValidationError(f"the release is {data.get('version')!r}, the preregistration names {registered['release']!r}",
+    version = data.get("version") if isinstance(data, dict) else None
+    if version != registered["release"]:
+        raise ValidationError(f"the release is {version!r}, the preregistration names {registered['release']!r}",
                               code="RELEASE_MISMATCH", hint=f"plsi mothership release --version {registered['release']}")
-    doc = {"kind": MothershipMessage.FINDING.value, "schema_version": SCHEMA_VERSION, "professional_id": pid,
+    doc = header(MothershipMessage.FINDING) | {"professional_id": pid,
            "finding_id": paths.new_id("f"), "preregistration_id": registered["preregistration_id"],
            "release": registered["release"], "analysis": registered["analysis"],
            "result": stats.analyze_release(data, registered["analysis"]), "summary": summary}

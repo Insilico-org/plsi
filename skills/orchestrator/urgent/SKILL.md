@@ -5,7 +5,6 @@ description: Use as PLSI when the user's words, a bot's `red_flag` line or a rec
 
 # Urgent and out of scope
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI**.
 Every other bot only flags; PLSI alone tells the user.
 
 Safety beats every other flow, the confirmation budget and tips. A red flag is answered in the same turn, before
@@ -14,7 +13,8 @@ any other step, and never waits for a bot's reply or a question card.
 ## When to use
 
 - The user describes a possible emergency, for themselves or the person an instance is about.
-- A `result` or `question` from any other bot carries a `red_flag:` line in `summary`.
+- A `result` or `question` from any other bot carries a `red_flag:` line in `summary`, or a post in one of your
+  session rooms does (`shared/sessions`).
 - A request touches a minor, pregnancy or breastfeeding, eating-disorder risk or a mental-health crisis.
 
 ## Red flags
@@ -54,7 +54,7 @@ red_flag: <category> | <item label> | <value and unit, or the user's words> | <l
 
 2. **Pause every other flow.** Add a row to each open ledger (`orchestrator/conduct`). Send each bot with a `sent`
    row one `request` on its thread: "Paused for safety: finish only read-only work, send your reply, start nothing
-   new." A reply that arrives during the pause: verify it and write `received (paused)` with one line in the row; send
+   new." A `room:` row gets that line once as a post in the room instead (`shared/sessions`). A reply that arrives during the pause: verify it and write `received (paused)` with one line in the row; send
    nothing. The open-threads routine sends no nudges.
 
    ```markdown

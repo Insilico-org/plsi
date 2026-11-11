@@ -5,17 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 from plsi.errors import ValidationError
+from plsi.research.tuning import DEFAULT_DEPTH
 from plsi.vocab.research import (KIND_STATUSES, QuestionLink, ResearchDepth, ResearchDesign, ResearchNodeKind,
                                  ResearchSpecies)
-
-DEFAULT_DEPTH = ResearchDepth.STANDARD
 
 # (required at creation, optional) per kind. `title` keeps the title as written, since the file name is
 # sanitised; `updated` is set on every write.
 FIELDS: dict[ResearchNodeKind, tuple[tuple[str, ...], tuple[str, ...]]] = {
     ResearchNodeKind.TOPIC: (
         ("question_in_chief", "status", "cursor", "cycles"),
-        ("title", "updated", "source", "depth", "ended_reason", "superseded", "reframed_at_move"),
+        ("title", "updated", "source", "depth", "project", "ended_reason", "superseded", "reframed_at_move"),
     ),
     ResearchNodeKind.QUESTION: (
         ("status", "stakes"),
@@ -35,11 +34,25 @@ FIELDS: dict[ResearchNodeKind, tuple[tuple[str, ...], tuple[str, ...]]] = {
 NODE_KEYS = ("kind", "name", "body")  # held in memory beside the frontmatter, never written into it
 CLOSED = {"design": (tuple(ResearchDesign), "the shape of the evidence"),
           "species": (tuple(ResearchSpecies), "what the result is about")}
+# the fields that name other nodes: one name each, or a list of names (boundaries carry their own, below)
+NAME_LINKS, LIST_LINKS = ("parent", "question"), ("tested_by", "supports", "contradicts", "cites")
+FOOTER_LABELS = {"supports": "Supports", "contradicts": "Against", "tested_by": "Would be settled by",
+                 "cites": "Cites"}
 
 
 def meta_of(node: dict[str, Any]) -> dict[str, Any]:
-    """A node's frontmatter fields, without the in-memory keys."""
     return {k: v for k, v in node.items() if k not in NODE_KEYS}
+
+
+def search_counts(node: dict[str, Any] | None) -> dict[str, int]:
+    """A question's `last_search` as whole numbers (`rounds`, `hits`, `new`), 0 where nothing is recorded."""
+    search = (node or {}).get("last_search") or {}
+    return {key: int(search.get(key) or 0) for key in ("rounds", "hits", "new")}
+
+
+def where(section: str, index: int, label: Any) -> str:
+    """A payload item's place, as errors and refusals name it: `nodes[0] <title>` or `update[1] <name>`."""
+    return f"{section}[{index}] {label or ''}".strip()
 
 
 def check_fields(kind: str, meta: dict[str, Any], written: dict[str, Any] | None = None) -> None:
@@ -90,12 +103,8 @@ def check_depth(value: Any) -> ResearchDepth:
 
 
 def links_of(meta: dict[str, Any]) -> list[str]:
-    """Every node this one points at."""
-    out: list[str] = []
-    for field_name in ("parent", "question"):
-        if meta.get(field_name):
-            out.append(str(meta[field_name]))
-    for field_name in ("tested_by", "supports", "contradicts", "cites"):
+    out = [str(meta[f]) for f in NAME_LINKS if meta.get(f)]
+    for field_name in LIST_LINKS:
         out += [str(v) for v in (meta.get(field_name) or [])]
     for boundary in meta.get("boundaries") or []:
         out += [str(v) for v in (boundary.get("between") or [])]
@@ -113,8 +122,7 @@ def link_footer(kind: str, meta: dict[str, Any]) -> str:
     if kind != ResearchNodeKind.QUESTION and meta.get("question"):
         parts.append(f"{'Proposed for' if kind == ResearchNodeKind.HYPOTHESIS else 'Bears on'} "
                      f"[[{meta['question']}]].")
-    for label, key in (("Supports", "supports"), ("Against", "contradicts"),
-                       ("Would be settled by", "tested_by"), ("Cites", "cites")):
+    for key, label in FOOTER_LABELS.items():
         if meta.get(key):
             parts.append(f"{label} " + ", ".join(f"[[{v}]]" for v in meta[key]) + ".")
     return " ".join(parts)

@@ -5,8 +5,7 @@ description: Use as PLSI Navigator when PLSI asks for pro-longevity activities n
 
 # PLSI activities near me
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Navigator**. Reply only in handoffs to PLSI; never message the user.
-**Status: placeholder** (designed); steps may change once it has been used.
+**Status: placeholder**.
 
 ## When to use
 

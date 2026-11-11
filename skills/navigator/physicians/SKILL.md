@@ -5,8 +5,7 @@ description: Use as PLSI Navigator when PLSI asks to find a specialist or a long
 
 # PLSI find a physician
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Navigator**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used. PLSI handles all contact with physicians
+**Status: draft**. PLSI handles all contact with physicians
 (`orchestrator/physicians`).
 
 ## When to use

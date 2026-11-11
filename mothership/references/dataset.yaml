@@ -114,10 +114,7 @@ uniprot:
     to get annotated ranges with start/end positions - the residue numbers a target report otherwise states from
     memory. An unknown accession answers HTTP 400, not 404. Use the reviewed (Swiss-Prot) accession Open Targets
     returns under `proteinIds`, not a TrEMBL one.
-    **`plsi doctor --online` reports this one `unreachable` and the API is fine.** A bare GET on the api_base
-    301-redirects to `http://rest.uniprot.org:8080/uniprotkb/` - an https-to-http downgrade, which plsi.net
-    refuses by design. Every real path (`/{accession}`, `/search?query=`) answers 200 with no redirect, so the
-    client works; only the reachability check, which fetches the base itself, trips over it.
+    `plsi doctor --online` reports it `unreachable` (the bare api_base redirects to http, which plsi.net refuses); every real path answers 200.
 
 open_genes:
   title: Open Genes - genes associated with aging and lifespan, with intervention evidence

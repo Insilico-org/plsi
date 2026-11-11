@@ -10,28 +10,19 @@ from typing import Any
 
 from plsi.errors import ValidationError
 from plsi.research import cursor as cursors
-from plsi.research import frontier, ledger, store
-from plsi.research.cursor import MAX_ATTEMPTS, UNPRODUCTIVE_STOP
-from plsi.research.status import coverage
-from plsi.research.store import active_name, today
+from plsi.research import frontier, ledger, projects, store
+from plsi.research.store import clip, today
+from plsi.research.tuning import DEPTH_LIMITS, HEADROOM, MAX_ATTEMPTS, TRIED_CHARS, TRIED_MOVES, UNPRODUCTIVE_STOP
 from plsi.research.verdict import floor_words
-from plsi.research.working_set import clip, working_set
-from plsi.vocab.research import ResearchDepth, ResearchLogEvent, ResearchMove, ResearchStatus, ResearchStop
-
-TRIED_MOVES, TRIED_CHARS = 3, 900
-# (max depth, max breadth): advisory, reported in `limits` and enforced by nothing. The agent decomposes.
-DEPTH_LIMITS = {ResearchDepth.FAST: (1, 3), ResearchDepth.STANDARD: (3, 5),
-                ResearchDepth.DEEP: (4, 6), ResearchDepth.EXHAUSTIVE: (5, 8)}
-
-
-def _stop_logged(log: list[dict[str, Any]], why: ResearchStop, day: str | None) -> bool:
-    return any(line.get("event") == ResearchLogEvent.STOP and line.get("why") == why and line.get("day") == day
-               for line in log)
+from plsi.research.working_set import working_set
+from plsi.vocab.research import ResearchLogEvent, ResearchMove, ResearchStatus, ResearchStop
 
 
 def _log_stop_once(graph: store.Graph, log: list[dict[str, Any]], why: ResearchStop, day: str | None,
                    **fields: Any) -> None:
-    if not _stop_logged(log, why, day):
+    """Log a stop, unless the same stop is already logged for that day."""
+    if not any(line.get("event") == ResearchLogEvent.STOP and line.get("why") == why and line.get("day") == day
+               for line in log):
         store.append_log(graph, {"event": str(ResearchLogEvent.STOP), "why": str(why), "day": day, **fields})
 
 
@@ -57,7 +48,6 @@ def _read_meter(graph: store.Graph, usage: float | None) -> bool:
                                   code="USAGE_REQUIRED",
                                   hint="plsi research next --usage <percent of this week's limit used, read now>")
         return False
-    ledger.check_monotonic(usage)
     reading = ledger.charge(usage)
     if reading["delta"]:
         store.append_log(graph, {"event": str(ResearchLogEvent.READING), "day": today(), "usage": usage,
@@ -65,42 +55,69 @@ def _read_meter(graph: store.Graph, usage: float | None) -> bool:
     return False
 
 
-def next_move(topic: str | None = None, usage: float | None = None) -> dict[str, Any]:
-    """`research next`: the move due and everything it needs, or a stop. Writes only the cursor, the day's
-    opening and meter readings."""
+def _meter_stop(graph: store.Graph) -> dict[str, Any] | None:
+    """The `meter` stop when a reading today went below the one before it; only the user can say it was a reset."""
+    fell = ledger.meter_fell(today())
+    if not fell:
+        return None
+    return {**_orient(graph), "stop": str(ResearchStop.METER), **fell,
+            "why": f"the meter read {fell['saw']} after {fell['after']}. Either the weekly limit reset "
+                   "between moves or a reading was low; code cannot tell those apart and does not guess",
+            "if_reset": f"plsi research budget --meter-reset --usage {fell['saw']}",
+            "resumes": "after the user confirms a reset, or the next run on a new day"}
+
+
+def _no_topic(meta: dict[str, Any]) -> dict[str, Any]:
+    """The stop when the project has no active topic: the first run asks the user, a later one takes the top
+    candidate. The day it first asked is the project's, so one project's open card never moves another."""
+    if ledger.is_off():
+        return {"stop": str(ResearchStop.OFF), "why": "research has no share of the meter"}
+    directory = projects.folder(meta["id"])
+    asked = projects.topic_asked(directory, today())
+    metas = {d.name: store.topic_meta(d) for d in store.topic_dirs(directory)}
+    return {"stop": str(ResearchStop.NO_TOPIC), "why": "this project has no active topic",
+            "project": projects.card(meta), "asked_on": asked, "propose": "plsi research propose --instance <name>",
+            "topics": [{"topic": n, "status": m.get("status"), "why": m.get("ended_reason")} for n, m in metas.items()],
+            "then": "post the card for the user to pick a topic" if asked == today() else
+                    f"the card of {asked} went unanswered: take the top candidate (plsi research topic --new "
+                    f"--project {meta['id']}) and say so in one line"}
+
+
+def next_move(topic: str | None = None, usage: float | None = None, project: str | None = None) -> dict[str, Any]:
+    """`research next`: the move due on the topic named, else on the active topic of the project named (or of the
+    only active project), and everything it needs, or a stop. Writes only the cursor, the day's opening and meter
+    readings. The day's allocation is shared by the active projects, so a move must fit this project's part."""
     usage = None if usage is None else ledger.reading(usage)
-    graph = store.load(topic or active_name())
+    if not topic:
+        meta = projects.pick(project)
+        if store.active_name(projects.folder(meta["id"]), required=False) is None:
+            return _no_topic(meta)
+    graph = store.load(topic or projects.active_topic(project))
     log = store.read_log(graph)
     if graph.topic.get("status") != ResearchStatus.ACTIVE:
         done = graph.topic.get("status") == ResearchStatus.DONE
         return {**_orient(graph), "stop": str(ResearchStop.DONE if done else ResearchStop.PARKED),
                 "why": graph.topic.get("ended_reason") or "the topic is not active",
                 "answer": (cursors.answers_in_chief(graph) or [None])[0] if done else None,
-                "continue_with": frontier.continuations(graph) if done else [],
-                "budget": ledger.affordable(log, ResearchMove.ASK)}
-    fell = ledger.state().get("meter_fell")
-    if fell and fell.get("day") != today():
-        ledger.clear_meter_fell()
-        fell = None
-    if fell:
-        return {**_orient(graph), "stop": str(ResearchStop.METER), **fell,
-                "why": f"the meter read {fell['saw']} after {fell['after']}. Either the weekly limit reset "
-                       "between moves or a reading was low; code cannot tell those apart and does not guess",
-                "resumes": "the next run on a new day, which opens a fresh week"}
+                "continue_with": frontier.continuations(graph),
+                "budget": ledger.affordable(graph, log, ResearchMove.ASK)}
+    if stop := _meter_stop(graph):
+        return stop
     if ledger.is_off():
         return {**_orient(graph), "stop": str(ResearchStop.OFF), "why": "research has no share of the meter",
                 "turn_it_on": "plsi research budget --share <percent of the weekly meter per day>"}
 
     opened = _read_meter(graph, usage)
+    if stop := _meter_stop(graph):
+        return stop
     room = ledger.headroom(usage)
     if not room["ok"]:
         _log_stop_once(graph, log, ResearchStop.HEADROOM, today(), **room)
         return {**_orient(graph), "stop": str(ResearchStop.HEADROOM), **room,
                 "why": f"{room['left']}% of the weekly meter is left and research would need {room['need']}%; "
-                       f"the user keeps {ledger.HEADROOM}% for themselves",
+                       f"the user keeps {HEADROOM}% for themselves",
                 "open": frontier.open_items(graph), "resumes": "when the weekly meter resets"}
-
-    week = ledger.affordable(log, str((graph.topic.get("cursor") or {}).get("move") or ResearchMove.ASK))
+    week = ledger.affordable(graph, log)
     if week["week_left"] <= 0:
         _log_stop_once(graph, log, ResearchStop.CEILING, today(), week=week["week"], week_spent=week["week_spent"])
         return {**_orient(graph), "stop": str(ResearchStop.CEILING),
@@ -110,7 +127,6 @@ def next_move(topic: str | None = None, usage: float | None = None) -> dict[str,
                 "open": frontier.open_items(graph), "budget": week, "resumes": "when the weekly meter resets"}
 
     cursor = cursors.current(graph)
-    gave_up, moved_on = None, None
     attempts = int(cursor.get("attempt") or 0)
     if attempts >= MAX_ATTEMPTS and not cursor.get("question"):
         # nothing is open to close, so the attempts start again and the next run retries the first move
@@ -119,8 +135,9 @@ def next_move(topic: str | None = None, usage: float | None = None) -> dict[str,
         _log_stop_once(graph, log, ResearchStop.STUCK, today(), attempts=attempts)
         return {**_orient(graph, cursor), "stop": str(ResearchStop.STUCK),
                 "why": f"{MAX_ATTEMPTS} attempts at the first move without a save, and no direction is open yet",
-                "budget": ledger.affordable(log, str(cursor["move"])),
+                "budget": ledger.affordable(graph, log, cursor["move"]),
                 "resumes": "the next run; nothing was closed because nothing had been opened"}
+    gave_up, moved_on = None, None
     if attempts >= MAX_ATTEMPTS:
         gave_up = cursors.close(graph, cursor["question"], f"stuck: {MAX_ATTEMPTS} attempts without a save")
         store.append_log(graph, {"event": str(ResearchLogEvent.GAVE_UP), "question": gave_up,
@@ -137,7 +154,7 @@ def next_move(topic: str | None = None, usage: float | None = None) -> dict[str,
     if not cursor.get("question") and cursor.get("move") != ResearchMove.ASK:
         cursor["move"] = str(ResearchMove.ASK)
 
-    budget = ledger.affordable(log, str(cursor["move"]))
+    budget = ledger.affordable(graph, log, cursor["move"])
     # a finished topic is finished whether or not today's allocation is spent, so these come first
     in_chief = cursors.answers_in_chief(graph)
     if in_chief and not frontier.rank(graph):
@@ -178,25 +195,22 @@ def _move_reply(graph: store.Graph, log: list[dict[str, Any]], cursor: dict[str,
     max_depth, max_breadth = DEPTH_LIMITS[depth]
     question = cursor.get("question")
     return {
-        "topic": graph.name,
-        "question_in_chief": graph.topic.get("question_in_chief"),
+        **_orient(graph, cursor),
         "topic_rests_on": graph.topic.get("source") or {},
-        "cursor": cursor,
         "move": str(cursor["move"]),
-        "skill": f"autopilot/{cursor['move']}",
+        "skill": f"lab/{cursor['move']}",
         "needs": None if question else ("No direction is open. Open one under the question in chief - a part of it "
                                         "nobody has worked, or a continuation of what is already answered."),
         "route": frontier.route(graph, question) if question else None,
         "ready_to_answer": bool(question) and frontier.is_ready(graph, question),
         "budget": budget,
-        **frontier.queue(graph),
         **frontier.recently_closed(graph),
         "working_set": working_set(graph, question),
         "already_tried": _already_tried(log, question),
         "gave_up_on": gave_up,
         "moved_on": moved_on,
         "question_in_chief_answered": (cursors.answers_in_chief(graph) or [None])[0],
-        "coverage": coverage(graph, brief=True),
+        "coverage": frontier.coverage(graph, brief=True),
         "depth": str(depth), "answer_must_reach": floor_words(depth),
         "limits": {"max_depth": max_depth, "max_breadth": max_breadth,
                    "depth_here": len(graph.ancestry(question)) if question else 0},

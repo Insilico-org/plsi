@@ -5,8 +5,6 @@ description: Use as PLSI Reviewer when PLSI asks for a review - predictions are 
 
 # PLSI review
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Reviewer**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - The "PLSI check-in" routine found due or awaiting predictions.

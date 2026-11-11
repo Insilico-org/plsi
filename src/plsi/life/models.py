@@ -11,8 +11,9 @@ from plsi.life.deid import AGE_GROUP_90, PROFILE
 from plsi.models import Code, EventId, Model, Sha256Hex, UtcTime
 from plsi.vocab import ClinicalStatus, Comparator, Ethnicity, EventType, LabFlag, ObservationKind, OriginKind, Relation, Sex, TimeBasis
 
-
 DOCUMENT_RE = r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+ORIGINAL_TEXT_MAX = 200
+Reason = Annotated[str, Field(min_length=1, max_length=500)]
 
 
 class Origin(Model):
@@ -25,9 +26,6 @@ class Origin(Model):
     document: Annotated[str, Field(pattern=DOCUMENT_RE)] | None = None  # one source document across its versions (plsi revise), e.g. its Drive file id
 
 
-ORIGINAL_TEXT_MAX = 200
-
-
 class ObservationInput(Model):
     kind: ObservationKind
     code: Code | None = None
@@ -37,6 +35,8 @@ class ObservationInput(Model):
     value_bool: bool | None = None
     value_comparator: Comparator | None = None
     unit: str | None = Field(default=None, max_length=64)
+    # the unit exactly as printed, when `unit` is the reading chosen for a misprint or OCR slip (`plsi calc place`)
+    unit_printed: str | None = Field(default=None, max_length=64)
     effective_at: UtcTime
     effective_basis: TimeBasis = TimeBasis.DOCUMENT
     effective_end: UtcTime | None = None
@@ -75,12 +75,12 @@ class Observation(ObservationInput):
 
 
 class RetractionInput(Model):
-    reason: str = Field(min_length=1, max_length=500)
+    reason: Reason
 
 
 class Retraction(Model):
     target_event_id: EventId
-    reason: str = Field(min_length=1, max_length=500)
+    reason: Reason
     replacement_event_id: EventId | None = None
 
 

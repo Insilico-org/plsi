@@ -5,8 +5,6 @@ description: Use as PLSI Memory Hole when PLSI relays the user's request to dele
 
 # PLSI forget
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Memory Hole**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - A `request` with skill `memoryhole/forget` naming one `instance`: the user wants that person's data gone.
@@ -18,8 +16,10 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Memory Hole**. Reply on
 1. Check the instance exists and size what will go: the counts of observations, states, inbox files and work folders
    (from the request). For a patient (physician role: a row of `<PLSI_HOME>/work/panel/roster.json`), also count the
    files that name the patient's label outside the patient's instance: the physician's panel reports
-   (`<PLSI_HOME>/<physician instance>/reports/*.html` rendered from a `panel.json`), the `panel.json` files and the
-   `work/<thread>/` folders (visit briefs, messages) that hold it. Then look for copies outside `<PLSI_HOME>`: every
+   (`<PLSI_HOME>/<physician instance>/reports/*.html` rendered from a `panel.json`), the `panel.json` files, the
+   clinic dashboard (`<PLSI_HOME>/work/clinic-dashboard/`) and the `work/<thread>/` folders (visit briefs,
+   messages) that hold it, and its Ward bot's follow-ups folder
+   `<PLSI_HOME>/work/ward-<label>/`. Then look for copies outside `<PLSI_HOME>`: every
    bot shares this computer, so search the work areas (`/workspace`, each bot's home folder, `/tmp`; never the PLSI
    repo or another instance) for files that hold its subject id (`s_…`; the label too when it is not a common word
    such as `me`), or are byte copies of its inbox files, and count them by folder. Send ONE `question` to PLSI with the instance, its relation, the counts, the offer of an export, and the exact choice ("Delete everything recorded
@@ -49,7 +49,7 @@ Follow persona.md norms and `shared/team`. Owner: **PLSI Memory Hole**. Reply on
 
 4. Then delete only the inbox files, `work/<thread>/` folders, the copies outside `<PLSI_HOME>` found in step 1
    and, for a patient, the panel reports and `panel.json`
-   files counted in the confirmed question, `<PLSI_HOME>/inbox/<label>/` and the label's lines in
+   files counted in the confirmed question, `<PLSI_HOME>/inbox/<label>/`, `<PLSI_HOME>/work/ward-<label>/` and the label's lines in
    `work/panel/synced.jsonl` (rewrite the file without them), and drop the instance from your memory. Never edit `roster.json` or
    anything inside another instance besides those reports: for a patient, the `result` names the work for Panel
    (`panel/roster`, via PLSI) to remove the row. Send one `result`: files and events removed, the export path if any, and that the

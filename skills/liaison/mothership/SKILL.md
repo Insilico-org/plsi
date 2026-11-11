@@ -5,8 +5,7 @@ description: Use as PLSI Liaison for the physician's professional desk at the Lo
 
 # PLSI professional Mothership desk
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Liaison**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used. Professional access is by invitation: an Insilico steward
+**Status: draft**. Professional access is by invitation: an Insilico steward
 reviews each request by hand and emails a one-time invite link; its page shows the token once, and the physician adds
 it as `MOTHERSHIP_PROFESSIONAL_TOKEN` with Grok's secret card. The professional identity is never linked to the physician's own contributor data.
 
@@ -44,12 +43,13 @@ it as `MOTHERSHIP_PROFESSIONAL_TOKEN` with Grok's secret card. The professional 
    professional information only), with nothing about any patient:
 
    ```json
-   {"kind": "research_note",
-    "items": [{"claim": "...", "grade": "Low", "evidence_class": "model_derived",
+   {"kind": "plsi_research_note",
+    "items": [{"claim": "...", "tags": ["D016922"], "grade": "Low", "evidence_class": "model_derived",
                "sources": [{"kind": "pmid", "id": "..."}], "falsified_by": "...", "next_step": "..."}],
     "method": "PLSI liaison/mothership; sources listed per item"}
    ```
 
+   `tags`: 1-5 MeSH descriptor ids (`plsi mesh find --term '<term>'`); `plsi mothership note` fills their names from NLM.
    No URL in a research note (sources are kinds and ids) and no exact date anywhere: the gate refuses both. Turn it
    into the wire message:
 

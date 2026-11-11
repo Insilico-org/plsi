@@ -1,11 +1,11 @@
 """The projection of one map over an instance's active observations: which observations each coordinate accepts,
-its measured and derived values (with provenance) and the days they exist. Used only by plsi.map.mapper."""
+its measured and derived values (with provenance) and the days they exist. plsi.map.mapper builds states from it."""
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from functools import partial
 from typing import Any
 
 from plsi import errors, paths
@@ -14,6 +14,7 @@ from plsi.life.models import Observation
 from plsi.life.store import EventStore
 from plsi.map import biolearn, derive, units
 from plsi.map.models import SERIES_CAP, CoordinateValue, Derive, MapContract, MapCoordinate, Provenance, SeriesPoint, SetItem
+from plsi.models import SHA256_RE
 from plsi.vocab import ClinicalStatus, Comparator, CoordinateKind, DeriveEngine, MatchKind, ObservationKind, TimeBasis, ValueStatus
 
 
@@ -22,7 +23,8 @@ def hybrid(c: MapCoordinate) -> bool:
     return c.derive is not None and bool(c.accepts.codes)
 
 
-def _accepts(c: MapCoordinate, o: Observation) -> bool:
+def accepts(c: MapCoordinate, o: Observation) -> bool:
+    """Whether coordinate `c` takes observation `o`: an accepted code, no rejected one, and fasting when required."""
     if o.code is None or any((r.system, r.code) == (o.code.system, o.code.code) for r in c.accepts.reject_codes):
         return False
     code = next((x for x in c.accepts.codes if (x.system, x.code) == (o.code.system, o.code.code)), None)
@@ -70,11 +72,29 @@ def set_items(events: list[Event], kind: ObservationKind, as_of: datetime) -> li
 
 
 def _input_days(d: Derive, days: dict[str, set[date]]) -> list[date]:
-    """Days a derived value exists, from each input's days with a value: every same-day input has one that day and
-    every carried input one on or before it. The one rule for coverage (day_set) and projection (_derived)."""
+    """Days a derived value exists, from each input's days with a value: every same-day input has one that day, or
+    within `window_days` before it when the derive allows a window (the day itself holds one of them), and every
+    carried input one on or before it. The one rule for coverage (day_set) and projection (_derived)."""
     same = [days[i] for i in d.inputs if i not in d.carry_forward]
     firsts = [min(days[i], default=date.max) for i in d.carry_forward]
-    return sorted(day for day in set.intersection(*same) if all(day >= f for f in firsts)) if same else []
+    if not same:
+        return []
+    if d.window_days:
+        span = timedelta(days=d.window_days)
+        candidates = set().union(*same)
+        hits = (day for day in candidates if all(any(day - span <= x <= day for x in xs) for xs in same))
+    else:
+        hits = iter(set.intersection(*same))
+    return sorted(day for day in hits if all(day >= f for f in firsts))
+
+
+def _pick(d: Derive, i: str, day: date, values: dict[date, Any]) -> Any:
+    """The input value a derived point on `day` uses: that day's, or the latest within the window or carried."""
+    if i in d.carry_forward:
+        return values[max(x for x in values if x <= day)]
+    if d.window_days:
+        return values[max(x for x in values if day - timedelta(days=d.window_days) <= x <= day)]
+    return values[day]
 
 
 class Projection:
@@ -96,7 +116,7 @@ class Projection:
         """Observations the coordinate accepts, by effective_at then log order."""
         if c.id not in self._matches:
             hits = sorted({n for x in c.accepts.codes for n in self._by_code.get((x.system.value, x.code), [])})
-            self._matches[c.id] = sorted((self.events[n] for n in hits if _accepts(c, self.events[n].payload)),
+            self._matches[c.id] = sorted((self.events[n] for n in hits if accepts(c, self.events[n].payload)),
                                          key=lambda e: e.payload.effective_at)
         return self._matches[c.id]
 
@@ -152,11 +172,14 @@ class Projection:
         usage = {x["name"]: x["usage_note"] for x in biolearn.clocks()} if biolearn_on else {}
         out = []
         for day in days:
-            ins = {i: per_day[i][day if i not in d.carry_forward else max(x for x in per_day[i] if x <= day)] for i in d.inputs}
+            ins = {i: _pick(d, i, day, per_day[i]) for i in d.inputs}
             t = datetime.combine(day, time(12), UTC)  # derived effective time = the draw day
             derivation = {"engine": d.engine.value, "model": d.model, "computed_at": (self.as_of or t).isoformat()}
             if usage.get(d.model):
                 derivation["usage_note"] = usage[d.model]
+            if d.window_days:  # the draws it combines
+                drawn = sorted({q.t.date() for i, q in ins.items() if i not in d.carry_forward})
+                derivation["inputs_from"], derivation["inputs_to"] = drawn[0].isoformat(), drawn[-1].isoformat()
             p = Point(t, None, list(dict.fromkeys(x for q in ins.values() for x in q.event_ids)), max(q.recorded_at for q in ins.values()),
                        TimeBasis.ASSUMED if any(q.basis == TimeBasis.ASSUMED for q in ins.values()) else TimeBasis.DOCUMENT,
                        Provenance(match=MatchKind.DERIVED, rule=rule, derivation=derivation))
@@ -171,7 +194,7 @@ class Projection:
             try:
                 values = {i: q.value for i, q in ins.items()}
                 if censored:
-                    fn = lambda v: derive.evaluate(d, v, birth_year=self.birth_year, sex=self.sex, at=t)  # noqa: E731
+                    fn = partial(derive.evaluate, d, birth_year=self.birth_year, sex=self.sex, at=t)
                     p.value, p.comparator = derive.bounded(fn, values, censored)  # type: ignore[arg-type]
                     p.provenance.derivation["censored_inputs"] = sorted(censored)  # type: ignore[index]
                 else:
@@ -187,10 +210,10 @@ class Projection:
         if derive.scalar(d):
             return derive.evaluate(d, values, birth_year=self.birth_year, sex=self.sex, at=t)
         sha = next(iter(values.values()))
-        if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha):
+        if not isinstance(sha, str) or not SHA256_RE.fullmatch(sha):
             raise ValueError("biolearn input must be a methylation artifact")
         if not biolearn.available():
-            raise errors.DependencyMissing("biolearn is not installed", hint=biolearn.HINT)
+            raise errors.DependencyMissing("biolearn is not installed", hint=errors.CLOCKS_EXTRA)
         key = (sha, t.date())
         if key not in self._clock_runs:  # every biolearn clock of this map in one run per sample and draw day
             import pandas as pd  # available whenever biolearn is

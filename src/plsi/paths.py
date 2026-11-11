@@ -10,8 +10,11 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from plsi.errors import NotFound, ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+MAPS_DIR = REPO_ROOT / "maps"  # the shipped State Maps
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _WINDOWS_RESERVED = {"con", "prn", "aux", "nul"} | {f"{p}{i}" for p in ("com", "lpt") for i in range(1, 10)}
+# <PLSI_HOME> folders that are not instances: never an instance name
+HOME_DIRS = frozenset({"egress", "extensions", "feedback", "inbox", "mothership", "research", "targets", "work"})
 
 
 def is_reserved(name: str) -> bool:
@@ -19,7 +22,7 @@ def is_reserved(name: str) -> bool:
 
 
 def is_valid_id(value: str) -> bool:
-    return bool(ID_RE.match(value)) and not is_reserved(value)
+    return bool(ID_RE.fullmatch(value)) and not is_reserved(value)
 
 
 def validate_id(value: str, what: str = "id") -> str:
@@ -37,7 +40,9 @@ def plsi_home() -> Path:
 
 
 def instance_dir(name: str, *, must_exist: bool = True) -> Path:
-    path = safe_join(plsi_home(), validate_id(name, "instance name"))
+    if validate_id(name, "instance name") in HOME_DIRS:
+        raise ValidationError(f"{name!r} is a PLSI_HOME folder, not an instance", code="INSTANCE_NAME_RESERVED")
+    path = safe_join(plsi_home(), name)
     if must_exist and not (path / "subject.json").is_file():
         raise NotFound(f"instance {name!r} does not exist", code="INSTANCE_NOT_FOUND", hint=f"plsi init --instance {name}")
     return path

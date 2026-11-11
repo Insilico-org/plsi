@@ -21,6 +21,7 @@ FIELDS = ("accession,id,protein_name,length,ft_domain,ft_region,ft_binding,ft_ac
           "ft_signal,cc_subcellular_location,xref_pdb,ft_mutagen,cc_activity_regulation,"
           "cc_catalytic_activity")
 MAX_MUTAGENESIS = 8
+MAX_COMMENTS = 3
 
 
 def _position(location: dict[str, Any]) -> tuple[int | None, int | None]:
@@ -42,9 +43,6 @@ def _features(record: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
                          "description": external_str(feature.get("description")) or None,
                          "span": f"{start}-{end}" if start and end and start != end else str(start or "")})
     return out
-
-
-MAX_COMMENTS = 3
 
 
 def _comments(record: dict[str, Any], kind: str) -> list[str]:

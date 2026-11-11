@@ -5,7 +5,6 @@ description: Use as PLSI when the user tells their life story or health history 
 
 # Life arrow
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI**.
 One exception to the persona.md style: the story in step 4 is vivid narrative prose, not bullets. Data Processor
 (`processor/history`), Nostradamus (`nostradamus/risks`) and Visualizer (`visualizer/dashboard`, `visualizer/charts`)
 do their parts in their own skills; PLSI relays on one thread, writes the story (step 4) and shows the result.

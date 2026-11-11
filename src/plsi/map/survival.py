@@ -1,18 +1,11 @@
 """`plsi calc survival`: remaining lifespan under scenarios, from a life table and proportional hazards.
 
-Code computes, the bot judges: the bot picks the life table (the bundled UN WPP 2024 snapshot, or a table it took
-from a `base_rate` reference) and, per scenario, the hazard ratio and the age shift with their sources; this module
-only turns them into survival. Hazard per single year of age is mu(x) = -ln(1 - q(x)) (constant within the year;
-an abridged interval of n years spreads its q evenly in hazard). Past the table's last age the hazard follows a
-Gompertz line fitted to ln mu over the last 20 ages of the table, up to age 120.
-
-Any country: the bot downloads the latest UN WPP single-age life table CSV ("Life_Table_Complete", per sex, plain
-or .gz) from the WPP download centre and names it as `un_wpp.file`; rows are matched on ISO3_code, Time and Sex and
-read from AgeGrpStart and qx.
-
-A scenario multiplies the hazard by `hazard_ratio` from `after_years` on (proportional hazards) and reads the table
-at age + `age_shift` (a biological-age gap, e.g. PhenoAge acceleration). These are population averages applied to
-one person, not a forecast of their death: the output says so.
+Code computes, the bot judges: the bot picks the life table (the bundled UN WPP 2024 snapshot, a downloaded WPP
+"Life_Table_Complete" CSV given as `un_wpp.file`, matched on ISO3_code, Time and Sex, or `q` rows from a `base_rate`
+reference) and, per scenario, the hazard ratio (from `after_years` on) and the age shift (a biological-age gap) with
+their sources. Hazard per year of age is mu(x) = -ln(1 - q(x)), an abridged interval spreading its q evenly; past
+the table's last age a Gompertz line fitted to ln mu over its last 20 ages runs to 120. These are population
+averages applied to one person, not a forecast of their death: the output says so.
 """
 
 from __future__ import annotations
@@ -29,12 +22,11 @@ from pydantic import Field, model_validator
 
 from plsi.errors import ValidationError
 from plsi.files import load_json
-from plsi.map.models import Estimate
+from plsi.map.course import Estimate
 from plsi.models import Model, parse
 from plsi.vocab import Sex
 
-DATA = Path(__file__).with_name("data")
-WPP = DATA / "wpp2024_lx.csv"
+WPP = Path(__file__).with_name("data") / "wpp2024_lx.csv"
 _WPP_SEX = {Sex.F: "female", Sex.M: "male"}
 MAX_AGE = 120
 TAIL_FIT_AGES = 20
@@ -43,20 +35,16 @@ APPLICABILITY = ("population-average survival for this age and sex, shifted by t
                  "and age gap; not a prediction of one person's lifespan")
 
 
-class Ratio(Estimate):
-    """A hazard ratio with its interval."""
-
-
 class Scenario(Model):
     name: str = Field(min_length=1)
-    hazard_ratio: float | Ratio = 1.0
+    hazard_ratio: float | Estimate = 1.0  # with its interval
     after_years: float = Field(default=0, ge=0, le=60)
     age_shift: float = Field(default=0, ge=-30, le=30)
     source: str | None = None  # pmid:, doi:, a state or a reference id; required when the scenario changes anything
 
     @model_validator(mode="after")
-    def _sourced(self) -> "Scenario":
-        hr = Ratio.of(self.hazard_ratio)
+    def _sourced(self) -> Scenario:
+        hr = Estimate.of(self.hazard_ratio)
         if any(v is not None and not 0.05 <= v <= 20 for v in (hr.expected, hr.low, hr.high)):
             raise ValueError("hazard ratios lie between 0.05 and 20")
         if (hr.expected != 1 or self.age_shift) and not self.source:
@@ -79,7 +67,7 @@ class Table(Model):
     source: str | None = None
 
     @model_validator(mode="after")
-    def _one(self) -> "Table":
+    def _one(self) -> Table:
         if (self.un_wpp is None) == (self.q is None):
             raise ValueError("give exactly one of un_wpp {country, year} or q [{age, n, q}]")
         if self.q is not None and not self.source:
@@ -94,7 +82,7 @@ class SurvivalSpec(Model):
     scenarios: list[Scenario] = Field(min_length=1, max_length=8)  # the first is the baseline the others compare to
 
     @model_validator(mode="after")
-    def _by_sex(self) -> "SurvivalSpec":
+    def _by_sex(self) -> SurvivalSpec:
         if self.sex not in (Sex.F, Sex.M):
             raise ValueError("life tables are by sex: run F and M and show both, saying why")
         return self
@@ -114,18 +102,17 @@ def _open(path: Path) -> io.TextIOBase:
     return io.TextIOWrapper(gzip.GzipFile(fileobj=raw) if path.suffix == ".gz" else raw, encoding="utf-8-sig", newline="")
 
 
-def _from_wpp_file(sex: str, ref: dict[str, Any]) -> tuple[dict[int, float], str]:
+def _from_wpp_file(sex: Sex, ref: dict[str, Any]) -> tuple[dict[int, float], str]:
     """One country, sex and year from a downloaded WPP Life_Table_Complete CSV, streamed (the files are large)."""
     path, iso3, year = Path(str(ref["file"])), str(ref.get("country", "")).upper(), str(ref.get("year", ""))
     want = _WPP_SEX[sex]
     if not path.is_file():
-        raise ValidationError(f"no WPP file at {path}", hint="download the Life_Table_Complete CSV from population.un.org/wpp")
+        raise ValidationError(f"no WPP file at {path.name}", hint="download the Life_Table_Complete CSV from population.un.org/wpp")
     rows: list[TableRow] = []
     with _open(path) as handle:
         reader = csv.DictReader(handle)
-        need = {"ISO3_code", "Time", "AgeGrpStart", "qx"}
-        if not need <= set(reader.fieldnames or ()):
-            raise ValidationError(f"{path.name} is not a WPP life table CSV: it lacks {sorted(need - set(reader.fieldnames or ()))}")
+        if missing := {"ISO3_code", "Time", "AgeGrpStart", "qx"} - set(reader.fieldnames or ()):
+            raise ValidationError(f"{path.name} is not a WPP life table CSV: it lacks {sorted(missing)}")
         for r in reader:
             if r["ISO3_code"] == iso3 and r["Time"] == year and r.get("Sex", want).lower() == want:
                 span = int(r.get("AgeGrpSpan") or 1)  # the open last group has span -1
@@ -137,7 +124,7 @@ def _from_wpp_file(sex: str, ref: dict[str, Any]) -> tuple[dict[int, float], str
     return _from_rows(rows, f"UN WPP {path.name}, {iso3} {want} {year} (CC BY 3.0 IGO)")
 
 
-def _from_wpp(sex: str, ref: dict[str, Any]) -> tuple[dict[int, float], str]:
+def _from_wpp(sex: Sex, ref: dict[str, Any]) -> tuple[dict[int, float], str]:
     if ref.get("file"):
         return _from_wpp_file(sex, ref)
     key = (str(ref.get("country", "")).upper(), _WPP_SEX[sex], int(ref.get("year", 0)))
@@ -159,7 +146,7 @@ def _from_rows(rows: list[TableRow], source: str) -> tuple[dict[int, float], str
         for x in range(r.age, min(r.age + r.n, MAX_AGE)):
             mu[x] = -math.log(1 - r.q) / r.n
     if len(mu) < TAIL_FIT_AGES or sorted(mu) != list(range(min(mu), max(mu) + 1)):
-        raise ValidationError("the q rows must cover at least 20 consecutive years of age without gaps")
+        raise ValidationError(f"the q rows must cover at least {TAIL_FIT_AGES} consecutive years of age without gaps")
     return mu, source
 
 
@@ -209,7 +196,7 @@ def survival(file: str) -> dict[str, Any]:
     mu = _with_tail(mu)
     out = []
     for sc in spec.scenarios:
-        hr = Ratio.of(sc.hazard_ratio)
+        hr = Estimate.of(sc.hazard_ratio)
         row = {"name": sc.name, "hazard_ratio": hr.model_dump(exclude_none=True), "after_years": sc.after_years,
                "age_shift": sc.age_shift, "source": sc.source, **_run(mu, spec.age, hr.expected, sc.after_years, sc.age_shift)}
         bounds = [_run(mu, spec.age, v, sc.after_years, sc.age_shift)["life_expectancy_years"]

@@ -5,7 +5,7 @@ description: Use as PLSI Target Hunter when a target evaluation or shortlist is 
 
 # Handing over a target
 
-Follow `persona.md` (repo root) and `shared/team`. Owner: **PLSI Target Hunter**. Read before handing any evaluation
+Read before handing any evaluation
 or shortlist to PLSI.
 
 Two things leave this bot: the **dossier file** PLSI Visualizer draws the user's dashboard from, and the **target
@@ -72,7 +72,8 @@ platforms: <PandaOmics or PandaClaw, model_derived> or none.
 ## <SYMBOL> for <indication>
 
 - Question: <the question this candidate answers, one line>
-- Kind: target | repurposing | hallmark
+- Tags: the target's gene and its condition as MeSH descriptor ids (`plsi mesh find`)
+- Hallmarks: the hallmarks of aging the candidate bears on
 - Claim: <one sentence, at most 300 characters, no identifiers>
 - Verdict: <pursue|monitor|deprioritize>; druggability <rating>, safety <rating>, competition <rating>; band <band>
 - Grade: <High|Medium|Low|Speculative> (<evidence class>)
@@ -135,8 +136,8 @@ and the dashboard never go: they carry dates and links.
 One `result` with the target file, its data files and every `target_<gene>.json` in `files`; in `summary` the gene and
 indication (or the top 3 with their bands), the verdict with its three ratings, the falsifier in one line, what was
 not covered, and "PandaOmics runs used: <m> of <n>" or "free sources only". PLSI shows the dashboard and offers Share
-(`orchestrator/research`).
+(`lab/research`).
 
 When the evaluation bears on a research question a topic or a session is working, say so and save the output of
 `plsi targets brief --gene <SYMBOL> --question "<question>"` as `<PLSI_HOME>/work/<thread>/brief_<gene>.json` in
-`files`; PLSI decides whether it crosses (`targets/grounding`, Handing a target to the research bots).
+`files`; PLSI decides whether it crosses (`targets/grounding`, Handing a target to the Research Orchestrator).

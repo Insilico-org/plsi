@@ -5,7 +5,6 @@ description: Use as PLSI Visualizer when PLSI asks for a custom dashboard (traje
 
 # PLSI dashboard
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Visualizer**. Reply only in handoffs to PLSI; never message the user.
 A dashboard is one self-contained HTML file rendered from a DashboardPayload
 (`contracts/DashboardPayload.schema.json`); the scope below decides what goes in, the requesting skill decides which
 scope. Rendering is read-only: never ask before building one. Clicks in the HTML never reach PLSI; every choice the
@@ -20,7 +19,7 @@ user makes about a dashboard is the question card PLSI sends with it.
 - `panel/overview` returned `panel.json` (physician role): scope **panel**.
 - The physician asks for a report for a patient (physician role, `panel/clinic`): scope **patient report**, built
   for that patient and shown to the physician first.
-- `orchestrator/research` shows a research topic's progress or its finish (`research_status.json`): scope
+- `lab/research` shows a research topic's progress or its finish (`research_status.json`): scope
   **research topic**.
 - Target Hunter handed over one target (`target_<gene>.json`): scope **target dossier**; two to eight for "which of
   these": scope **target comparison**.
@@ -28,9 +27,14 @@ user makes about a dashboard is the question card PLSI sends with it.
 ## Blocks
 
 `markdown {text}` (no raw HTML) · `kv {items:[{key, value}]}` · `table {columns, rows}` (cell: text, number or
-`{text, href}`) · `timeseries {series:[{name, unit, points:[{t, v, ref_low, ref_high}], predictions:[{t, expected, low, high}]}]}` ·
-`list {items:[{text, href}]}` · `timeline {now, events:[{t, t_end, label, kind: past|predicted, level, probability,
+`{text, href, level}`) · `timeseries {series:[{name, unit, points:[{t, v, ref_low, ref_high, flag}], predictions:[{t, expected, low, high}]}]}` ·
+`list {items:[{text, href}]}` · `timeline {now, events:[{t, t_end, label, kind: past|predicted, level: info|watch|high, probability,
 detail, href}]}`.
+`parts {items:[{label, value, tone}], unit}` (one whole in at most 6 parts, instead of a pie) · `meter {value, max,
+label, tone}` (one share of its total) · `scale {unit, marks:[{label, value, tone}]}` (values on one number line, such as
+ages) · `bars {unit, left, right, items:[{label, value, note}]}` (signed amounts around zero). A `kv` item with
+`hero: true` (and `unit`) is the view's one large figure. Any block may name an `icon` (`patient`, `panel`, `visits`,
+`lab`, `vitals`, `device`, `medicine`, `condition`, `diet`, `plan`, `follow_up`, `file`, `trend`, `alert`, `note`, `age`).
 
 ## Scope
 
@@ -43,7 +47,7 @@ detail, href}]}`.
 | life arrow | `orchestrator/arrow` | timeline · markdown (the story) |
 | clinician brief | `orchestrator/physicians` (visit) or `visitprep/brief` | markdown (one line: a patient-made summary for discussion, not a diagnosis or referral; from `visitprep/brief`: a pre-visit brief for the physician, not a diagnosis or order) · kv (as of, maps, active plans, open gaps) · table "Recent results" (coordinate, value, unit, date, reference range, change since previous) · table "Active plans" (action, start, prediction with interval and review date, score so far) · list "Questions to ask" (from `visitprep/brief`: "To cover"); a timeseries only for a trend a question is about |
 | panel | `panel/overview` | kv (as of, patients, per group count) · table "Needs attention" (label, group, reason, since, next), red flags first · table "On track" (label, last update) |
-| research topic | `orchestrator/research` (`plsi research status --full`) | markdown (the question in chief; the answer so far with its verdict in words and what limits it: `limited_by`, `ruled_out`, `nothing_found_for`; no answer yet: "No answer yet") · timeline "Moves" (one past event per log row with a `move`: label the move and its question, detail what it cost (`cost.delta`) and what it changed (created, closed, verdicts flipped), level `watch` when not `productive`; `day` and `stop` rows as info events) · kv (verdict, depth, spent today of the allocation, spent this week of the ceiling, moves by kind, what the spend bought from `progress.segments`) · table "Evidence" (hypothesis, for or against, origin, design, findings, source ids from `sources`; the `set_aside` findings as "set aside") · table "Open frontier" (question, verdict, gap, why) · list "Closed directions" (each with its reason). Never a percentage of the research done |
+| research topic | `lab/research` (`plsi research status --full --project <id>`) | markdown (the question in chief; the answer so far with its verdict in words and what limits it: `limited_by`, `ruled_out`, `nothing_found_for`; no answer yet: "No answer yet") · timeline "Moves" (one past event per log row with a `move`: label the move and its question, detail what it cost (`cost.delta`) and what it changed (created, closed, verdicts flipped), level `watch` when not `productive`; `day` and `stop` rows as info events) · kv (verdict, depth, spent today of the allocation, spent this week of the ceiling, moves by kind, what the spend bought from `progress.segments`) · table "Evidence" (hypothesis, for or against, origin, design, findings, source ids from `sources`; the `set_aside` findings as "set aside") · table "Open frontier" (question, verdict, gap, why) · list "Closed directions" (each with its reason). Never a percentage of the research done |
 | target dossier | Target Hunter (`plsi targets show`) | markdown (the verdict with its three ratings and the rationale from `assessment`, or "Not assessed yet") · kv (gene, name, Ensembl id, UniProt, indication, gathered, development level with its `evidence`, band with `band_basis`, furthest stage here and anywhere) · table "What the records say" (read, value, what it means: unread sources first as "not read", then structures (co-crystals, read of deposited), chemistry, genetics, safety and essentiality, aging (animal and human apart), assets in development (a floor), trials from the assessment's `harvested_assets`) · table "Risks" (dimension, rating, evidence, mitigation) · list "Open questions" (`open_questions` and `disagreements`) · list "Sources" (every id the assessment cites, linked to its record) |
 | target comparison | Target Hunter (`plsi targets show` per target) | markdown (the question, then one line: "Compared side by side, never ranked: the rows share no unit") · table (one column per target in the order named, one row per read: band, furthest stage here, modalities, co-crystal, chemical matter, genetics, aging link, assets, verdict, the three ratings, falsifier; a last column "differs" marks each row whose values are not all equal; an unassessed target's judgment rows say "not assessed") |
 | patient report | the physician, for one patient (`panel/clinic`) | markdown (the physician's own message, unchanged, or none) · table "Since your last review" (results dated after the roster row's `reviewed` date, each with its previous value; a value replaced by a new version of a report says "corrected", not "changed"; no `reviewed` yet: "First report: there is no earlier review to compare with") · one timeseries per trend the physician picked, with one plain line under them: "Each result is compared with the range printed on its own lab report; blank months had no data" · table "Your recent results" (test, value, unit, date, the range and the lab's flag printed on that report) · table "Your medicines" only when the physician asked (name as written, current / past / not sure: a past or unclear one is never shown as current) · list "Next steps" (only what the physician stated) · last, one line: "A summary of your records that your physician reviewed with you; not a diagnosis or a treatment plan." Plain words a patient reads without help: no codes, map or coordinate ids, hashes, model names, confidence labels or internal terms; no number that is not a recorded value or one the physician stated; nothing about other patients |

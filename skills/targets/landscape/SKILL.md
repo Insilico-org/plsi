@@ -5,7 +5,7 @@ description: Use as PLSI Target Hunter on demand, from targets/evaluate or targe
 
 # Harvesting the field
 
-Follow `persona.md` (repo root) and `shared/team`. Owner: **PLSI Target Hunter**. Craft, read when needed, not on
+Craft, read when needed, not on
 every run.
 
 The goal is the complete, on-target, source-grounded list of drugs in development against one gene. There is no fixed

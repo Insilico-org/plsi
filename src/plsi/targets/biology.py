@@ -5,11 +5,11 @@ and never summed.
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
-from plsi.errors import NotFound
 from plsi.models import external_str
-from plsi.targets.opentargets import CAP_PROSE, disease_row, prose, query, tractability
+from plsi.targets.opentargets import CAP_PROSE, disease_row, entity, prose, rounded, tractability
 
 # Open Targets' signed prioritisation scores (-1..+1). Keys and values are theirs; the grouping is for reading
 # only and nothing sums a group. A key outside these lists is kept under `other`.
@@ -30,6 +30,9 @@ MAX_PATHWAYS = 12
 MAX_PARTNERS = 20
 MAX_TISSUES = 12
 MAX_HOMOLOGUES = 8
+MAX_NAMES = 12
+MAX_PGX = 12
+MAX_INDICATIONS = 8  # a target's top associations stored; `indication` asks the pair directly
 PARTNER_SCORE = 0.75  # STRING/IntAct combined score: below this a partner is a hint, not a neighbour
 PARALOG = "paralog"  # Open Targets homologyType is e.g. ortholog_one2one, within_species_paralog
 
@@ -68,6 +71,10 @@ TARGET = """query Target($id: String!, $n: Int!, $partners: Float!) {
 }"""
 
 
+def _rounded(value: Any, digits: int) -> float | None:
+    return None if value is None else round(float(value), digits)
+
+
 def _uniprot(protein_ids: list[dict[str, Any]] | None) -> str | None:
     """The reviewed (Swiss-Prot) accession; TrEMBL entries are not used."""
     for item in protein_ids or []:
@@ -104,7 +111,7 @@ def _partners(interactions: dict[str, Any] | None) -> dict[str, Any]:
         if not symbol or symbol in seen:
             continue
         seen.add(symbol)
-        rows.append({"symbol": symbol, "score": round(float(row.get("score") or 0.0), 3),
+        rows.append({"symbol": symbol, "score": rounded(row.get("score"), 3),
                      "source": external_str(row.get("sourceDatabase"))})
     rows.sort(key=lambda r: -r["score"])
     return {"total": (interactions or {}).get("count") or 0, "rows": rows[:MAX_PARTNERS],
@@ -123,8 +130,7 @@ def _expression(expression: dict[str, Any] | None) -> dict[str, Any]:
         celltype = external_str((row.get("celltypeBiosample") or {}).get("biosampleName"))
         rows.append({"tissue": tissue or None, "cell_type": celltype or None,
                      "median": round(float(median), 2), "unit": external_str(row.get("unit")) or None,
-                     "specificity": round(float(row.get("specificity_score")), 3)
-                     if row.get("specificity_score") is not None else None,
+                     "specificity": _rounded(row.get("specificity_score"), 3),
                      "source": external_str(row.get("datasourceId"))})
     by_source: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
@@ -146,10 +152,8 @@ def _homology(homologues: list[dict[str, Any]] | None) -> dict[str, Any]:
         kind = external_str(row.get("homologyType"))
         item = {"symbol": external_str(row.get("targetGeneSymbol")), "species": external_str(row.get("speciesName")),
                 "kind": kind,
-                "query_identity": round(float(row["queryPercentageIdentity"]), 1)
-                if row.get("queryPercentageIdentity") is not None else None,
-                "target_identity": round(float(row["targetPercentageIdentity"]), 1)
-                if row.get("targetPercentageIdentity") is not None else None}
+                "query_identity": _rounded(row.get("queryPercentageIdentity"), 1),
+                "target_identity": _rounded(row.get("targetPercentageIdentity"), 1)}
         (paralogues if PARALOG in kind else orthologues).append(item)
     for group in (orthologues, paralogues):
         group.sort(key=lambda r: -(r["query_identity"] or 0))
@@ -174,10 +178,6 @@ def _essentiality(rows: list[dict[str, Any]] | None) -> dict[str, Any]:
             "tissues": tissues[:MAX_TISSUES]}
 
 
-MAX_NAMES = 12
-MAX_PGX = 12
-
-
 def _labels(items: list[dict[str, Any]] | None) -> list[str]:
     return sorted({external_str(item.get("label")) for item in items or [] if item.get("label")})[:MAX_NAMES]
 
@@ -192,13 +192,9 @@ def _names(data: dict[str, Any]) -> dict[str, list[str]]:
 def _pharmacogenomics(rows: list[dict[str, Any]] | None) -> dict[str, Any]:
     """Pharmacogenomic variants, listing only those Open Targets marks as acting on this target."""
     direct = [r for r in rows or [] if r.get("isDirectTarget")]
-    kinds: dict[str, int] = {}
-    for row in direct:
-        key = external_str(row.get("pgxCategory")) or "unclassified"
-        kinds[key] = kinds.get(key, 0) + 1
     return {
         "total": len(rows or []), "on_this_target": len(direct),
-        "by_category": kinds,
+        "by_category": dict(Counter(external_str(r.get("pgxCategory")) or "unclassified" for r in direct)),
         "rows": [{"rsid": external_str(r.get("variantRsId")) or None,
                   "category": external_str(r.get("pgxCategory")) or None,
                   "evidence_level": external_str(r.get("evidenceLevel")) or None,
@@ -213,9 +209,7 @@ def _pharmacogenomics(rows: list[dict[str, Any]] | None) -> dict[str, Any]:
 
 def profile(ensembl_id: str) -> dict[str, Any]:
     """One target's biology from Open Targets, with every long list capped."""
-    data = query(TARGET, {"id": ensembl_id, "n": 8, "partners": PARTNER_SCORE}).get("target")
-    if not data:
-        raise NotFound(f"Open Targets has no target {ensembl_id!r}", code="TARGET_NOT_FOUND")
+    data = entity(TARGET, {"id": ensembl_id, "n": MAX_INDICATIONS, "partners": PARTNER_SCORE}, "target", ensembl_id)
     literature = data.get("literatureOcurrences") or {}
     return {
         "ensembl_id": data.get("id"), "symbol": external_str(data.get("approvedSymbol")),

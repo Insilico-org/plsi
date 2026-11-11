@@ -22,10 +22,9 @@ from collections.abc import Iterator
 from functools import lru_cache
 from typing import Any
 
-from plsi.errors import DependencyMissing
+from plsi.errors import CLOCKS_EXTRA, DependencyMissing
 from plsi.vocab import Sex
 
-HINT = 'pip install -e ".[clocks]"'
 SUPPORTED_TYPES = frozenset({"LinearMethylationModel", "GrimageModel"})
 _YEARS = re.compile(r"\(years(?:/year)?\)", re.I)
 _REFERENCES = {"sesame_450k": ("sesame_450k_median.csv", "median"), "dunedin": ("DunedinPACE_Gold_Means.csv", "mean")}
@@ -61,7 +60,7 @@ def _gallery() -> Any:
 
             return ModelGallery()
     except (ImportError, OSError) as exc:  # OSError: a broken numpy binary
-        raise DependencyMissing(f"biolearn is not importable: {exc}", hint=HINT) from None
+        raise DependencyMissing(f"biolearn is not importable: {exc}", hint=CLOCKS_EXTRA) from None
 
 
 def available() -> bool:

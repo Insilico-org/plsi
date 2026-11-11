@@ -5,7 +5,6 @@ description: Use as PLSI Data Processor when PLSI forwards a map gap - a bot nee
 
 # PLSI add a map
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Data Processor**. Reply only in handoffs to PLSI; never message the user.
 A map is a contract for reading the log (Tier 0: no code, no formula). A computed score is `processor/add-score`;
 anything one formula cannot do (a file format, a fitted model) is PLSI Engineer's (`engineer/extend`).
 

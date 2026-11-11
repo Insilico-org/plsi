@@ -39,7 +39,7 @@ def patient_identifiers(patient: dict[str, Any]) -> set[str]:
     """Collect identifying strings from a FHIR Patient resource, in memory only.
 
     Output: name parts (given/family/prefix/suffix/text), identifier values, telecom values and address parts
-    (line, city, postalCode, text), each stripped; strings shorter than 3 chars are skipped. Never written anywhere.
+    (line, city, postalCode, text), each stripped; strings shorter than MIN_LEN are skipped. Never written anywhere.
     """
     found: list[str] = []
     for name in patient.get("name") or []:

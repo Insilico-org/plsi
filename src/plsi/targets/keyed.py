@@ -61,8 +61,7 @@ def available() -> dict[str, Any]:
     return {
         "unlocked": unlocked,
         "not_set": absent,
-        "budget": {"cap_per_oracle_per_day": cap, "spent_today": spent["spent_today"],
-                   "raise_it": spent["raise_it"]},
+        "budget": {k: v for k, v in spent.items() if k != "remaining"},
         "rule": "every question in targets/evaluate is answerable without any of these. A platform read is "
                 "model_derived, never stronger than a curated record, and goes out through plsi oracle, "
                 "where the daily cap is enforced.",

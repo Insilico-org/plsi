@@ -1,18 +1,18 @@
 ---
 name: roster
-description: Use as PLSI Panel when the physician adds, lists, pauses or closes a patient on their panel, or a patient shared their PLSI data with the physician - keep the roster (one row and one instance per patient) and the status of each.
+description: Use as PLSI Panel when the physician adds, lists, pauses, closes or removes a patient on their panel, or a patient shared their PLSI data with the physician - keep the roster (one row and one instance per patient) and the status of each.
 ---
 
 # PLSI patient roster
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Panel**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used. The user here is a physician; a patient is a person who
+**Status: draft**. The user here is a physician; a patient is a person who
 chose to send the physician their data.
 
 ## When to use
 
-- A patient shared data with the physician (a PLSI export, records, a letter), and PLSI saved it unopened.
-- "Who is on my panel?", "add a patient", "pause / close <label>".
+- A patient shared data with the physician (a PLSI export, records, a letter, mail to the `+patients` address), and
+  PLSI saved it unopened.
+- "Who is on my panel?", "add a patient", "pause / close / remove <label>".
 - Not for the physician's own health (their `self` instance) or family members.
 
 ## Steps
@@ -39,18 +39,27 @@ chose to send the physician their data.
    never in a Drive folder name, a report, a message,
    a handoff to another bot or anything that leaves.
 
-2. **New patient.** Never open the shared files. Put in ONE `question`: the label to use, a handle if the physician
-   wants one (with three random two-word suggestions such as "amber fox"), sex and birth year (or none), and the
-   physician's confirmation that the patient agreed to share exactly what was sent. After the
-   `answer`, return a `result` with the work for Data Processor (via PLSI): `init` with `--relation other` for the
-   new label, then `processor/intake` with the file paths. Add the row once Data Processor's `result` arrives.
+2. **Whose files.** Never open the shared files. Files or mail with no label yet: ONE `question`, a patient on the
+   roster (the labels with handles) or a new one. A roster patient: return a `result` naming the label; PLSI hands
+   the files to that patient's ward bot.
 
-3. **Pause, close or remove.** Pause and close change the row only. Deleting a patient's data is Memory Hole's
+3. **New patient.** Put in ONE `question`: the label to use, a handle if the physician wants one (with three random
+   two-word suggestions such as "amber fox"), sex and birth year (or none), and the physician's confirmation that
+   the patient agreed to share exactly what was sent. After the `answer`, return a `result` with the work for Data
+   Processor (via PLSI): `init` with `--relation other` for the new label. Add the row once Data Processor's `result`
+   arrives, and return the work for PLSI: the file paths for `processor/intake` on the new label (a ward bot is made
+   later, on request, `clinic/ward`).
+
+4. **Pause, close or remove.** Pause and close change the row only. Deleting a patient's data is Memory Hole's
    (`memoryhole/forget`, through PLSI, on the physician's explicit words); it deletes the patient's instance and the
    panel reports and work files naming the label. Say so in the `result`, and remove the row from `roster.json` only
-   once Memory Hole's `result` arrives (relayed by PLSI).
+   once Memory Hole's `result` arrives (relayed by PLSI); then return the work for PLSI: remove the ward bot,
+   if the patient has one (`clinic/ward`).
 
-4. **Return one `result`**: the roster (label, status, shared, since, last update, open plans from `plsi status
+5. After any change to `roster.json`, when `<PLSI_HOME>/work/clinic-dashboard/dashboard.html` exists, run `plsi
+   clinic dashboard` (`panel/clinic` step 6).
+
+6. **Return one `result`**: the roster (label, status, shared, since, last update, open plans from `plsi status
    --instance <label>`) and what changed.
 
 ## Rules

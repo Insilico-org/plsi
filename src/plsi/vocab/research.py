@@ -9,7 +9,7 @@ from plsi.vocab import fold
 
 
 class ResearchNodeKind(StrEnum):
-    """The four kinds of node in a research topic (<PLSI_HOME>/research/<topic>, `plsi research next/save`).
+    """The four kinds of node in a research topic (<project>/topics/<topic>/, `plsi research next/save`).
     A paper is a source inside a finding, a search is a line in the log, a test is a question."""
 
     TOPIC = "topic"  # the topic page: the question in chief, the cursor, the depth
@@ -144,6 +144,7 @@ class ResearchStop(StrEnum):
 
     DONE = "done"  # the topic is finished
     PARKED = "parked"  # the topic is not active
+    NO_TOPIC = "no_topic"  # no topic is active, so the user is asked for one
     METER = "meter"  # a usage reading went backwards; the next day opens fresh
     OFF = "off"  # research has no share of the meter
     HEADROOM = "headroom"  # the user's reserve of the weekly meter would be touched
@@ -213,7 +214,7 @@ OFF_TARGET_SPECIES = frozenset({ResearchSpecies.ANIMAL, ResearchSpecies.IN_VITRO
 
 
 class ResearchNoteStatus(StrEnum):
-    """A research note in research/notes/: the unit PLSI Challenger evaluates and the Longevity Mothership
+    """A research note in its project's notes/: the unit PLSI Challenger evaluates and the Longevity Mothership
     receives."""
 
     ACTIVE = "active"
@@ -222,3 +223,10 @@ class ResearchNoteStatus(StrEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     RETIRE = "retire"  # duplicate, off-topic or obsolete: PLSI Memory Hole removes it (`plsi research retire`)
+
+
+class ProjectStatus(StrEnum):
+    """A research project in research/projects/: any number are active; `--reopen` brings a closed one back."""
+
+    ACTIVE = "active"  # being worked on; a command names it with --project unless it is the only one
+    CLOSED = "closed"  # not being worked on; its topics and notes keep its id

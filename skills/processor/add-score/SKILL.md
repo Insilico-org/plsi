@@ -5,7 +5,6 @@ description: Use as PLSI Data Processor when PLSI asks for a score, ratio, index
 
 # PLSI add a score
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Data Processor**. Reply only in handoffs to PLSI; never message the user.
 A score is a safe formula inside a State Map (Tier 1): no code, no install step beyond the map. If the computation
 cannot be written as one formula (lookup tables, a fitted model), say so in your `result` so PLSI hands it to PLSI Engineer (`engineer/extend`); Engineer not on the team: code extensions are off and PLSI offers "Add PLSI Engineer?".
 

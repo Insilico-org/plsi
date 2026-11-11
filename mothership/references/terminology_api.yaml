@@ -29,3 +29,13 @@ rxnav:
     GET /approximateTerm.json?term=T&maxEntries=10&option=1 (scores are not normalized; dedupe by rxcui); ingredient via
     GET /rxcui/{rxcui}/related.json?tty=IN+PIN (not allrelated). The drug-drug interaction API (/interaction/*) was retired
     in 2024 and returns 404. No key; 20 req/s per IP.
+
+nlm_mesh:
+  title: NLM MeSH RDF lookup API
+  url: https://id.nlm.nih.gov/mesh/
+  api_base: https://id.nlm.nih.gov/mesh
+  licence: NLM terms of use (MeSH is public domain in the US; cite NLM as the source)
+  notes: >-
+    Search GET /lookup/descriptor?label=T&match=contains|exact|startswith&limit=N returns [{resource, label}] with
+    resource http://id.nlm.nih.gov/mesh/<id>. One descriptor GET /<id>.json: label {@value}, treeNumber [.../<tree>],
+    "active". An unknown id answers an empty object or 404. No key.

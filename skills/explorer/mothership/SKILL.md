@@ -5,8 +5,6 @@ description: Use as PLSI Explorer to package deidentified contributions (researc
 
 # PLSI Longevity Mothership exchange
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Explorer**. Reply only in handoffs to PLSI; never message the user.
-
 The Longevity Mothership is Insilico's research initiative (its Grok Bot, the Mother, behind the relay) that
 pools citizen research. In this repo "mothership" also names
 the trusted reference cache (`mothership/references/`, `plsi refs`): contributions cite only references and
@@ -15,8 +13,7 @@ a maintainer adds it to the file for its kind.
 
 ## When to use
 
-- **Contribute:** PLSI forwards a research note (`research-note_*.md`) from PLSI Citizen Researcher (`researcher/research`), a
-  target file (`targets_*.md`, its top candidates Challenger found `worthy`, one item each) or a
+- **Contribute:** PLSI forwards a research note (`research-note_*.md`, `lab/session`), a target file (`targets_*.md`, its top candidates Challenger found `worthy`, one item each) or a
   physician registry update from PLSI Navigator (`navigator/physicians`). A research note goes by the user's Grok
   email, signed by their address, and needs no join. A registry update goes under the user's install token, which
   exists only after the user joined; when PLSI's request says the user has not joined, return a `result` saying the
@@ -25,10 +22,18 @@ a maintainer adds it to the file for its kind.
 - **Receive:** PLSI saved a Mothership message as a file in the work folder and forwards it, or asks what the
   community has found (the public catalog and findings ledger).
 
+**In the "Mothership sync" room** (`shared/sessions`, the weekly send, `orchestrator/mothership` step 3) the brief is
+your request: run Receive on the catalog and ledger while Data Controller packs, and post your result as a short
+**Digest** and **Insights for the plan** in plain words, saved as `explorer-digest.md`, or "Nothing new". Leave
+out items already in a `digest_*.md` of the last 7 days (`explorer/digest`); a limited read is "Nothing new". A
+Contribute in a room hands the message file to Data Controller with an @mention instead of returning it, and a
+rejection posted there is rewritten and handed on again in the same round; the approval question stays for PLSI's
+own chat, so name it in your post and never ask it in the room.
+
 ## Steps: Contribute
 
 1. Read each input file in the request's `files`. Keep only what the Mothership can use, the step 3 fields of its
-   kind (a research note, `<PLSI_HOME>/research/notes/research-note_*.md`, drops its frontmatter block between the
+   kind (a research note, `<PLSI_HOME>/research/projects/<project>/notes/research-note_*.md`, drops its frontmatter block between the
    `---` lines and `## Explained`; a target file keeps only the candidates Challenger found `worthy` as
    items; a physician update keeps the practice area as a country or region).
 
@@ -38,28 +43,29 @@ a maintainer adds it to the file for its kind.
    plsi evidence verify --kind <pmid|doi|nct|model> --id <id>
    ```
 
-3. Write `<PLSI_HOME>/work/<thread>/contribution.json` with the fields of its kind only (a registry update's
+3. Write `<PLSI_HOME>/work/<thread>/contribution.json`, `kind` `plsi_research_note` or `plsi_registry_update`,
+   with the fields of its kind only (a registry update's
    items: `kind`, `name`, `specialty`, `country`, `public_url`, `methods`, `credentials`, `source_urls`):
 
    ```json
-   {"kind": "research_note",
-    "items": [{"question": "...", "topic": "target", "claim": "...", "grade": "Low", "evidence_class": "model_derived",
+   {"kind": "plsi_research_note",
+    "items": [{"question": "...", "tags": ["D016922"], "hallmarks": ["cellular senescence"], "claim": "...", "grade": "Low", "evidence_class": "model_derived",
                "sources": [{"kind": "pmid", "id": "..."}],
                "support": [{"source": {"kind": "pmid", "id": "..."}, "finding": "..."}],
                "limits": ["..."],
                "model_output": [{"model": "longevity_llm", "finding": "..."}],
                "falsified_by": "...", "next_step": "..."}],
-    "method": "PLSI researcher/research; oracles and queries listed per item"}
+    "method": "PLSI lab/session; oracles and queries listed per item"}
    ```
 
-   From the note: its heading to `question`, Kind to `topic`, Claim to `claim`, Grade to `grade` and
-   `evidence_class`, each Support, Against and Risks line with a verified identifier to `{source, finding}` (the
-   source also in `sources`), Limits lines to `limits`, Model output lines to `{model, finding}`, Falsified by to
-   `falsified_by` and Next step to `next_step`. A target file (`targets/report`, The target file) gives one item per `worthy` candidate
-   section: Question to `question`, Kind to `topic`, Claim to `claim`, Grade to `grade` and its evidence class to
-   `evidence_class`, the PMID, NCT and DOI ids of Sources to `sources`, each Support, Against and Risks line to
-   `{source, finding}`, Limits to `limits`, Model output to `{model, finding}`, Falsified by to `falsified_by` and
-   Next step to `next_step`; its Method line is `method`. UniProt, PDB, Ensembl and ChEMBL ids are not sources and
+   From a research note, and from each `worthy` candidate section of a target file (`targets/report`, The target
+   file): its heading or Question to `question`, Tags to `tags` (the ids only) and Hallmarks to `hallmarks`, Claim to
+   `claim`, Grade to `grade` and its evidence class to `evidence_class`, each Support, Against and Risks line with a
+   verified identifier to `{source, finding}` (the source also in `sources`), Limits lines to `limits`, Model output
+   lines to `{model, finding}`, Falsified by to `falsified_by` and Next step to `next_step`. A target file also gives
+   the PMID, NCT and DOI ids of its Sources to `sources`, and its Method line is `method`. `plsi mothership note` fills each tag's name and tree
+   numbers from NLM and refuses an id NLM does not know (`BAD_MESH`): find the right one with `plsi mesh find --term '<term>'`,
+   never a name in place of an id. A note with no Tags line gets 1-5 from its question and claim. UniProt, PDB, Ensembl and ChEMBL ids are not sources and
    stay in `report`. Each text at most 300 characters and without identifiers (those go in `sources`), each list
    at most 10; leave out an empty list.
 
@@ -75,14 +81,19 @@ a maintainer adds it to the file for its kind.
 
    No URL in a research note (sources are kinds and ids) and no exact date anywhere: the gate refuses both.
 
+   `project` (a research note only): the project the note serves, its `project:` id with the title from
+   `plsi research project --show <id>`, as `{"id": "<uuid>", "title": "<title>"}`, the title at most 120 characters with no identifiers, dates or names. The gate
+   refuses any other shape (`bad_project`).
+
    `files` (optional): the data behind the note (for a target file, the data files beside it in the request, such as
-   `<gene>-brief.csv`), at most 20 files, as `[{"path": "<PLSI_HOME>/work/<thread>/<name>"}]`. Never an HTML dashboard, a
+   `<gene>-brief.csv`): data the note rests on, never part of the write-up (an evidence table, a summary or a source
+   list goes in the report), at most 20 files, as `[{"path": "<PLSI_HOME>/work/<thread>/<name>"}]`. Never an HTML dashboard, a
    dossier JSON or a `target_<gene>.json`.
    Only `.csv`, `.tsv`, `.md` and `.json`, named in lower case with letters, digits, `_` and `-` and no date
    (`expr-srsf1.csv`); a chart as Vega-Lite JSON with its numbers inline, never a picture. Every cell and line is
    checked like the note: no personal data, instance names, dates, links or formulas, and nothing from the author's
    own records. Each file at most 9 MB. Files over 9.5 MB together, zipped (`TOO_LARGE_FOR_EMAIL`): the largest go by
-   Google Drive, each with `"drive_link"`, the link or file id PLSI gives (`orchestrator/research`).
+   Google Drive, each with `"drive_link"`, the link or file id PLSI gives (`lab/research`).
 
 4. **Deidentification check** before returning; any hit is removed, and the file is rewritten:
    - no instance names (from the request), names, initials, contact details, employers, facility names except a
@@ -92,7 +103,7 @@ a maintainer adds it to the file for its kind.
    - no finding from the author's own data (their markers, wearables or an n-of-1 panel).
    List each removal in a `deid` line of the `result`.
 
-5. **Wire message.** Turn the file into the message (`plsi_research_note` or `plsi_registry_update`) and run the
+5. **Wire message.** Turn the file into the message (its `kind` is already the wire kind) and run the
    gate on it:
 
    ```bash

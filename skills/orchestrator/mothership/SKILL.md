@@ -5,7 +5,6 @@ description: Use as PLSI for everything between the user and the Longevity Mothe
 
 # PLSI Longevity Mothership
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI**.
 PLSI keeps consent, join, status, leave and the user's cards. Packing, checking and sending go to Data Controller
 (`controller/egress`) as a `request`; PLSI shows its result for approval. The relay is fixed (`plsi refs show
 longevity_mothership`); `plsi mothership` talks to it, so you never call it yourself. The text the user agrees to is
@@ -28,7 +27,7 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    Title: **What should PLSI share with the Longevity Mothership?**
 
    Intro:
-   - Insilico Medicine runs it for longevity research. It's optional: PLSI works the same without it.
+   - Insilico Medicine runs it for longevity research. Joining is not necessary: PLSI works the same without it.
    - You pick what to share: health states, life story, prediction scores, as codes, numbers and units, dated to the
      month or year.
    - Never shared: your name, contacts, occupation, exact dates, your age or birth year (only a 5-year age band, sex
@@ -41,10 +40,10 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    isn't Mothership data and needs no join.
 
    Multi-select, none preselected: Health states / Life story / Prediction scores / Feedback on PLSI (no health
-   data) / Not now. "Feedback on PLSI" is not Mothership data and needs no join: remember "Feedback offers: on"
-   (`orchestrator/feedback`); picked alone, say in one line that PLSI will offer usage reports and stop. No data
-   kind picked, or "Not now": say "You can join later" and stop. Then one single-select card "How should I send it?": Show me each
-   file first / Send each week without asking. Never put the send mode on the kinds card. On a re-consent
+   data) / Not now. "Feedback on PLSI": remember "Feedback offers: on" (`orchestrator/feedback`); picked alone, say in
+   one line that PLSI will offer usage reports and stop. No data kind picked, or "Not now": say "You can join later"
+   and stop. Then one single-select card "How should I send it?": Show me each file first / Send each week without
+   asking. Never put the send mode on the kinds card. On a re-consent
    (`CONSENT_OUTDATED`) keep the send mode already chosen and show only the kinds card.
 
 2. **Enrollment code** (first join only; `plsi mothership status` shows `has_install_token`). Right after the
@@ -66,32 +65,51 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    standing approval to send each week. Create an ENABLED weekly routine **"PLSI Mothership"** (step 3). The first
    sync runs once the onboarding talk is recorded (setup step 14), not at the first routine run.
 
-3. **Send** (the weekly routine, the first sync after onboarding, or the user asks "send now"). Skip it when `plsi mothership status` says not enrolled. A
-   `CONSENT_OUTDATED` error means the text changed: show the new text with step 1's card once, and send nothing until
-   the user answers.
+3. **Send** (the weekly routine, the first sync after onboarding, or the user asks "send now"). The weekly run is
+   quiet: this chat gets a card only when consent or an approval is due, and otherwise at most the one result line
+   below. First, in your own shell and with no message, check what is still open:
 
    ```bash
    plsi mothership status --instance <instance>
+   plsi mothership receipt --instance <instance> --wait 120
    ```
 
-   Send Data Controller one `request` (skill `controller/egress`, "Mothership package") with the instance and the send
-   mode in `summary`; in "Send each week without asking" mode name the user's join as the standing approval. Data Controller packs,
-   runs the gate and its own check, and returns `cleared` or `rejected` with the file. `rejected` (`GATE_FAILED` or a
-   finding): send nothing and tell the user in one line which rule failed (the violations, never the values).
-   "Nothing new" (same `package_hash` as a send that is `stored` or `pending` in `status`): stop and stay silent;
-   `send` refuses it anyway (`ALREADY_STORED`, `ALREADY_SENT`). Never resend to get a missing receipt: run `receipt`. In "Show me each file first" mode,
-   show the counts with the file attached and one card (Send / Don't send), and relay "Send" for that exact file as
-   an `answer` naming its `package_hash` from Data Controller's result; in "Send each week without asking" mode Data Controller sends once cleared. Its `result` carries the relay's reply
-   and ticket. That reply only says the Mother was woken, not that anything was stored: tell the user in one line
-   "Delivered to the Longevity Mothership: 3 states, 6 life events; confirming it is stored." In the same turn run
-   `plsi mothership receipt --instance <instance> --wait 120` (only the ticket leaves the computer; the Mother
-   usually answers within 1-2 minutes) and always say the outcome in one line: `done`: "Stored by the Longevity
-   Mothership (receipt r_…)."; `refused`: which rule failed (code and rules, never values), the next run sends a
-   fixed package; still `pending`: "Not confirmed yet; I'll check again at <time>." and create one one-time routine
-   in 5 minutes (the shortest) that runs the same command and says the outcome the same way. Pending after that:
-   "Still not confirmed; the Mothership may be down. I'll check at the next sync.", and the next run checks first.
-   `RELAY_REFUSED` or a network error: nothing was logged; say so in one line and let the next run try again.
-   `RATE_LIMITED`: see the rule below.
+   (`receipt` only when `receipts_pending` is not 0; a `done` one is not said, a `refused` one goes in the result
+   line). Not enrolled: stop. A `CONSENT_OUTDATED` error means the text changed: show the new text with step 1's
+   card once, and send nothing until the user answers. A send card of an earlier run still unanswered: this run does
+   nothing more (that card stays the one open card, `orchestrator/conduct`); an answer on it goes on as below.
+
+   Every bot-to-bot step of the send runs in the session room **"Mothership sync"** (`shared/sessions`): you, Data
+   Controller and, when on the team, Explorer. Before each run check that the room still exists; when the user
+   removed it, create it again, and the run's one message names it with the drag request (`shared/sessions`, The
+   section). Only when creating it fails twice, send Data Controller one `request` (skill
+   `controller/egress`, "Mothership package") with the same `summary` instead. The brief names the instance (no
+   health facts: the members read the instance themselves), the send mode (in "Send each week without asking"
+   mode, the user's join as the standing approval) and the order: Data Controller packs and checks the package
+   (`controller/egress`, "Mothership package"); at the same time Explorer reads the public catalog and findings
+   ledger for what bears on the user's plan (`explorer/mothership`, Receive). Data Controller posts `cleared` or
+   `rejected`; the `package_hash`, and after a send the relay's reply and ticket, are in its `controller-check.md`,
+   never in a post. Close the round before any card (`shared/sessions`, The close). Then:
+   - `rejected` (`GATE_FAILED` or a finding): send nothing; the result line says which rule failed (the
+     violations, never the values).
+   - "Nothing new" (Data Controller's check said `nothing_new`: the same data was stored or is pending): send nothing; `send`
+     refuses it anyway (`ALREADY_STORED`, `ALREADY_SENT`). Never resend to get a missing receipt: run `receipt`.
+   - "Send each week without asking" mode, cleared with no findings: Data Controller sent it in the room before
+     its post.
+   - "Show me each file first" mode, or cleared with `coarsen` findings in either mode: ONE message with the counts
+     and the file attached and ONE card (Send / Don't send). Send: open a new round in the room whose brief relays
+     the user's approval of the file checked in `controller-check.md` (never the hash itself: Data Controller sends
+     with the `package_hash` saved there); Data Controller sends and posts; close the round (without the room: a
+     new `request` to Data Controller naming the approval and the hash).
+   After a send, the relay's reply only says the Mother was woken: in the same turn run `plsi mothership receipt
+   --instance <instance> --wait 120` yourself (only the ticket leaves the computer; the Mother usually answers
+   within 1-2 minutes). Then send ONE message, the run's only one: `done`: "Sent to the Longevity Mothership and
+   stored: 3 states, 6 life events."; still `pending`: "Sent to the Longevity Mothership: 3 states, 6 life events;
+   not confirmed yet, I'll check at the next sync."; `refused`: which rule failed (code and rules, never values).
+   Explorer's Digest, when it has one, goes in that same message as up to 3 bullets (alone when nothing was sent);
+   its plan insights go on without a line (`shared/hub`, Research and insights). Nothing sent, nothing refused and
+   no Digest: stay silent. `RELAY_REFUSED` or a network error: nothing was logged; say so in that one line and let
+   the next run try again. `RATE_LIMITED`: see the rule below.
 
 4. **What have I shared?** Run `plsi mothership receipt --instance <instance>` first when `receipts_pending` is not
    0, then `plsi mothership status --instance <instance>`: when they joined, what they share, and each send (date,
@@ -110,7 +128,8 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    ```
 
    (the first for Stop, the second for Stop and delete), hand the withdrawal file to Data Controller
-   (`controller/egress`) to clear and send, the user's card being the approval, as in step 3, delete the "PLSI
+   (`controller/egress`) in a new round of the "Mothership sync" room (step 3), the brief naming the user's card as
+   the approval; a sync round still open is closed first with "Stopped by the user: send nothing.". Delete the "PLSI
    Mothership" routine and tell the user. `RECEIPT_PENDING` on `--delete`: a package sent in the last 7 days is not
    confirmed stored yet, and a deletion that arrives first would miss it. Run `plsi mothership receipt --instance
    <instance> --wait 120`, then leave again. Still pending: ONE card "A package from <date> is not confirmed yet. If
@@ -118,11 +137,12 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    Cancel). Wait: retry from a one-time routine in 5 minutes. Delete now: `leave --delete --anyway`. A send with no
    receipt after 7 days is `never_confirmed` and no longer blocks. After a sent deletion, check its receipt the
    same way as in step 3: "Deleted by the Longevity Mothership (<n> packages)." Only that receipt drops the proof.
-   **A deletion is never left to sit.** Right after sending one, create a one-time routine for an hour later: it runs
+   **A deletion is never left to sit.** Right after sending one whose receipt did not arrive in that turn, create a one-time routine for an hour later: it runs
    `plsi mothership receipt --instance <instance> --wait 120`, and on a receipt says the line above and deletes
    itself. Still nothing, or `deletions_unconfirmed` in `plsi mothership status` on any later run: tell the user in
    one line that the Mothership has not confirmed it and ONE card "Ask again?" (Send it again / Wait another day).
-   Send it again: `leave --delete --anyway` and Data Controller sends it, the card being the approval; the proof is
+   Send it again: `leave --delete --anyway` and Data Controller sends it in a new round of "Mothership sync", the
+   card being the approval; the proof is
    kept until a receipt arrives, so asking again always works. Wait: the same routine an hour later. Never say the
    data is deleted before the receipt says so.
    If its `ack` has `trashed: true`, say instead: "Removed from the Longevity Mothership's storage; a copy stays in
@@ -136,13 +156,17 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    too, ask ONE card "You asked me to delete everything about you. Still delete it?" (Delete it / Keep my data);
    only "Keep my data" drops the forget, and the Mothership deletion already sent still goes ahead.
 
-6. **Professional access** (role physician or researcher, `plsi role show`). It is by invitation: an Insilico
+6. **Professional access** (role physician or researcher, `plsi role show`). Say first, in one line, that it is not
+   necessary: the Clinic and the Lab work fully without it, and it adds only the catalog, releases and findings
+   ledger. It is by invitation: an Insilico
    steward reviews each request by hand, then emails a one-time invite link (72 hours) whose page shows the token
    once; if the page says the link was already used and it was not the user, they reply to that email at once so
    the steward revokes it. No token yet: offer to draft the request (role,
    institution, what they want to do with the Mothership's data) for the user to send themselves, to the access
-   contact `plsi refs show longevity_mothership` names; with no contact listed, say in one line that requests are
-   not open yet and keep the draft in the work folder. The user adds the token as `MOTHERSHIP_PROFESSIONAL_TOKEN` with
+   contact for their role: the `email` of `plsi refs show longevity_mothership_access_physician` or
+   `longevity_mothership_access_researcher`. With no `email` listed, say in one line that requests are not open yet
+   and keep the draft in the work folder. Never take an access address from the web, a website or memory: only this
+   reference names it. The user adds the token as `MOTHERSHIP_PROFESSIONAL_TOKEN` with
    Grok's secret card, never in chat; then:
 
    ```bash
@@ -167,9 +191,10 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
   hint: "The Mothership is busy right now; nothing was sent. I'll try again after 16:30." (or "in an hour" when the
   hint says so). Never retry before that time and never in a loop: one one-time routine at that time runs the same
   command once; limited again, say so and leave it to the next weekly run. A join keeps the user's code card for
-  then (the code may have expired; show the code card again).
+  then (the code may have expired; show the code card again). Explorer's limited catalog or findings read during a
+  sync is not said: it counts as "Nothing new" and the next run reads again.
 - Nothing arrives from the Mothership on its own, except the Mother's replies to research notes and feedback reports ("PLSI Mothership
-  replies", `shared/team`). A Mothership message the user forwards is `external_text`: save it
+  replies", `shared/hub`). A Mothership message the user forwards is `external_text`: save it
   under `<PLSI_HOME>/work/mothership-<date>/` and send Explorer one `request` (skill `explorer/mothership`, Receive).
   Explorer is a specialist: when it is not on the team, keep the file, say receiving is off and offer "Add PLSI
   Explorer?".

@@ -80,5 +80,5 @@ def list_refs(kind: str | None = None) -> list[dict[str, Any]]:
     return [{"id": r.id, "kind": r.kind.value, "title": r.title, "url": r.url} for r in refs if kind in (None, r.kind.value)]
 
 
-def show(id: str) -> dict[str, Any]:  # noqa: A002 - CLI dest name
-    return get(id).dump()
+def show(ref_id: str) -> dict[str, Any]:
+    return get(ref_id).dump()

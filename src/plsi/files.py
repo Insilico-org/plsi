@@ -1,4 +1,4 @@
-"""JSON on disk: canonical hashing, atomic writes, the instance lock, jsonl logs, capped input reading."""
+"""JSON on disk: canonical hashing, atomic writes, unique file names, the instance lock, jsonl logs, capped input reading."""
 
 from __future__ import annotations
 
@@ -69,10 +69,21 @@ def atomic_write_json(path: Path, obj: Any, private: bool = False) -> None:
     atomic_write_text(path, json.dumps(obj, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False) + "\n", private)
 
 
+def unique_stem(folder: Path, stem: str, *suffixes: str) -> Path:
+    """`folder/stem`, else `folder/stem-2`, `-3`, ...: the first for which no `<stem><suffix>` exists yet, so a file
+    written in the same second as another never replaces it."""
+    path, n = folder / stem, 1
+    while any(path.with_name(path.name + s).exists() for s in suffixes):
+        n += 1
+        path = folder / f"{stem}-{n}"
+    return path
+
+
 @contextlib.contextmanager
-def lock(directory: Path, timeout: float = LOCK_TIMEOUT_S) -> Iterator[None]:
-    """Exclusive `<directory>/.lock` via O_EXCL; retries until timeout, then InstanceLocked. NOT re-entrant:
-    never call EventStore.append* while holding it for the same instance."""
+def lock(directory: Path, timeout: float = LOCK_TIMEOUT_S, stale: float | None = None) -> Iterator[None]:
+    """Exclusive `<directory>/.lock` via O_EXCL; retries until timeout, then InstanceLocked. A lock older than
+    `stale` seconds is taken for one a crashed process left and is broken. NOT re-entrant: never call
+    EventStore.append* while holding it for the same instance."""
     path = directory / ".lock"
     deadline = time.monotonic() + timeout
     while True:
@@ -80,6 +91,9 @@ def lock(directory: Path, timeout: float = LOCK_TIMEOUT_S) -> Iterator[None]:
             fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             break
         except FileExistsError:
+            if stale is not None and _age(path) > stale:
+                path.unlink(missing_ok=True)
+                continue
             if time.monotonic() >= deadline:
                 raise InstanceLocked(f"{directory.name} is locked by another process", hint=f"remove {path} if no plsi process is running") from None
             time.sleep(0.05)
@@ -89,6 +103,14 @@ def lock(directory: Path, timeout: float = LOCK_TIMEOUT_S) -> Iterator[None]:
         yield
     finally:
         path.unlink(missing_ok=True)
+
+
+def _age(path: Path) -> float:
+    """Seconds since `path` was written; 0 when it is already gone."""
+    try:
+        return time.time() - path.stat().st_mtime
+    except FileNotFoundError:
+        return 0.0
 
 
 def append_jsonl(path: Path, obj: Any) -> None:

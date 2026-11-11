@@ -1,9 +1,9 @@
-"""`plsi apple export`: an Apple Health export ZIP -> the daily rows of wearables/apple-health step 4.
+"""`plsi apple export`: an Apple Health export ZIP -> daily rows (date, metric, value, unit, source).
 
 export.xml is streamed straight out of the ZIP (nothing is extracted, so no member path is ever written) and only
 the record types a map uses are kept. One row per date, metric and source kind ("watch", "phone", "other"); device
-and account names never leave this function. Monthly means, the 15-day minimum and the one-app-per-metric choice
-stay with wearables/import step 3. No network calls.
+and account names never leave this module. Monthly means, the 15-day minimum and the one-app-per-metric choice
+are the wearables import skill's. No network calls.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 import zlib
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -52,7 +52,7 @@ def _time(raw: str | None) -> datetime | None:
 
 def _kind(rec: dict[str, str]) -> str:
     text = f"{rec.get('sourceName', '')} {rec.get('device', '')}".lower()
-    return "watch" if "watch" in text else "phone" if "iphone" in text or "phone" in text else "other"
+    return "watch" if "watch" in text else "phone" if "phone" in text else "other"
 
 
 def _member(zf: zipfile.ZipFile) -> str:
@@ -146,7 +146,8 @@ def _labels(kinds: dict[str, str]) -> dict[str, str]:
 
 def export(file: str, out: str) -> dict[str, Any]:
     """Write the daily rows to `out` (CSV: date,metric,value,unit,source). Returns {out, sha256 (of the ZIP, for
-    origin.file_sha256), rows, metrics, first, last, skipped_types}: per metric the row count by source kind, and the record types not read (names and counts only)."""
+    origin.file_sha256), rows, metrics (per metric the row count by source kind), first, last, skipped_types (the
+    record types not read, names and counts only)}."""
     path = Path(file)
     if not path.is_file():
         raise NotFound(f"input file not found: {path.name}", code="FILE_NOT_FOUND")
@@ -156,8 +157,8 @@ def export(file: str, out: str) -> dict[str, Any]:
     writer = csv.DictWriter(buf, COLUMNS, lineterminator="\n")
     writer.writeheader()
     writer.writerows({**r, "value": f"{r['value']:.6g}"} for r in rows)
-    atomic_write_text(Path(out), buf.getvalue())
-    metrics: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    atomic_write_text(Path(out), buf.getvalue(), private=True)
+    metrics: dict[str, Counter[str]] = defaultdict(Counter)
     for r in rows:
         metrics[r["metric"]][r["source"]] += 1
     return {"out": out, "sha256": sha, "rows": len(rows), "metrics": {m: dict(k) for m, k in metrics.items()},

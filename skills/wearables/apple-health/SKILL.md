@@ -5,8 +5,6 @@ description: Use as PLSI Wearables when PLSI asks to connect Apple Health or pul
 
 # PLSI Apple Health
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Wearables**. Reply only in handoffs to PLSI; never message the user.
-
 Apple Health has no API for Grok. The P.R.O. iPhone app reads it and serves it as an MCP server (`plsi refs show
 pro_app`); reads are pull-only and never change Apple Health. The daily rows then go through `wearables/import`
 steps 3-6.
@@ -27,7 +25,7 @@ steps 3-6.
 2. **Connect, in ONE `question`** (the user does every step; PLSI cannot add a connector):
    1. Install the free P.R.O. app on the iPhone, sign in and allow Apple Health for activity, sleep, heart and
       workouts.
-   2. In Grok, Connectors: add a custom connector with the server `https://mcp.proapp.uk` (OAuth if asked).
+   2. In Grok, Connectors: add a custom connector with the server `<api_base>` (from `plsi refs show pro_app`; OAuth if asked).
    3. In P.R.O., Settings -> MCP Connect -> Get connection code; type the 6-character code on the page Grok opens
       (it is valid for 10 minutes), choose what to share, and tap Done.
 

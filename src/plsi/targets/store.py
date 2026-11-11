@@ -1,7 +1,7 @@
 """`<PLSI_HOME>/targets/<gene>/dossier.json`: one folder per target, beside the research topics.
 
-On disk: the gathered facts, the gather date, and once a bot has written one, its assessment and assessment
-date. Nothing computed is stored; `rank.summary` runs on every read.
+A dossier holds `gene`, the gathered `facts` and their `gathered` date, and, once a bot has assessed it, the
+`assessment` and its `assessed` date. Computed reads are not stored; `rank.summary` runs on every read.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import Any
 
 from plsi import files
 from plsi.clock import now
-from plsi.errors import NotFound, ValidationError
+from plsi.errors import NotFound, ValidationError, warn
 from plsi.paths import plsi_home, safe_join, validate_id
 
 DOSSIER = "dossier.json"
@@ -40,10 +40,10 @@ def dir_of(symbol: str, *, must_exist: bool = False) -> Path:
 
 
 def save(symbol: str, facts: dict[str, Any], assessment: dict[str, Any] | None = None) -> Path:
-    """Write the dossier whole. A stored assessment survives a re-gather unless one is passed, and
-    `gathered` changes only when the facts do."""
+    """Write the dossier whole. A stored assessment survives a re-gather unless one is passed, and `gathered`
+    changes only when the facts do."""
     path = dir_of(symbol)
-    stored = load(symbol) if (path / DOSSIER).is_file() else {}
+    stored = load_or_empty(symbol)
     kept = assessment if assessment is not None else stored.get("assessment")
     unchanged = stored.get("facts") == facts and stored.get("gathered")
     document = {"gene": facts.get("symbol") or symbol,
@@ -57,10 +57,16 @@ def save(symbol: str, facts: dict[str, Any], assessment: dict[str, Any] | None =
 
 
 def load(symbol: str) -> dict[str, Any]:
+    """The stored dossier, with `facts` always a dict; DOSSIER_NOT_FOUND when there is none."""
     document = files.load_json(dir_of(symbol, must_exist=True) / DOSSIER)
     if not isinstance(document, dict):
         raise ValidationError(f"{DOSSIER} for {symbol} is not a JSON object")
-    return document
+    return {**document, "facts": document.get("facts") or {}}
+
+
+def load_or_empty(symbol: str) -> dict[str, Any]:
+    """The stored dossier, or an empty one (no facts) when none has been written."""
+    return load(symbol) if (dir_of(symbol) / DOSSIER).is_file() else {"facts": {}}
 
 
 def list_dossiers() -> dict[str, Any]:
@@ -69,6 +75,7 @@ def list_dossiers() -> dict[str, Any]:
     for path in sorted(targets_dir().glob(f"*/{DOSSIER}")):
         document = files.load_json(path)
         if not isinstance(document, dict):
+            warn("DOSSIER_UNREADABLE", f"{path} is not a JSON object and is left out of the list")
             continue
         facts = document.get("facts") or {}
         assessment = document.get("assessment") or {}

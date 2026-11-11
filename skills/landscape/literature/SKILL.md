@@ -5,8 +5,7 @@ description: Use as PLSI Landscape when the researcher wants a field mapped - th
 
 # PLSI field map
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Landscape**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used.
+**Status: draft**.
 
 ## When to use
 

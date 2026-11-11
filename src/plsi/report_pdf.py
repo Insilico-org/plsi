@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import re
 import textwrap
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from plsi.errors import EnvironmentProblem
+from plsi.errors import DependencyMissing
 from plsi.vocab import BlockType
 
 if TYPE_CHECKING:
@@ -24,6 +25,7 @@ BODY_PT, SMALL_PT, TITLE_PT, HEAD_PT = 9.5, 8, 15, 11.5
 LINE = 1.45 / 72  # line height per point of font size, in inches
 CHAR_W = 0.55 / 72  # average DejaVu Sans glyph width per point of font size, in inches
 MAX_SERIES = 6
+COLORS = {"observed": "#1f5f8b", "outside": "#c0392b", "predicted": "#c0622f", "muted": "#666666", "rule": "#bbbbbb"}
 
 _LINK = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 _EMPH = re.compile(r"\*\*(.+?)\*\*|\*(.+?)\*")
@@ -51,6 +53,24 @@ def _wrap(text: str, width_in: float, pt: float) -> list[str]:
     return out
 
 
+def _list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _dicts(value: Any) -> list[dict[str, Any]]:
+    """The dict items of a payload list; anything else is skipped, as the HTML skips it."""
+    return [i for i in _list(value) if isinstance(i, dict)]
+
+
+def _number(value: Any) -> float:
+    """A payload value as a number for print; anything that is not one prints as 0, as the HTML shows it."""
+    try:
+        number = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return number if math.isfinite(number) else 0.0
+
+
 def _date(t: Any) -> datetime | None:
     try:
         return datetime.fromisoformat(str(t).replace("Z", "+00:00"))
@@ -67,21 +87,18 @@ class _Doc:
 
     def _new_page(self) -> None:
         if self.fig is not None:
-            self._finish_page()
+            self.finish_page()
         self.page += 1
         self.fig = self.plt.figure(figsize=(PAGE_W, PAGE_H))
         self.y = PAGE_H - MARGIN
 
-    def _finish_page(self) -> None:
-        self.fig.text(MARGIN / PAGE_W, 0.35 / PAGE_H, f"{self.title} · {self.stamp}", fontsize=7, color="#666666",
+    def finish_page(self) -> None:
+        self.fig.text(MARGIN / PAGE_W, 0.35 / PAGE_H, f"{self.title} · {self.stamp}", fontsize=7, color=COLORS["muted"],
                       parse_math=False)
-        self.fig.text(1 - MARGIN / PAGE_W, 0.35 / PAGE_H, str(self.page), fontsize=7, color="#666666", ha="right",
+        self.fig.text(1 - MARGIN / PAGE_W, 0.35 / PAGE_H, str(self.page), fontsize=7, color=COLORS["muted"], ha="right",
                       parse_math=False)
         self.pdf.savefig(self.fig)
         self.plt.close(self.fig)
-
-    def close(self) -> None:
-        self._finish_page()
 
     def need(self, height: float) -> None:
         if self.y - height < MARGIN + 0.3:
@@ -106,7 +123,7 @@ class _Doc:
 
     def rule(self) -> None:
         self.fig.add_artist(self.plt.Line2D([MARGIN / PAGE_W, 1 - MARGIN / PAGE_W], [self.y / PAGE_H] * 2,
-                                            color="#bbbbbb", linewidth=0.6))
+                                            color=COLORS["rule"], linewidth=0.6))
 
     def table(self, columns: list[str], rows: list[list[Any]]) -> None:
         head = [_plain(c) for c in columns]
@@ -120,34 +137,34 @@ class _Doc:
         spare = max(0.0, self.width - sum(need))
         extra = [max(0, n - w) for n, w in zip(longest, word)]
         widths = [base + spare * e / (sum(extra) or 1) for base, e in zip(need, extra)]
-
-        def row(cells: list[str], bold: bool) -> None:
-            wrapped = [_wrap(c, w - 0.08, SMALL_PT) for c, w in zip(cells, widths)]
-            height = max(len(w) for w in wrapped) * SMALL_PT * LINE + 0.05
-            self.need(height)
-            x = 0.0
-            for w, cell in zip(widths, wrapped):
-                self.text(x, "\n".join(cell), SMALL_PT, bold)
-                x += w
-            self.y -= height
-            self.rule()
-            self.y -= 0.03
-
         if any(head):
-            row(head, True)
+            self._row(head, widths, True)
         else:
             self.rule()
             self.y -= 0.03
         for r in body:
-            row(r, False)
+            self._row(r, widths, False)
+
+    def _row(self, cells: list[str], widths: list[float], bold: bool) -> None:
+        wrapped = [_wrap(c, w - 0.08, SMALL_PT) for c, w in zip(cells, widths)]
+        height = max(len(w) for w in wrapped) * SMALL_PT * LINE + 0.05
+        self.need(height)
+        x = 0.0
+        for w, cell in zip(widths, wrapped):
+            self.text(x, "\n".join(cell), SMALL_PT, bold)
+            x += w
+        self.y -= height
+        self.rule()
+        self.y -= 0.03
 
     def chart(self, series: dict[str, Any]) -> None:
         height = 1.9
         name = _plain(series.get("name", ""))
         unit = _plain(series.get("unit", ""))
-        pts = [(d, p.get("v")) for p in series.get("points", []) if (d := _date(p.get("t"))) is not None]
-        out = [(d, p["v"]) for p in series.get("points", []) if (d := _date(p.get("t"))) is not None and _outside(p)]
-        preds = [(d, p) for p in series.get("predictions", []) if (d := _date(p.get("t"))) is not None]
+        dated = [(d, p) for p in _dicts(series.get("points")) if (d := _date(p.get("t"))) is not None]
+        pts = sorted(((d, p.get("v")) for d, p in dated), key=lambda dv: dv[0])
+        out = [(d, p["v"]) for d, p in dated if _outside(p)]
+        preds = [(d, p) for p in _dicts(series.get("predictions")) if (d := _date(p.get("t"))) is not None]
         self.gap(0.08)
         if not pts and not preds:
             self.lines(f"{name}: no values yet", SMALL_PT)
@@ -157,20 +174,20 @@ class _Doc:
         ax = self.fig.add_axes([(MARGIN + 0.45) / PAGE_W, (self.y - height) / PAGE_H, (self.width - 0.5) / PAGE_W,
                                 (height - 0.3) / PAGE_H])
         if pts:  # v null is a gap: NaN breaks the line there
-            pts.sort(key=lambda p: p[0])
-            ax.plot([d for d, _ in pts], [float("nan") if v is None else v for _, v in pts], marker="o", markersize=3, linewidth=1.2, color="#1f5f8b")
+            ax.plot([d for d, _ in pts], [float("nan") if v is None else v for _, v in pts], marker="o", markersize=3,
+                    linewidth=1.2, color=COLORS["observed"])
         if out:  # outside the range printed on that point's own report
-            ax.plot([d for d, _ in out], [v for _, v in out], "o", markersize=4, color="#c0392b")
+            ax.plot([d for d, _ in out], [v for _, v in out], "o", markersize=4, color=COLORS["outside"])
         for d, p in preds:
             ax.errorbar([d], [p["expected"]], yerr=[[p["expected"] - p["low"]], [p["high"] - p["expected"]]],
-                        fmt="s", markersize=4, color="#c0622f", capsize=3, linewidth=1)
+                        fmt="s", markersize=4, color=COLORS["predicted"], capsize=3, linewidth=1)
         ax.tick_params(labelsize=7)
         ax.grid(alpha=0.25, linewidth=0.5)
         for side in ("top", "right"):
             ax.spines[side].set_visible(False)
         if preds:
-            ax.legend(handles=[self.plt.Line2D([], [], color="#1f5f8b", marker="o", markersize=3, label="observed"),
-                               self.plt.Line2D([], [], color="#c0622f", marker="s", markersize=4, linestyle="",
+            ax.legend(handles=[self.plt.Line2D([], [], color=COLORS["observed"], marker="o", markersize=3, label="observed"),
+                               self.plt.Line2D([], [], color=COLORS["predicted"], marker="s", markersize=4, linestyle="",
                                                label="predicted (interval)")], fontsize=6.5, frameon=False)
         self.fig.autofmt_xdate(rotation=0, ha="center")
         self.y -= height + 0.25  # room for the date labels under the axes
@@ -207,36 +224,47 @@ def _block(doc: _Doc, block: Block) -> None:
     if kind == BlockType.MARKDOWN:
         _markdown(doc, data.get("text", ""))
     elif kind == BlockType.KV:
-        doc.table(["", ""], [[i.get("key", ""), i.get("value", "")] for i in data.get("items", [])])
+        doc.table(["", ""], [[i.get("key", ""), i.get("value", "")] for i in _dicts(data.get("items"))])
     elif kind == BlockType.TABLE:
-        doc.table(data.get("columns", []), data.get("rows", []))
+        doc.table(_list(data.get("columns")), _list(data.get("rows")))
     elif kind == BlockType.LIST:
-        for item in data.get("items", []):
+        for item in _list(data.get("items")):
             doc.lines(_cell_text(item), indent=0.25, prefix="•")
     elif kind == BlockType.TIMELINE:
         rows = [[e.get("t", ""), e.get("label", ""), e.get("kind", ""), e.get("detail", "")]
-                for e in data.get("events", [])]
+                for e in _dicts(data.get("events"))]
         doc.table(["date", "event", "kind", "detail"], rows)
+    elif kind == BlockType.PARTS:
+        items = [(i, _number(i.get("value"))) for i in _dicts(data.get("items"))]
+        total = sum(v for _, v in items) or 1
+        doc.table(["", "", ""], [[i.get("label", ""), f"{v:g}", f"{round(100 * v / total)}%"] for i, v in items])
+    elif kind == BlockType.SCALE:
+        doc.table(["", ""], [[m.get("label", ""), f"{m.get('value', '')} {data.get('unit', '')}".strip()]
+                             for m in _dicts(data.get("marks"))])
+    elif kind == BlockType.BARS:
+        doc.table(["", ""], [[b.get("label", ""), f"{_number(b.get('value')):+.1f} {data.get('unit', '')}".strip()]
+                             for b in _dicts(data.get("items"))])
+    elif kind == BlockType.METER:
+        doc.lines(f"{data.get('value', '')} of {data.get('max', '')} {data.get('label', '')}".strip())
     elif kind == BlockType.TIMESERIES:
-        series = data.get("series", [])
+        series = _dicts(data.get("series"))
         for s in series[:MAX_SERIES]:
             doc.chart(s)
         if len(series) > MAX_SERIES:
-            doc.lines(f"{len(series) - MAX_SERIES} more series not shown.", SMALL_PT, color="#666666")
+            doc.lines(f"{len(series) - MAX_SERIES} more series not shown.", SMALL_PT, color=COLORS["muted"])
     else:
         doc.lines(json.dumps(data, indent=1, ensure_ascii=False), SMALL_PT)
     doc.gap(0.18)
 
 
 def render_pdf(payload: DashboardPayload) -> bytes:
-    """Pure: payload -> PDF bytes."""
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         from matplotlib.backends.backend_pdf import PdfPages
     except ImportError as e:  # matplotlib is in the bot's environment, not a plsi dependency
-        raise EnvironmentProblem("PDF reports need matplotlib", code="PDF_UNAVAILABLE",
+        raise DependencyMissing("PDF reports need matplotlib", code="PDF_UNAVAILABLE",
                                  hint="uv pip install matplotlib") from e
     plt.rcParams.update({"pdf.fonttype": 42, "font.family": "DejaVu Sans"})
     stamp = payload.generated_at.date().isoformat()
@@ -248,5 +276,12 @@ def render_pdf(payload: DashboardPayload) -> bytes:
         doc.gap(0.2)
         for block in payload.blocks:
             _block(doc, block)
-        doc.close()
+        for tab in payload.tabs:  # tabs print one after another
+            doc.need(TITLE_PT * LINE * 3)
+            doc.rule()
+            doc.lines(_plain(tab.title), TITLE_PT - 2, bold=True)
+            doc.gap(0.1)
+            for block in tab.blocks:
+                _block(doc, block)
+        doc.finish_page()
     return buf.getvalue()

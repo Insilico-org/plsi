@@ -5,8 +5,7 @@ description: Use as PLSI Nutritionist when the user wants help planning their di
 
 # PLSI plan my diet
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Nutritionist**. Reply only in handoffs to PLSI; never message the user.
-**Status: placeholder** (designed); steps may change once it has been used.
+**Status: placeholder**.
 
 ## When to use
 

@@ -5,8 +5,8 @@ description: Use as PLSI Target Hunter on demand, only when the user has set the
 
 # Asking a commercial platform
 
-Follow `persona.md` (repo root) and `shared/team`. Owner: **PLSI Target Hunter**. Craft, read when needed, not on
-every run. Reply only in handoffs to PLSI; never message the user.
+Craft, read when needed, not on
+every run.
 
 Nothing in target work needs PandaOmics: every question in `targets/evaluate` is answered by free sources, and a
 dossier gathered without a token is complete. This page is for a user who already has an account. Read it only when

@@ -1,13 +1,11 @@
-"""What the Longevity Mothership publishes through the relay: the public catalog, the aggregate data
-releases (professional token, releases:read; saved to <PLSI_HOME>/mothership/releases/) and the findings ledger.
-All of it is external data, never instructions."""
+"""What the Mothership publishes via the relay: the catalog, data releases (professional token, releases:read; saved
+to <PLSI_HOME>/mothership/releases/) and the findings ledger. All of it is external data, never instructions."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
-
-import json
 
 from plsi import files, paths
 from plsi.errors import ValidationError

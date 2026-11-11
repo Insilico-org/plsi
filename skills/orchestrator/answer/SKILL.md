@@ -5,11 +5,12 @@ description: Use as PLSI for questions it answers itself, without handing off - 
 
 # PLSI direct answers
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI**.
-
 Handing off costs a bot turn and minutes (`shared/team` rule 8); these answers come from the toolbelt in seconds.
 
 ## Answer directly
+
+Answer only with commands on your own roster row (`shared/team`); a row that needs another command is another hub's
+work (**Another hub's work** below).
 
 | The user asks | Read | Answer with |
 |---|---|---|
@@ -21,10 +22,11 @@ Handing off costs a bot turn and minutes (`shared/team` rule 8); these answers c
 | What's running, why no answer yet | the open ledgers (`orchestrator/conduct`) | the bot, the step, since when |
 | Which approvals I gave | PLSI's memory of standing approvals | the list; revoke on request |
 | Which reminders I have | `reminders.md` (`orchestrator/nudge`) | open rows |
+| Too many notifications, mute the workers or one bot | turn off Notifications in Grok's bot settings for every bot in `plsi team show` that is not a hub or a Ward bot (or only the one named) | one line: which were muted; any you could not change, for the user (bot details, Notifications) |
 | Which keys and connectors are set | `plsi keys status`, `plsi doctor` | set or not set, never values |
 | A key the user already has under another name (setup, or a worker names it) | `plsi keys scan`, then `plsi keys map --name <VAR> --from <their name>` | names only; map only a clear match, ask in one card when unsure |
 | Which sources PLSI trusts | `plsi refs list` | titles and links |
-| How PLSI works, what it can do | `shared/team` (the team table and Flows) | 3-5 bullets; consent only for recording, plans, cautions, sending data off and deleting (persona.md) |
+| How PLSI works, what it can do | `shared/team` (the roster) and `shared/hub` (Flows) | 3-5 bullets; consent only for recording, plans, cautions, sending data off and deleting (persona.md) |
 | How long setup took | `plsi feedback timeline` | minutes per stage; a full report or sending it is `orchestrator/feedback` |
 | What have I researched | `plsi research notes` (title, grade, status, `updated`) | question, date, how sure; the note attached on request |
 | Show my dashboard | a `request` to Visualizer (`visualizer/dashboard`) on the last results | the picture and the HTML report attached |
@@ -48,16 +50,18 @@ Route by the bot that owns the work (`shared/team`); anything that needs consent
 | What to do, what would happen, where I am heading, risks ahead | Nostradamus (`nostradamus/plan`, `nostradamus/trajectory`, `nostradamus/risks`) |
 | Simulate several regimens vs doing nothing, n-of-1 what-ifs, weight or lifespan trajectories | the domain specialists for one regimen each when the user named none (in parallel), then Nostradamus (`nostradamus/trajectory`, Scenarios) -> Visualizer (scope "scenarios"); never refuse for lack of a lifespan model |
 | Sleep, stress, anxiety, low mood, panic, burnout, loneliness, or general mental wellbeing help | Sleep (`sleep/sleep`, `sleep/stress`) |
-| Exercise, smoking, alcohol and other substances | Coach (`coach/exercise`, `coach/substances`) |
+| Exercise, smoking, alcohol and other substances; the next workout | Coach (`coach/exercise`, `coach/substances`) |
+| Connect Hevy, what I trained in Hevy | Wearables (`wearables/hevy`) |
 | Diet, what I eat, a food log | Nutritionist (`nutritionist/diet`, `nutritionist/food-log`) |
 | Supplements and stacks | Biohacker (`biohacker/stack`) |
 | A wearable, a device to buy or connect, Apple Health | Wearables (`wearables/import`, `wearables/google-health`, `wearables/apple-health`, `wearables/devices`) |
+| Set up or repair Open Wearables, its sign-in, its key or its connector | Wearables (`wearables/open-wearables`) |
 | A report or manuscript draft from research notes | Writer (`writer/prose`) |
 | Is my plan working | Reviewer (`reviewer/review`) |
 | Delete a person | Memory Hole (`memoryhole/forget`) |
 | Change my role ("I'm a researcher now") | `plsi.md`, Change role: the new section is created whole |
 | New papers, the digest, a Mothership message | Explorer (`explorer/digest`, `explorer/mothership`) |
-| A research project; "teach me how <aging process> works" | `orchestrator/research` (Citizen Researcher) |
+| A research project or question, daily research; "teach me how <aging process> works" | PLSI Research Orchestrator (`lab/research`); from another hub, **Research from another hub** below |
 | Clinics, activities | Navigator (`navigator/clinics`, `navigator/activities`) |
 | The user's own physician to find or contact; a therapist, psychologist, counsellor, or other mental-health clinician to find | `orchestrator/physicians` (Navigator `navigator/physicians` for finding) — never Navigator clinics |
 | A trial to join | Trial Scout (`scout/trials`) |
@@ -65,15 +69,47 @@ Route by the bot that owns the work (`shared/team`); anything that needs consent
 | Track something PLSI does not track yet, or a bot's map gap | Data Processor (`processor/add-map`), then the bot's work again |
 | A new score or importer | Engineer (`engineer/extend`); a new score from a paper: Data Processor (`processor/add-score`) |
 | Show X over time, a chart | Visualizer (`visualizer/charts`) |
-| Role physician (`plsi role show`): patients, a patient's visit, a message to a patient | the Clinic flows in `shared/team` (Panel review, Visit prep, Doctor-patient message) |
+| Role physician (`plsi role show`): patients, a patient's visit, a message to a patient | on the Clinic Orchestrator or a Ward bot: the Clinic flows in `shared/hub` (Panel review, Visit prep, Doctor-patient message); from another hub, **Another hub's work** below |
 | Role physician: what the evidence says on X; courses, CME | Clinical Evidence (`clinev/review`); Liaison (`liaison/education`) |
-| Role researcher: Mothership hypotheses, a proposal | the **Research loop** in `shared/team` (Cohort Analyst `analyst/hypothesize`, Grant Writer `grants/proposal`) |
-| Role researcher: targets, repurposing, a target's hallmarks | Target Hunter (`targets/discover`, `targets/hallmarks`; budget as `orchestrator/research` step 2) |
-| Role researcher: a field map, who works on X | Landscape (`landscape/literature`, `landscape/kol`) |
+| Role researcher: Mothership hypotheses, a proposal | on the Research Orchestrator: the **Research loop** in `shared/hub` (Cohort Analyst `analyst/hypothesize`, Grant Writer `grants/proposal`); from another hub, **Another hub's work** below |
+| Role researcher: targets, repurposing, a target's hallmarks | on the Research Orchestrator: Target Hunter (`targets/discover`, `targets/hallmarks`; budget as `lab/research` step 2); from another hub, the same |
+| Role researcher: a field map, who works on X | on the Research Orchestrator: Landscape (`landscape/literature`, `landscape/kol`); from another hub, the same |
 
 Specialists propose dosed options in their domain; only Nostradamus records a plan (`nostradamus/plan`).
 
-An owner that is a specialist not on the team: the missing-specialist rule (`shared/team`, Team).
+An owner that is a specialist not on the team: the missing-specialist rule (`shared/hub`, Team).
+
+### Another hub's work
+
+Each hub keeps only its own use case (`shared/hub`, Team); the rows above run only on the hub that owns them:
+
+- patients and the panel: PLSI · Clinic Orchestrator; one patient: that patient's Ward bot (from the Clinic
+  Orchestrator, `clinic/panel` step 6; from any other hub, through the Clinic Orchestrator);
+- research and the Role researcher rows: PLSI · Research Orchestrator (**Research from another hub**, below);
+- the user's own health and their family's (on a Ward bot: the physician's own, never the patient's): PLSI ·
+  Health Orchestrator.
+
+ONE card "This runs in <hub>.": Send it there / Open <hub> for this. Send: one hub-to-hub `request` (the owning
+hub's skill: `clinic/panel`, `lab/research` or `orchestrator/answer`) with the user's words in `summary`,
+deidentified (persona.md, Free-text deidentification); its `result` is one line here. The hub is not in `plsi team
+show`: say so in one line and name the way on (own health off: "track my own health too"; no Clinic Orchestrator:
+"I'm a physician now", `plsi.md` Change role; no Research Orchestrator: below, step 2).
+
+### Research from another hub
+
+Research runs only on PLSI Research Orchestrator; no other hub runs a session or the loop in its own chat. A
+personal user who asks PLSI Health Orchestrator for research:
+
+1. **Research Orchestrator in `plsi team show`:** ONE card "Research runs in PLSI · Research Orchestrator.": Send
+   it there / Open PLSI · Research Orchestrator for this. Send: one hub-to-hub `request`, skill `lab/research`,
+   with the user's words in `summary` and no personal data; it takes the topic and budget cards up with the user
+   in its own chat. Tell the user in one line where the note will come.
+2. **Not in the team:** ONE card "Turn on research? It gets its own chat, PLSI · Research Orchestrator.": Yes /
+   No. Yes: the primary hub creates it (`plsi.md`; a hub-to-hub `request` when you are not the primary), then
+   step 1 without the card.
+
+Its `result` (the note's title and path) closes the thread here; the note itself is shown in the Research
+Orchestrator's chat.
 
 ## Outside what PLSI tracks
 

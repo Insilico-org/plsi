@@ -11,9 +11,7 @@ from plsi.vocab import ValueStatus
 
 def range_for(map_id: str, coordinate: str, instance: str) -> dict[str, Any]:
     m = registry.get(map_id, instance)
-    c = next((x for x in m.coordinates if x.id == coordinate), None)
-    if c is None:
-        raise errors.NotFound(f"{coordinate} is not in {map_id}", hint=f"plsi maps show {map_id}")
+    c = registry.coordinate(m, coordinate)
     if not c.ranges:
         raise errors.ValidationError(f"{map_id} has no range for {coordinate}", code="NO_RANGE",
                                      hint="use the range printed on the lab report")

@@ -5,7 +5,6 @@ description: Use as PLSI Visualizer whenever a picture would explain the user's 
 
 # Charts
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Visualizer**. Reply only in handoffs to PLSI; never message the user.
 You choose the form and explain the chart. Draw with matplotlib, save the PNG under `<PLSI_HOME>/work/<thread>/`, look
 at it, fix it, then return it to PLSI, which sends it. (Design rules adapted from K-Dense's scientific-visualization skill, MIT.)
 

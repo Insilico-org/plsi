@@ -1,12 +1,7 @@
 """Question discovery from open sources: what is asserted about a subject, how heavily, and where that thins out.
 
-`research propose` reads this person's record; this reads PubTator's relation annotations to find what is open
-about a subject. It chooses nothing: it returns relations with their publication counts and the query that
-produced them, and the bot and the user decide. It reads no research store, so either research bot can run it;
-whether a candidate is already covered is `research propose`'s check.
-
-PubTator covers PubMed and the PMC open-access subset only, so the bot's own web search is the other half of
-discovery, and every reply says so in `caveats`.
+It reads PubTator's relation annotations and no research store, and chooses nothing: it returns relations with
+their publication counts and the query behind each, and the bot and the user decide.
 """
 
 from __future__ import annotations
@@ -18,18 +13,31 @@ from plsi import net, references
 from plsi.errors import NetworkError, ValidationError
 from plsi.models import CAP_ABSTRACT, sanitize_external
 from plsi.policy import evidence
+from plsi.research.tuning import (DEFAULT_CANDIDATES, MAX_CANDIDATES, MIN_SUPPORT, SUPPORT_FOR, SUPPORT_PAPERS,
+                                  THINLY_STUDIED, TRIALS_MAX, WELL_STUDIED)
 from plsi.vocab.research import TopicSource
 
 ORIGIN = "pubtator3"
 CONCEPTS = ("CHEMICAL", "DISEASE", "GENE")      # the three a subject is most often one of
 ENTITY_RE = re.compile(r"^@(CHEMICAL|DISEASE|GENE|VARIANT|SPECIES)_[A-Za-z0-9][\w,.'()/+-]*$")
-MAX_CANDIDATES = 12
-# The candidate band, in papers per relation and absolute whatever the subject. Below MIN_SUPPORT a relation is
-# mostly extraction noise; from WELL_STUDIED up it is what the field has already settled.
-MIN_SUPPORT = 3
-THINLY_STUDIED = 25
-WELL_STUDIED = 50
-SUPPORT_FOR = 5    # candidates that get their own papers fetched; one request each, at 3/s
+# a relation as a plain-language question: the way round it was asserted, or either way round
+DIRECTED = {
+    "treat": "does {a} do anything for {b}?",
+    "prevent": "does {a} stop {b} happening?",
+    "cause": "can {a} bring on {b}?",
+    "inhibit": "does {a} shut down {b}, and does that matter?",
+    "stimulate": "does {a} turn up {b}, and does that matter?",
+    "convert": "does {a} turn into {b}, and does that matter?",
+}
+SYMMETRIC = {
+    "interact": "what happens when {a} and {b} meet?",
+    "drug_interact": "is it a problem to take {a} and {b} together?",
+    "associate": "what is the connection between {a} and {b}?",
+    "compare": "which does more, {a} or {b}?",
+    "cotreat": "is {a} worth taking alongside {b}?",
+    "positive_correlate": "do {a} and {b} rise together, and does one drive the other?",
+    "negative_correlate": "does {b} fall when {a} rises, and does one drive the other?",
+}
 
 
 def _base() -> str:
@@ -48,8 +56,6 @@ def _label(entity: str) -> str:
 def _kind(entity: str) -> str:
     return str(entity)[1:].split("_", 1)[0].lower() if str(entity).startswith("@") else ""
 
-
-# ---------------------------------------------------------------- resolving a subject
 
 def _relations(entity: str, relation: str | None = None) -> list[dict[str, Any]]:
     params: dict[str, Any] = {"e1": entity}
@@ -99,21 +105,19 @@ def resolve(subject: str, entity: str | None = None) -> dict[str, Any]:
     return {"entity": None, "resolved_by": None, "relations": []}
 
 
-# ---------------------------------------------------------------- the candidates
-
 def _pair(row: dict[str, Any], entity: str) -> dict[str, Any]:
     """One asserted relation, recording which end the subject is on, since several relation types are
     directional."""
     source, target = str(row.get("source") or ""), str(row.get("target") or "")
     other = target if source == entity else source
     return {"relation": str(row.get("type") or ""), "other": other,
-            "other_label": _text(_label(other)), "other_kind": _kind(other),
+            "other_label": _text(_label(other))["text"], "other_kind": _kind(other),
             "subject_acts": source == entity,
             "publications": int(row.get("publications") or 0),
             "query": f"relations:{row.get('type')}|{source}|{target}"}
 
 
-def _supporting(query: str, limit: int = 3) -> dict[str, Any]:
+def _supporting(query: str, limit: int = SUPPORT_PAPERS) -> dict[str, Any]:
     """The first papers behind one relation: leads a topic opened on it would rest on. Nothing here has read
     them; the first Gather retrieves and quotes them like any other source."""
     try:
@@ -129,28 +133,9 @@ def _supporting(query: str, limit: int = 3) -> dict[str, Any]:
     return {"papers": out, "indexed": int(data.get("count") or 0) if isinstance(data, dict) else None}
 
 
-DIRECTED = {
-    "treat": "does {a} do anything for {b}?",
-    "prevent": "does {a} stop {b} happening?",
-    "cause": "can {a} bring on {b}?",
-    "inhibit": "does {a} shut down {b}, and does that matter?",
-    "stimulate": "does {a} turn up {b}, and does that matter?",
-    "convert": "does {a} turn into {b}, and does that matter?",
-}
-SYMMETRIC = {
-    "interact": "what happens when {a} and {b} meet?",
-    "drug_interact": "is it a problem to take {a} and {b} together?",
-    "associate": "what is the connection between {a} and {b}?",
-    "compare": "which does more, {a} or {b}?",
-    "cotreat": "is {a} worth taking alongside {b}?",
-    "positive_correlate": "do {a} and {b} rise together, and does one drive the other?",
-    "negative_correlate": "does {b} fall when {a} rises, and does one drive the other?",
-}
-
-
 def _ask(subject: str, pair: dict[str, Any]) -> str:
     """The relation as a plain-language question, the way round it was asserted."""
-    other = pair["other_label"]["text"]
+    other = pair["other_label"]
     actor, acted_on = (subject, other) if pair.get("subject_acts") else (other, subject)
     if pair["relation"] in DIRECTED:
         return DIRECTED[pair["relation"]].format(a=actor, b=acted_on)
@@ -158,7 +143,7 @@ def _ask(subject: str, pair: dict[str, Any]) -> str:
         a=subject, b=other)
 
 
-def discover(about: str, entity: str | None = None, limit: int = 6,
+def discover(about: str, entity: str | None = None, limit: int = DEFAULT_CANDIDATES,
              trials: bool = False) -> dict[str, Any]:
     """`research discover --about "<subject>"`: what is asserted about a subject and how heavily.
 
@@ -199,12 +184,12 @@ def discover(about: str, entity: str | None = None, limit: int = 6,
         ask = _ask(subject, pair)
         support = _supporting(pair["query"]) if len(candidates) < SUPPORT_FOR else {"papers": [], "indexed": None}
         candidates.append({
-            "kind": str(TopicSource.OPEN_QUESTION), "about": f"{subject} and {pair['other_label']['text']}",
+            "kind": str(TopicSource.OPEN_QUESTION), "about": f"{subject} and {pair['other_label']}",
             "ask": ask, "relation": pair["relation"], "publications": pair["publications"],
             "rests_on": [p["id"] for p in support["papers"]],
             "papers": support["papers"], "indexed": support["indexed"], "query": pair["query"],
             "why": f"PubTator reads {pair['publications']} papers as saying {subject} {pair['relation']} "
-                   f"{pair['other_label']['text']} - enough that somebody has looked, few enough that "
+                   f"{pair['other_label']} - enough that somebody has looked, few enough that "
                    "nobody has settled it",
         })
     out: dict[str, Any] = {
@@ -212,12 +197,12 @@ def discover(about: str, entity: str | None = None, limit: int = 6,
         "relations_found": len(pairs),
         "candidates": candidates,
         "well_studied": [{"ask": _ask(subject, p), "publications": p["publications"],
-                          "relation": p["relation"], "about": p["other_label"]["text"]} for p in settled[:limit]],
+                          "relation": p["relation"], "about": p["other_label"]} for p in settled[:limit]],
         "caveats": caveats,
         "covered_check": (
             "this command reads no store and does not know what research already covers. "
             "`plsi research propose` says which candidates an existing topic or note covers, and holding "
-            "that check in one place is what lets both research bots run this one"),
+            "that check in one place is what lets any bot that researches run this one"),
         "how_to_use": (
             "`well_studied` is what NOT to open a topic on - the field has answered it. `candidates` is where "
             "a question is open: offer two or three as a curious non-scientist would ask them, beside the "
@@ -234,7 +219,7 @@ def discover(about: str, entity: str | None = None, limit: int = 6,
 def _open_trials(subject: str) -> dict[str, Any]:
     """ClinicalTrials.gov trials on the subject: a recruiting trial says the question is not settled yet."""
     try:
-        results = evidence.search("ctgov", subject, limit=10)["results"]
+        results = evidence.search("ctgov", subject, limit=TRIALS_MAX)["results"]
     except NetworkError as exc:  # one source failing is not the command failing
         return {"trials": [], "note": f"ClinicalTrials.gov did not answer: {type(exc).__name__}"}
     return {"trials": [{"id": r["ref"]["id"], "title": r["title"], "status": r.get("pub_types")}

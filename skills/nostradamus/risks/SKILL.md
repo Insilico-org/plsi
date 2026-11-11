@@ -5,8 +5,6 @@ description: Use as PLSI Nostradamus when PLSI asks for the future part of the l
 
 # PLSI risks
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Nostradamus**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - PLSI hands over PLSI Data Processor's `processor/history` result for the life arrow (`orchestrator/arrow`).

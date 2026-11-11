@@ -1,19 +1,18 @@
 ---
 name: l-llm
-description: Read before asking Longevity-LLM if you are PLSI or a PLSI bot that asks it (Nostradamus, Citizen Researcher, Target Hunter) - Insilico's playground, run only by PLSI in its browser, topic asks only, the prompt layout, the run budget and how the answer is kept.
+description: Read before asking Longevity-LLM if you are a PLSI orchestrator or a PLSI bot that asks it (Nostradamus, Target Hunter) - Insilico's playground, run only by PLSI in its browser, topic asks only, the prompt layout, the run budget and how the answer is kept.
 ---
 
 # PLSI Longevity-LLM
 
-Follow persona.md norms and `shared/team`. L-LLM is an aging-biology model: its answers are leads to verify, never
-facts, and never a calibrated number (ages, risks, effect sizes).
+L-LLM is an aging-biology model: its answers are leads to verify, never facts or calibrated numbers (ages, risks, effect sizes).
 
 ## When it helps
 
 L-LLM was trained on aging data (methylation, gene expression, plasma proteomics, gene-level lifespan and expression
 results, clinical cohorts) and reads structured data better than it recalls the literature. Ask it only for:
 
-- **Targets and genes** (Citizen Researcher, Target Hunter): candidate aging targets per hallmark, whether a gene's
+- **Targets and genes** (PLSI Research Orchestrator, Target Hunter): candidate aging targets per hallmark, whether a gene's
   expression rises or falls with age, which gene perturbation extends lifespan more.
 
 Not for general explanations (the literature and your own knowledge recall better), trial results, study findings

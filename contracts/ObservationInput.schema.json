@@ -370,6 +370,19 @@
       "default": null,
       "title": "Unit"
     },
+    "unit_printed": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit Printed"
+    },
     "value_bool": {
       "anyOf": [
         {

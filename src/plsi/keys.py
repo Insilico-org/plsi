@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 from plsi import files
-from plsi.errors import KeyMissing, NotFound, ValidationError
+from plsi.errors import KeyMissing, NotFound, PlsiError, ValidationError
 from plsi.paths import REPO_ROOT, plsi_home
 
 # Every variable in .env.example and what it unlocks (doctor / keys status).
@@ -21,14 +21,17 @@ UNLOCKS: dict[str, str] = {
     "PANDACLAW_BEARER_TOKEN": "plsi oracle pandaclaw",
     "PANDAOMICS_MCP_URL": "PandaOmics MCP endpoint override",
     "PANDAOMICS_BEARER_TOKEN": "plsi oracle pandaomics",
-    "PLSI_ORACLE_DAILY_CAP": "billed PandaClaw / PandaOmics calls per oracle per UTC day (default 25)",
+    "PLSI_ORACLE_DAILY_CAP": "billed PandaClaw / PandaOmics calls per oracle per UTC day",
     "LOINC_USERNAME": "optional fhir.loinc.org enrichment (unused by default)",
     "LOINC_PASSWORD": "optional fhir.loinc.org enrichment (unused by default)",
     "NCBI_API_KEY": "PubMed E-utilities at 10 req/s",
     "NCBI_EMAIL": "PubMed E-utilities contact (NCBI policy)",
     "OPENFDA_API_KEY": "openFDA 120,000 req/day",
-    "OPEN_WEARABLES_API_URL": "Open Wearables server for wearables/import (default http://localhost:8000)",
+    "OPEN_WEARABLES_API_URL": "Open Wearables server for wearables/import",
     "OPEN_WEARABLES_API_KEY": "Open Wearables API key for wearables/import (MCP server config)",
+    "OPEN_WEARABLES_ADMIN_EMAIL": "Open Wearables portal sign-in, for a server on the bot's computer (wearables/open-wearables)",
+    "OPEN_WEARABLES_ADMIN_PASSWORD": "Open Wearables portal sign-in password, for a server on the bot's computer",
+    "HEVY_API_KEY": "Hevy workout log (Hevy Pro) for wearables/hevy and coach/exercise",
     "GOOGLE_HEALTH_CLIENT_ID": "Google Health OAuth client for wearables/google-health and nutritionist/food-log",
     "GOOGLE_HEALTH_CLIENT_SECRET": "Google Health OAuth client secret (wearables/google-health, nutritionist/food-log)",
     "GOOGLE_HEALTH_REFRESH_TOKEN": "Google Health read-only access (expires in about 7 days while the OAuth app is in Testing)",
@@ -39,7 +42,7 @@ UNLOCKS: dict[str, str] = {
     "PLSI_DRIVE_CREDENTIALS": "service account key file (JSON path) for the clinic shared drive (panel/clinic)",
     "PLSI_CLINIC_DRIVE": "the clinic shared drive id, where the service account is a Manager (panel/clinic)",
     "MOTHERSHIP_PROFESSIONAL_TOKEN": "plsi mothership whoami, release, findings, prereg, finding and professional send",
-    "PLSI_HOME": "instance directory (default <repo>/instances)",
+    "PLSI_HOME": "instance directory",
     "PLSI_DEBUG": "redacted tracebacks on stderr when 1",
     "PLSI_ENV_FILE": "alternative .env path",
 }
@@ -56,7 +59,7 @@ def env_file() -> Path:
 
 
 def _remember(name: str, value: str) -> None:
-    # Only secret-like names are recorded so paths/URLs in messages stay readable.
+    """Record a value for redaction; only secret-like names, so paths and URLs in messages stay readable."""
     if _SECRET_NAME.search(name):
         hide(value)
 
@@ -94,9 +97,17 @@ def map_file() -> Path:
 
 
 def aliases() -> dict[str, str]:
-    """Known variable -> the name of the user's existing secret it is read from (names only)."""
+    """Known variable -> the name of the user's existing secret it is read from (names only); the one reader of
+    keys-map.json, which must map names to names."""
     path = map_file()
-    return files.load_json(path) if path.is_file() else {}
+    try:
+        mapped = files.load_json(path) if path.is_file() else {}
+    except ValidationError:
+        mapped = None
+    if not isinstance(mapped, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in mapped.items()):
+        raise ValidationError(f"{path.name} must map key variables to secret names", code="KEYS_MAP_INVALID",
+                              hint=f"delete {path} and map the keys again (plsi keys scan)")
+    return mapped
 
 
 def _value(name: str, file_values: dict[str, str]) -> str | None:
@@ -140,9 +151,9 @@ def scan() -> dict[str, object]:
     """`keys scan`: names only. Known variables not set yet, the current mappings, and the names of other secrets
     present in the environment or .env, for the bot to judge which of them is which known variable."""
     file_values, found = load_env_file(), status()
-    present = {n for n, v in {**file_values, **os.environ}.items() if v} - set(UNLOCKS)
+    others = {n for n, v in {**file_values, **os.environ}.items() if v} - set(UNLOCKS)
     return {"unset": sorted(n for n, ok in found.items() if not ok), "mapped": aliases(),
-            "candidates": sorted(n for n in present if _CANDIDATE.search(n.upper()))}
+            "candidates": sorted(n for n in others if _CANDIDATE.search(n.upper()))}
 
 
 def map_key(name: str, source: str) -> dict[str, object]:
@@ -167,7 +178,8 @@ def unmap_key(name: str) -> dict[str, object]:
 
 
 def redact(text: str) -> str:
-    """Mask every recorded secret value, secret query parameters and bearer tokens."""
+    """Mask every recorded secret value, secret query parameters and bearer tokens. Never raises: an unreadable
+    .env or keys-map.json leaves the values already recorded."""
     text = str(text)
     for name in UNLOCKS:
         _remember(name, os.environ.get(name, ""))
@@ -175,7 +187,7 @@ def redact(text: str) -> str:
         file_values = load_env_file()
         for name, source in aliases().items():
             _remember(name, _value(source, file_values) or "")
-    except (OSError, ValueError):
+    except (OSError, ValueError, PlsiError):
         pass
     for value in sorted(_seen, key=len, reverse=True):
         text = text.replace(value, "***")

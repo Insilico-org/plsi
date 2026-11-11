@@ -5,8 +5,6 @@ description: Use as PLSI Wearables when PLSI asks to import wearable or device d
 
 # PLSI wearables
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Wearables**. Reply only in handoffs to PLSI; never message the user.
-
 Device data arrives by minute or by night; PLSI keeps it as **one calendar-month mean per metric per closed month**, so a map value is a month, not one
 night, and predictions are scored on months. The raw data stays where it came from.
 
@@ -23,10 +21,13 @@ night, and predictions are scored on months. The raw data stays where it came fr
 ## Steps
 
 1. **Read the data.**
-   - **Open Wearables** (`plsi refs show open_wearables`; the user's own server, connected as an MCP server with
-     their key from the secret store): list users and pick the one the request names (one Open Wearables user per
-     instance, remembered by PLSI). Read the sleep summary, activity summary and time series (resting heart rate,
-     weight, blood pressure, glucose) for the range in the request. Not connected or no user: say so in a `result`.
+   - **Open Wearables** (`plsi refs show open_wearables`; the user's own server, set up by `wearables/open-wearables`,
+     read through its MCP connector or the REST API with its key from the secret store; a server on this computer
+     only between the start and stop of **Sync on demand** below): list users and pick the one the request names (one
+     Open Wearables user per instance, remembered by PLSI). Read the sleep summary, activity summary and time series
+     (resting heart rate, weight, blood pressure, glucose) for the range in the request. No server or no key: say so
+     in a `result` so PLSI hands it to `wearables/open-wearables`; a 401 or 403: the same, naming the code (its step
+     8), with no second read on the same key.
    - **Google Health** (no Open Wearables): pull with `wearables/google-health`, then continue here with its daily
      rows. **Apple Health** through the P.R.O. app: pull with `wearables/apple-health`, the same way. A source already linked to Open Wearables is read there only, never pulled twice.
    - **Apple Health export** (`export.zip`, any size): never open it yourself; `plsi apple export --file <zip>
@@ -120,6 +121,17 @@ night, and predictions are scored on months. The raw data stays where it came fr
    plsi status --instance <instance>
    plsi project --instance <instance> --map sleep_activity
    ```
+
+## Sync on demand
+
+A server on this computer (`OPEN_WEARABLES_API_URL` is `http://localhost:8000`) runs only for a sync. Start it in its
+compose folder under `~/open-wearables` (`docker compose up -d`, after `wearables/open-wearables` **Docker
+running**: a computer without systemd does not start Docker by itself), wait until `curl -fsS
+http://localhost:8000/openapi.json` answers (up to 2 minutes; still nothing: a `result` naming
+`wearables/open-wearables`), have it fetch each connected provider as the guide says, read (step 1), then `docker
+compose stop`, also when the read failed. Providers keep a short history (Polar about 28 days of sleep), so PLSI's
+weekly check-in sends a request every week, a sync only when no closed month is due; the fetched data stays in the
+server for the monthly import.
 
 ## Rules
 

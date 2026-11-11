@@ -4,7 +4,7 @@ kind: plsi_map
 schema_version: 1
 id: blood_phenoage
 title: Blood PhenoAge (Levine 2018)
-map_version: 1.0.0
+map_version: 1.1.0
 claim_level: instantiated
 summary: Nine routine blood markers from one draw and the derived phenotypic age (Levine 2018) with its acceleration over chronological age.
 tags: [aging_clock, blood, phenoage]
@@ -184,6 +184,7 @@ coordinates:
     engine: native
     model: chronological_age
     inputs: &id002 [albumin, creatinine, glucose, crp, lymphocyte_pct, mcv, rdw, alp, wbc]
+    window_days: 30
   predictable: false
   correspondence_type: expert
   sources:
@@ -196,6 +197,7 @@ coordinates:
     engine: native
     model: phenoage
     inputs: *id002
+    window_days: 30
   correspondence_type: statistical
   sources:
   - &id003 {kind: doi, id: 10.18632/aging.101414, title: Levine ME et al. 2018. An epigenetic biomarker of aging for lifespan and healthspan.
@@ -209,6 +211,7 @@ coordinates:
     engine: native
     model: phenoage_acceleration
     inputs: *id002
+    window_days: 30
   correspondence_type: statistical
   sources:
   - *id003

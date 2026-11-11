@@ -1,4 +1,4 @@
-"""`plsi targets brief`: the citable part of a dossier, small enough to hand to the research bots.
+"""`plsi targets brief`: the citable part of a dossier, small enough to hand to the Research Orchestrator.
 
 It writes nothing into a research topic or a note; PLSI carries it as a card. Each row hands over the claim,
 the identifier and the exact stored record. A curated database record is not a quote from the paper, so a
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from plsi.errors import ValidationError
 from plsi.targets import gaps, rank, store
 from plsi.vocab import SourceKind
 from plsi.vocab.research import ResearchDesign, ResearchSpecies
@@ -142,8 +143,10 @@ def _sampled(facts: dict[str, Any]) -> dict[str, Any] | None:
 def brief(gene: str, question: str | None = None, limit: int = MAX_FACTS) -> dict[str, Any]:
     """The citable part of a dossier, for a research move or a note: human evidence first, then trials,
     then animal and mechanistic work."""
+    if limit < 1:
+        raise ValidationError("limit must be at least 1")
     document = store.load(gene)
-    facts = document.get("facts") or {}
+    facts = document["facts"]
     symbol = str(document.get("gene") or gene)
     rows = _asset_facts(symbol, facts.get("assets") or {}) \
         + _aging_facts(symbol, facts.get("aging") or {}) \
@@ -154,6 +157,7 @@ def brief(gene: str, question: str | None = None, limit: int = MAX_FACTS) -> dic
     uncitable = [row for row in rows if not row["source"]]
     assessment = document.get("assessment") or {}
     computed = rank.summary(facts)
+    unread = gaps.unread(facts)
     return {
         "gene": symbol, "question": question, "gathered": document.get("gathered"),
         "what_it_is": facts.get("name"), "function": (facts.get("target") or {}).get("function"),
@@ -167,11 +171,11 @@ def brief(gene: str, question: str | None = None, limit: int = MAX_FACTS) -> dic
         "open_questions": computed.get("open_questions"),
         # Absences that belong to this gather travel with the open questions.
         "not_read": computed.get("not_read") or None,
-        "sources_unread": [s["ref"] for s in gaps.unread(facts)] or None,
+        "sources_unread": [s["ref"] for s in unread] or None,
         "gather_warning":
             "this dossier was gathered while one or more sources were unreachable: whatever it says is "
             "missing from them is missing from THIS GATHER. Do not write a finding that rests on one of "
-            "those absences without re-gathering." if gaps.unread(facts) else None,
+            "those absences without re-gathering." if unread else None,
         "assessment": {"verdict": assessment.get("verdict"), "falsifier": assessment.get("falsifier"),
                        "limitations": assessment.get("limitations")} if assessment else None,
         "how_to_use": "Each row is a database record with its identifier, not a sentence from a paper. To save "

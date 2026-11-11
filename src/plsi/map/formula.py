@@ -69,6 +69,29 @@ def monotone_safe(formula: str) -> bool:
                    for n in ast.walk(tree))
 
 
+def _walk(node: ast.expr, env: dict[str, Any]) -> Any:
+    if isinstance(node, ast.Constant):
+        return float(node.value)  # float powers overflow (OverflowError) instead of growing big integers
+    if isinstance(node, ast.Name):
+        if node.id not in env:
+            raise ValueError(f"unknown variable {node.id!r}")
+        return env[node.id]
+    if isinstance(node, ast.UnaryOp):
+        return -_walk(node.operand, env) if isinstance(node.op, ast.USub) else _walk(node.operand, env)
+    if isinstance(node, ast.BinOp):
+        return _BINARY[type(node.op)](_walk(node.left, env), _walk(node.right, env))
+    if isinstance(node, ast.Compare):
+        left, ok = _walk(node.left, env), True
+        for op, right_node in zip(node.ops, node.comparators, strict=True):
+            right = _walk(right_node, env)
+            ok = ok and _COMPARE[type(op)](left, right)
+            left = right
+        return ok
+    if isinstance(node, ast.Call):
+        return FUNCTIONS[node.func.id](*(_walk(a, env) for a in node.args))  # type: ignore[union-attr]
+    raise ValueError(f"{type(node).__name__} is not allowed in a formula")
+
+
 def evaluate(formula: str, values: dict[str, float], *, age: float | None, sex: str) -> float:
     """Value of the formula. Raises ValueError for a missing variable or a math error."""
     env: dict[str, Any] = dict(values)
@@ -81,31 +104,8 @@ def evaluate(formula: str, values: dict[str, float], *, age: float | None, sex: 
         if sex not in ("F", "M"):
             raise ValueError("formula uses sex but the subject's sex is not F or M")
         env |= {"female": 1.0 if sex == "F" else 0.0, "male": 1.0 if sex == "M" else 0.0}
-
-    def walk(node: ast.expr) -> Any:
-        if isinstance(node, ast.Constant):
-            return float(node.value)  # float powers overflow (OverflowError) instead of growing big integers
-        if isinstance(node, ast.Name):
-            if node.id not in env:
-                raise ValueError(f"unknown variable {node.id!r}")
-            return env[node.id]
-        if isinstance(node, ast.UnaryOp):
-            return -walk(node.operand) if isinstance(node.op, ast.USub) else walk(node.operand)
-        if isinstance(node, ast.BinOp):
-            return _BINARY[type(node.op)](walk(node.left), walk(node.right))
-        if isinstance(node, ast.Compare):
-            left, ok = walk(node.left), True
-            for op, right_node in zip(node.ops, node.comparators, strict=True):
-                right = walk(right_node)
-                ok = ok and _COMPARE[type(op)](left, right)
-                left = right
-            return ok
-        if isinstance(node, ast.Call):
-            return FUNCTIONS[node.func.id](*(walk(a) for a in node.args))  # type: ignore[union-attr]
-        raise ValueError(f"{type(node).__name__} is not allowed in a formula")
-
     try:
-        result = float(walk(parse(formula)))
+        result = float(_walk(parse(formula), env))
     except (ArithmeticError, TypeError) as exc:
         raise ValueError(f"formula could not be evaluated: {exc}") from None
     if not math.isfinite(result):

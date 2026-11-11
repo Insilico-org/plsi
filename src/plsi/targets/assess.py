@@ -1,12 +1,8 @@
 """`plsi targets assess`: the bot's judgment on a target, and the refusals it has to pass to be recorded.
 
-The refusals (`target-refusal-N`) check grounding, never the verdict: (1) every claim carries a source
-identifier; (2) a hand-harvested asset carries a trial id and is not already in the gathered record; (3) a claim
-about the whole field ("the only", "first-in-class", "no identified") has a source in the same sentence, and
-`limitations` is not checked for it; (4) every verifiable identifier is in the verification ledger inside its
-age limit; (7) a platform read names a platform the egress ledger shows was asked within that age limit. The
-schema adds closed rating words and a required `falsifier` and non-empty `limitations`. None of this checks
-that a resolving citation is relevant to its sentence; every identifier is kept so a reader can.
+The refusals (`target-refusal-N`, each documented where it is checked) test grounding, never the verdict; the
+`Assessment` schema adds the closed rating words, a required `falsifier` and non-empty `limitations`. Nothing
+checks that a resolving citation is relevant to its sentence; every identifier is kept so a reader can.
 """
 
 from __future__ import annotations
@@ -57,28 +53,26 @@ TARGET_CITATION_RE = re.compile(
     r"|\b[OPQ][0-9][A-Z0-9]{3}[0-9]\b|\b[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2}\b)",
     re.IGNORECASE)
 
-# The kinds the verification ledger can check. ChEMBL, Ensembl, EFO and MGI accessions count as sources for
-# target-refusal-1 but have no `plsi evidence verify` kind, so target-refusal-4 does not cover them.
-VERIFIABLE = {"pmid": SourceKind.PMID, "nct": SourceKind.NCT, "doi": SourceKind.DOI,
-              "label": SourceKind.LABEL}
 SENTENCE_RE = re.compile(r"[^.;\n]+")
 EMPHASIS_RE = re.compile(r"[*_]")
 
 
-def _ids(text: str) -> list[tuple[str, str]]:
-    """(kind, id) for every verifiable identifier in a string, normalised the way the ledger stores them."""
+def _ids(text: str) -> list[tuple[SourceKind, str]]:
+    """(kind, id) for every identifier the verification ledger can check, normalised the way it stores them.
+    ChEMBL, Ensembl, EFO and MGI accessions count as sources for target-refusal-1 but have no `plsi evidence
+    verify` kind, so target-refusal-4 does not cover them."""
     out = []
     for match in TARGET_CITATION_RE.findall(text or ""):
         token = match.strip()
         upper = token.upper()
         if upper.startswith("PMID"):
-            out.append(("pmid", re.sub(r"\D", "", token)))
+            out.append((SourceKind.PMID, re.sub(r"\D", "", token)))
         elif upper.startswith("NCT"):
-            out.append(("nct", upper.rstrip(".,);")))
+            out.append((SourceKind.NCT, upper.rstrip(".,);")))
         elif token.startswith("10."):
-            out.append(("doi", token.rstrip(".,);")))
+            out.append((SourceKind.DOI, token.rstrip(".,);")))
         elif re.fullmatch(r"[0-9a-f-]{36}", token.lower()):  # a DailyMed/openFDA label set id
-            out.append(("label", token.lower()))
+            out.append((SourceKind.LABEL, token.lower()))
     return out
 
 
@@ -128,8 +122,7 @@ def check(assessment: Assessment, facts: dict[str, Any]) -> None:
         bad += _sourced(where, "this strategy", strategy.description)
         bad += _superlatives(where, "this strategy", strategy.description)
 
-    # Refusal 4: every verifiable id anywhere in the file resolves in the ledger (this also covers the NCT
-    # the schema requires on a hand-harvested asset).
+    # Refusal 4: every verifiable id anywhere in the file (the harvested assets' NCTs too) is in the ledger.
     harvested = {a.drug.strip().lower() for a in assessment.harvested_assets}
     seen: set[tuple[str, str]] = set()
     for where, text in _claims(assessment):
@@ -137,12 +130,11 @@ def check(assessment: Assessment, facts: dict[str, Any]) -> None:
             if (kind, ident) in seen:
                 continue
             seen.add((kind, ident))
-            if not evidence.is_verified(SourceRef(kind=VERIFIABLE[kind], id=ident)):
-                bad.append(violation(where, "target-refusal-4", f"{kind} {ident} is not verified",
-                                     f"plsi evidence verify --kind {kind} --id {ident} "
+            if not evidence.is_verified(SourceRef(kind=kind, id=ident)):
+                bad.append(violation(where, "target-refusal-4", f"{kind.value} {ident} is not verified",
+                                     f"plsi evidence verify --kind {kind.value} --id {ident} "
                                      f"(a check older than {evidence.LEDGER_MAX_AGE_DAYS} days has expired)"))
-    # Refusal 7: a platform read is recorded only when the egress ledger holds a billed call to that platform
-    # inside the verification age limit.
+    # Refusal 7: a platform read needs a billed call to that platform in the egress ledger, inside the age limit.
     for index, read in enumerate(assessment.platform_reads):
         if not oracles.asked(read.source.value, read.tool, evidence.LEDGER_MAX_AGE_DAYS):
             bad.append(violation(f"platform_reads[{index}] {read.source.value}", "target-refusal-7",
@@ -151,6 +143,7 @@ def check(assessment: Assessment, facts: dict[str, Any]) -> None:
                                  + f" in the last {evidence.LEDGER_MAX_AGE_DAYS} days is in the egress ledger, "
                                    "so nothing here shows the platform was asked",
                                  f"ask it through plsi oracle {read.source.value} first, or remove the entry"))
+    # Refusal 2: a hand-harvested asset is not already in the gathered record.
     if known and harvested & known:
         overlap = ", ".join(sorted(harvested & known))
         bad.append(violation("harvested_assets", "target-refusal-2",
@@ -177,7 +170,7 @@ def assess(gene: str, file: str) -> dict[str, Any]:
     with every violation at once. The gathered facts are never changed."""
     document = store.load(gene)
     assessment = parse(Assessment, load_json(file), "target assessment", code="CLOSED_VOCABULARY")
-    facts = document.get("facts") or {}
+    facts = document["facts"]
     check(assessment, facts)
     path = store.save(gene, facts, assessment.dump())
     return {"gene": document.get("gene"), "verdict": assessment.verdict.value,

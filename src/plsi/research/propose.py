@@ -14,16 +14,14 @@ from plsi.life.store import EventStore
 from plsi.map import mapper
 from plsi.mothership.public import findings
 from plsi.research import notes, store
+from plsi.research.tuning import MAX_PER_KIND, MOVED_BY
 from plsi.vocab import ObservationKind
 from plsi.vocab.research import PERSONAL_SOURCES, TopicSource
-
-MOVED_BY = 0.2  # a coordinate whose series changed by this fraction is worth a question
-MAX_PER_KIND = 6
 
 
 def _covered(topics: list[dict[str, Any]], filed: list[dict[str, Any]], about: str) -> str | None:
     """The research topic or note that already covers this subject, if any. This card is the one place where
-    both research bots' work is visible, so it is where a question opened twice is caught."""
+    every project's topics and notes are visible, so it is where a question opened twice is caught."""
     needle = about.strip().lower()
     hit = next((t["topic"] for t in topics if needle and needle in
                 f"{t['topic']} {t.get('question_in_chief') or ''}".lower()), None)
@@ -91,11 +89,7 @@ def _symptoms(instance: str) -> list[dict[str, Any]]:
 
 def propose(instance: str | None = None, online: bool = False) -> dict[str, Any]:
     """`research propose`: grounded candidates for the topic card. Chooses nothing."""
-    topics = []
-    for name in store.list_topics():
-        graph = store.load(name)
-        topics.append({"topic": name, "question_in_chief": graph.topic.get("question_in_chief"),
-                       "status": str(graph.topic.get("status")), "source": graph.topic.get("source")})
+    topics = [{k: s[k] for k in ("topic", "question_in_chief", "status", "source")} for s in store.summaries()]
     candidates = _personal(instance) if instance else []
     filed = notes.list_notes() if candidates else []
     for candidate in candidates:

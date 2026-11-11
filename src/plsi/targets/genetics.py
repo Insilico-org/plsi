@@ -10,7 +10,8 @@ from __future__ import annotations
 from typing import Any
 
 from plsi.models import external_str
-from plsi.targets.opentargets import query
+from plsi.targets.opentargets import query, rounded
+from plsi.vocab.targets import L2G_CONFIDENT
 
 # Molecular QTL study types in Open Targets credible sets, protein first, with what each one measures.
 QTL_TYPES = ("pqtl", "eqtl", "sceqtl", "sqtl", "tuqtl")
@@ -44,9 +45,6 @@ GWAS_FOR_PAIR = """query Gwas($efo: String!, $ids: [String!]!, $n: Int!) {
     }
   }
 }"""
-
-# Open Targets' working threshold for assigning a locus to a gene; the maximum is reported too.
-L2G_CONFIDENT = 0.5
 
 
 def instruments(ensembl_id: str) -> dict[str, Any]:
@@ -89,7 +87,7 @@ def gene_assignment(ensembl_id: str, efo_id: str) -> dict[str, Any]:
                 "confident_loci": 0, "threshold": L2G_CONFIDENT,
                 "evidence": "no GWAS credible set in Open Targets assigns a locus to this gene for this "
                             "disease. That is an absence of recorded evidence, not evidence of no link."}
-    best = round(scores[0], 3)
+    best = rounded(scores[0], 3)
     confident = sum(1 for score in scores if score >= L2G_CONFIDENT)
     return {
         "loci": found.get("count") or 0, "sampled": len(rows),

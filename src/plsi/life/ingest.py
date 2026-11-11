@@ -1,37 +1,38 @@
-"""`plsi ingest` and `plsi retract`.
-
-No network calls. Writes only through plsi.life.store.EventStore (never edits events.jsonl).
-"""
+"""`plsi ingest` and `plsi retract`. No network calls; writes only through EventStore."""
 
 from __future__ import annotations
 
+import contextlib
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-from plsi.events import NewEvent
-from plsi.life.models import Observation, ObservationInput, Retraction, RetractionInput
-from plsi.models import parse
-from plsi.life import importers
-from plsi.life.normalize import MAPS_DIR, normalize_unit
-from plsi.life.store import EventStore
+from plsi import clock, extensions
 from plsi.errors import NotFound, UsageError, ValidationError
+from plsi.events import NewEvent
 from plsi.files import canonical_json, decode_input, load_json, parse_input_json, read_input_bytes, sha256_file, sha256_hex
+from plsi.life import importers
+from plsi.life.models import Observation, ObservationInput, Retraction, RetractionInput
+from plsi.life.normalize import normalize_unit, shipped_coordinates
+from plsi.life.store import EventStore
+from plsi.models import parse
 from plsi.vocab import EventType, OriginKind
 
-MONTHLY_MAP = MAPS_DIR / "sleep_activity.yaml"  # raw YAML: plsi.life never imports plsi.map
-MONTHLY_LABEL = "calendar-month mean"  # coordinates labelled so hold one mean per closed month (wearables/import step 3)
-MONTHLY_ORIGINS = (OriginKind.DEVICE, OriginKind.CSV, OriginKind.EXTENSION)  # the wearables/import paths
+# A wearable or imported metric holds one mean per closed calendar month: the coordinates of MONTHLY_MAP whose label
+# says MONTHLY_LABEL. A second value for the same metric and month is reported as a conflict, never refused.
+MONTHLY_MAP = "sleep_activity"
+MONTHLY_LABEL = "calendar-month mean"
+MONTHLY_ORIGINS = (OriginKind.DEVICE, OriginKind.CSV, OriginKind.EXTENSION)  # the wearable import paths
 
 
 def _monthly_codes() -> dict[tuple[str, str], str]:
     """(system, code) -> coordinate id of every code a calendar-month-mean coordinate accepts (not vo2_max)."""
-    doc = yaml.safe_load(MONTHLY_MAP.read_text(encoding="utf-8")) or {}
-    return {(str(k["system"]), str(k["code"])): c["id"] for c in doc.get("coordinates") or []
-            if MONTHLY_LABEL in c.get("label", "") for k in (c.get("accepts") or {}).get("codes") or []}
+    out = {(str(k["system"]), str(k["code"])): c["id"] for c in shipped_coordinates(MONTHLY_MAP)
+           if MONTHLY_LABEL in c.get("label", "") for k in (c.get("accepts") or {}).get("codes") or []}
+    if not out:  # the check keys on the label text: a relabelled map must not switch it off silently
+        raise ValidationError(f"{MONTHLY_MAP}.yaml has no {MONTHLY_LABEL!r} coordinate", code="MAP_INVALID")
+    return out
 
 
 def _month(obs: ObservationInput, codes: dict[tuple[str, str], str]) -> tuple[str, str] | None:
@@ -78,24 +79,20 @@ def dedupe_key(obs: ObservationInput) -> str:
 
 
 def to_observation(obs: ObservationInput) -> Observation:
-    """Stored form: unit_original as reported, unit UCUM-syntax-normalized; the value is never converted."""
-    return Observation.model_validate({**obs.dump(), "unit": normalize_unit(obs.unit), "unit_original": obs.unit})
+    """Stored form: unit_original as printed (`unit_printed` when a reading was chosen for it), unit UCUM-syntax-
+    normalized; the value is never converted."""
+    return Observation.model_validate({**{k: v for k, v in obs.dump().items() if k != "unit_printed"},
+                                       "unit": normalize_unit(obs.unit), "unit_original": obs.unit_printed or obs.unit})
 
 
-def _read(path: str) -> tuple[str, str]:
-    """(utf-8 text, sha256 hex of the raw bytes)."""
+def read_source(path: str) -> tuple[str, str]:
+    """(utf-8 text, sha256 hex of the raw bytes) of an input file ('-' = stdin)."""
     data = read_input_bytes(path)
     return decode_input(data), sha256_hex(data)
 
 
-def _from_json_list(text: str) -> importers.Imported:
-    return importers.Imported.from_items(importers.observation_items(parse_input_json(text)))
-
-
 def _from_extension(ext_id: str, path: str) -> importers.Imported:
     """Run an importer extension; its items get origin {kind: extension, file_sha256} unless they set one."""
-    from plsi import extensions
-
     data = read_input_bytes(path)
     items = extensions.importer(ext_id)(data)
     if not isinstance(items, list):
@@ -121,7 +118,8 @@ def ingest(
 
     Returns {counts: {accepted, duplicate, rejected}, accepted: [event_id], duplicates: [event_id],
              rejected: [{index, error}], conflicts: [{index, with, coordinate, month}],
-             warnings: ["UNCODED: <index>", "CONFLICT: <index>", ...], dropped_columns?, subject_updated?}
+             warnings: ["UNCODED: <index>", "CONFLICT: <index>", "FUTURE: <index>", ...], dropped_columns?,
+             subject_updated?}
     (dry_run writes nothing; accepted then holds indexes).
     """
     sources = {k: v for k, v in {"file": file, "fhir": fhir, "csv": csv, "methylation": methylation, "ext": ext}.items() if v is not None}
@@ -135,14 +133,15 @@ def ingest(
         path = Path(methylation)
         if not path.is_file():
             raise NotFound(f"input file not found: {path.name}", code="FILE_NOT_FOUND")
-        with tempfile.TemporaryDirectory() as scratch:  # dry run: the artifact is written to a throwaway dir
-            imported = importers.from_methylation(path, Path(scratch) if dry_run else store.dir, sample, sha256_file(path), effective_at)
+        # a dry run writes the artifact to a throwaway dir
+        with tempfile.TemporaryDirectory() if dry_run else contextlib.nullcontext(store.dir) as target:
+            imported = importers.from_methylation(path, Path(target), sample, sha256_file(path), effective_at)
     elif ext is not None:
         imported = _from_extension(ext, input)  # type: ignore[arg-type]
     else:
-        text, sha = _read(next(iter(sources.values())))
+        text, sha = read_source(next(iter(sources.values())))
         if file is not None:
-            imported = _from_json_list(text)
+            imported = importers.from_json(text)
         elif fhir is not None:
             imported = importers.from_fhir(parse_input_json(text), sha)
         else:
@@ -152,14 +151,16 @@ def ingest(
         _, changed = store.update_subject(**imported.subject, update=update)
         result["subject_updated"] = changed
 
-    observations = [to_observation(o) for o in imported.observations]
-    keys = [dedupe_key(o) for o in observations]
-    indexes = imported.indexes
-    warnings = list(imported.warnings) + [f"UNCODED: {i}" for i, o in zip(indexes, observations, strict=True) if o.code is None]
+    rows = [(i, to_observation(o)) for i, o in imported.rows]
+    now = clock.now()
+    warnings = list(imported.warnings) + [f"UNCODED: {i}" for i, o in rows if o.code is None]
+    # a date without a time is stored at 12:00 UTC, so a value dated today stays out of the state until then
+    warnings += [f"FUTURE: {i}" for i, o in rows if o.effective_at > now]
     seen: dict[str, str | int] = {dedupe_key(e.payload): e.id for e in store.observations()}  # keys recomputed from stored payloads
     fresh: list[tuple[int, Observation, str]] = []
     dupes: list[str | int] = []  # an event id, or a position in fresh (same-file repeat)
-    for i, obs, key in zip(indexes, observations, keys, strict=True):
+    for i, obs in rows:
+        key = dedupe_key(obs)
         if not obs.repeat and key in seen:
             dupes.append(seen[key])
         else:

@@ -1,15 +1,7 @@
 """Code extensions: new operations Grok (or a developer) adds without touching the core.
 
-An extension is a small Python package with a manifest `plsi_extension.yaml`:
-
-    id: my_ext            # lowercase id
-    version: 0.1.0        # semver; an installed version is immutable
-    kind: importer        # importer | deriver | evidence_source
-    entrypoint: main:run  # <module file without .py>:<function>
-    summary: one line
-    monotone: false       # derivers only: true lets censored inputs be bounded through it
-
-Entry-point signatures by kind:
+An extension is a small Python package with a manifest `plsi_extension.yaml` (ExtensionManifest below; an installed
+version is immutable). Entry-point signatures by kind:
 - importer (Life):          run(data: bytes) -> list[dict]  ObservationInput dicts; origin is filled in by ingest
 - deriver (Map):            run(inputs: dict[str, float], *, age: float | None, sex: str) -> float
 - evidence_source (Policy): run(query: str, limit: int) -> list[dict]  {title, url?, kind?, id?}; kind/id as SourceRef
@@ -39,7 +31,7 @@ import yaml
 from pydantic import Field
 
 from plsi.errors import NotFound, ValidationError, violation
-from plsi.files import atomic_write_json, loads_json
+from plsi.files import atomic_write_json, load_json
 from plsi.models import Id, Model, parse
 from plsi.paths import plsi_home, safe_join
 from plsi.vocab import ClaimLevel, ExtensionKind
@@ -60,10 +52,10 @@ class ExtensionManifest(Model):
     id: Id
     version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
     kind: ExtensionKind
-    entrypoint: Annotated[str, Field(pattern=r"^[A-Za-z_]\w*:[A-Za-z_]\w*$")]
+    entrypoint: Annotated[str, Field(pattern=r"^[A-Za-z_]\w*:[A-Za-z_]\w*$")]  # <module file without .py>:<function>
     summary: str = Field(min_length=1, max_length=300)
-    claim_level: ClaimLevel = ClaimLevel.DESIGNED
-    monotone: bool = False
+    claim_level: ClaimLevel = ClaimLevel.DESIGNED  # informational
+    monotone: bool = False  # derivers only: true lets censored inputs be bounded through it
 
 
 def _root() -> Path:
@@ -76,14 +68,18 @@ def _index_path() -> Path:
 
 def _index() -> dict[str, Any]:
     path = _index_path()
-    return loads_json(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    return load_json(path) if path.is_file() else {}
 
 
 def _read_manifest(directory: Path) -> ExtensionManifest:
     path = directory / MANIFEST
     if not path.is_file():
         raise NotFound(f"{MANIFEST} not found in {directory}", code="EXTENSION_INVALID")
-    return parse(ExtensionManifest, yaml.safe_load(path.read_text(encoding="utf-8")), MANIFEST)
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, UnicodeDecodeError) as exc:
+        raise ValidationError(f"{MANIFEST} is not readable YAML: {exc}", code="EXTENSION_INVALID") from None
+    return parse(ExtensionManifest, raw, MANIFEST)
 
 
 def _static_violations(directory: Path, m: ExtensionManifest) -> list[str]:
@@ -93,7 +89,11 @@ def _static_violations(directory: Path, m: ExtensionManifest) -> list[str]:
         out.append(f"entrypoint module {module}.py is missing")
     for path in sorted(directory.rglob("*.py")):
         rel = path.relative_to(directory).as_posix()
-        tree = ast.parse(path.read_text(encoding="utf-8"), rel)
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), rel)
+        except (SyntaxError, UnicodeDecodeError) as exc:
+            out.append(f"{rel}: not readable Python ({exc})")
+            continue
         plsi_names: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -134,11 +134,11 @@ def _run_tests(directory: Path) -> str:
     return last
 
 
-def install(dir: str) -> dict[str, Any]:  # noqa: A002 - CLI dest name
+def install(source: str) -> dict[str, Any]:
     """`plsi ext install --dir D`: check, test, then copy to <PLSI_HOME>/extensions/<id>/<version>/ and activate."""
-    source = Path(dir).resolve()
-    m = _read_manifest(source)
-    if bad := _static_violations(source, m):
+    folder = Path(source).resolve()
+    m = _read_manifest(folder)
+    if bad := _static_violations(folder, m):
         raise ValidationError(f"extension {m.id} has {len(bad)} problem(s)", code="EXTENSION_INVALID",
                               violations=[violation(m.id, "extension.static", b) for b in bad])
     target = safe_join(_root(), m.id, m.version)
@@ -147,8 +147,8 @@ def install(dir: str) -> dict[str, Any]:  # noqa: A002 - CLI dest name
     index = _index()
     if m.id in index and index[m.id]["kind"] != m.kind.value:
         raise ValidationError(f"{m.id} is already installed as a {index[m.id]['kind']}", code="EXTENSION_INVALID")
-    tests = _run_tests(source)
-    shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache", "*.pyc"))
+    tests = _run_tests(folder)
+    shutil.copytree(folder, target, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache", "*.pyc"))
     entry = index.get(m.id, {"versions": []})
     index[m.id] = {**entry, "kind": m.kind.value, "active": m.version, "versions": sorted({*entry["versions"], m.version})}
     atomic_write_json(_index_path(), index)
@@ -160,23 +160,21 @@ def list_extensions() -> list[dict[str, Any]]:
     return [{"id": k, **v} for k, v in sorted(_index().items())]
 
 
-def test(id: str) -> dict[str, Any]:  # noqa: A002
-    """Re-run the active version's tests."""
-    return {"id": id, "tests": _run_tests(_active_dir(id))}
+def test(ext_id: str) -> dict[str, Any]:
+    return {"id": ext_id, "tests": _run_tests(_active_dir(ext_id))}
 
 
-def disable(id: str) -> dict[str, Any]:  # noqa: A002
+def disable(ext_id: str) -> dict[str, Any]:
     index = _index()
-    if id not in index:
-        raise NotFound(f"no extension {id!r}", code="EXTENSION_NOT_FOUND", hint="plsi ext list")
-    index[id]["active"] = None
+    if ext_id not in index:
+        raise NotFound(f"no extension {ext_id!r}", code="EXTENSION_NOT_FOUND", hint="plsi ext list")
+    index[ext_id]["active"] = None
     atomic_write_json(_index_path(), index)
     _load.cache_clear()
-    return {"id": id, "active": None}
+    return {"id": ext_id, "active": None}
 
 
 def installed(kind: ExtensionKind) -> dict[str, str]:
-    """Active extensions of a kind -> {id: version}."""
     return {k: v["active"] for k, v in _index().items() if v["kind"] == kind and v.get("active")}
 
 
@@ -201,13 +199,19 @@ def _load(ext_id: str, version: str) -> Callable[..., Any]:
     directory = safe_join(_root(), ext_id, version)
     module, func = _read_manifest(directory).entrypoint.split(":")
     spec = importlib.util.spec_from_file_location(f"plsi_ext_{ext_id}_{version.replace('.', '_')}", directory / f"{module}.py")
-    assert spec and spec.loader
+    if spec is None or spec.loader is None:
+        raise ValidationError(f"{module}.py of {ext_id} {version} cannot be loaded", code="EXTENSION_INVALID")
     loaded = importlib.util.module_from_spec(spec)
+    before = set(sys.modules)
     sys.path.insert(0, str(directory))  # the extension may import its own helper modules
     try:
         spec.loader.exec_module(loaded)
     finally:
         sys.path.remove(str(directory))
+        for name in set(sys.modules) - before:  # its helpers stay its own: another extension's same name loads afresh
+            file = getattr(sys.modules[name], "__file__", None)
+            if file and Path(file).resolve().is_relative_to(directory):
+                del sys.modules[name]
     return getattr(loaded, func)
 
 

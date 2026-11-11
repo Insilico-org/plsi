@@ -8,7 +8,7 @@ The Longevity Mothership is a longevity research initiative run by Insilico Medi
 - **Your life story:** the health events PLSI recorded from your history (conditions, treatments, medications, allergies, lifestyle periods, symptoms) as standard medical codes, a medication with its dose as an amount and unit, dated to the year. An event PLSI has no code for is not shared.
 - **Your prediction scores:** how well PLSI's predictions matched your later results, only as counts and averages.
 
-Each file describes you only by sex, a 5-year age band and, when you gave it, your ethnicity group (one of eight broad groups such as South Asian).
+Each file describes you only by sex, a 5-year age band and, when you gave it, your ethnicity group (one of eight broad groups such as South Asian). It also names the PLSI version that made it (for example 0.3.0), the same for everyone on that version, so the PLSI team can tell a problem already fixed from a new one.
 
 **What is never shared:** your name, contact details, addresses, employer, occupation, facility names, record or ID numbers, exact dates, your birth year or age, the documents you uploaded, any words you or your records used (only codes, numbers and units leave), your goals and preferences, and the records of other people you added to PLSI.
 
@@ -16,4 +16,4 @@ Each file describes you only by sex, a 5-year age band and, when you gave it, yo
 
 **Your choices:** stop sharing any time ("stop sharing with the Mothership"), or ask the Mothership to delete everything it received under your contributor code. A deletion request carries a secret only your PLSI holds, which proves it comes from you; the Mothership records a deletion receipt. If the Mothership's storage can only move a deleted file to its trash, that copy is purged within 30 days. Deidentified data can never be made fully anonymous; joining means accepting a small risk that someone could link it back to you.
 
-<!-- plsi-mothership-consent: 0.7.2 -->
+<!-- plsi-mothership-consent: 0.8.0 -->

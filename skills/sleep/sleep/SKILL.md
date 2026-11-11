@@ -5,8 +5,6 @@ description: Use as PLSI Sleep when the user wants to sleep better or asks what 
 
 # PLSI sleep plan
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Sleep**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - "I sleep badly", "What does my sleep data say?", a sleep goal in `personal_context`, or PLSI routes

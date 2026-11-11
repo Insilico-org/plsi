@@ -1,7 +1,4 @@
-"""Plan lifecycle: record, adopt, review and list; the gates live in plsi.policy.gates.
-
-World access only via plsi.map (registry, mapper). Plan state is a pure fold over plan_status events (plsi.policy.fold).
-"""
+"""Plan lifecycle: record, adopt, review and list. Gates: plsi.policy.gates; plan state: plsi.policy.fold."""
 
 from __future__ import annotations
 
@@ -20,8 +17,6 @@ from plsi.policy.fold import LIVE_STATES, PlanView, plans, window
 from plsi.policy.models import Plan, PlanInput, PlanStatusPayload, Prediction, PredictionInput, PredictionScore, ReviewInput
 from plsi.vocab import EventType, GateId, PlanDecision, PlanState, ScoreStatus
 
-
-# ---------------------------------------------------------------- lifecycle
 
 def _record(instance: str, plan: PlanInput, views: dict[str, PlanView] | None = None) -> dict[str, Any]:
     input_hash = plan.compute_input_hash()

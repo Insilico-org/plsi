@@ -1,14 +1,21 @@
-"""The topic folder: <PLSI_HOME>/research/<topic>/ with topic.md, log.jsonl and one Markdown file per node.
+"""The research tree: <PLSI_HOME>/research/projects/<project>/ holds project.md, topics/, notes/ and data/; the
+day's budget (day.json) stays at research/, one allocation for all research.
 
-A node's name is its sanitised title, unique case-insensitively across the topic, so a `[[name]]` link always
-resolves to one file. Nothing is deleted: a node that dies gets status `closed` and a reason. The folder is
-self-contained and opens as an Obsidian vault.
+A topic is <project>/topics/<topic>/ with topic.md, log.jsonl and one Markdown file per node. A topic's name is
+unique across every project, so a topic is found by its name alone. A node's name is its sanitised title, unique
+case-insensitively across the topic, so a `[[name]]` link always resolves to one file. Nothing is deleted: a node
+that dies gets status `closed` and a reason. A topic folder is self-contained and opens as an Obsidian vault.
+
+Every write inside a project folder holds that project's lock (`locked`), so parallel bots never interleave
+their writes to one project.
 """
 
 from __future__ import annotations
 
+import contextlib
 import re
 import unicodedata
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,12 +25,16 @@ import yaml
 from plsi import files, paths
 from plsi.clock import now
 from plsi.errors import NotFound, ValidationError, warn
-from plsi.research.schema import DEFAULT_DEPTH, check_depth, check_fields, link_footer, meta_of
+from plsi.research.schema import check_depth, check_fields, link_footer, meta_of
+from plsi.research.tuning import DEFAULT_DEPTH
 from plsi.vocab import fold
 from plsi.vocab.research import ResearchDepth, ResearchMove, ResearchNodeKind, ResearchStatus
 
-TOPIC_FILE, LOG_FILE = "topic.md", "log.jsonl"
-NOTES_FOLDER, DAY_FILE = "notes", "day.json"  # the research root's own entries, which no topic may be named
+TOPIC_FILE, LOG_FILE, PROJECT_FILE = "topic.md", "log.jsonl", "project.md"
+RETIRED = "retired.md"  # the retirement log in a project's notes/
+PROJECTS_FOLDER, DAY_FILE = "projects", "day.json"  # in research/
+TOPICS_FOLDER, NOTES_FOLDER, DATA_FOLDER = "topics", "notes", "data"  # in each project folder
+STALE_LOCK_S = 60.0  # a project lock older than this was left by a crashed process
 LINK_MARK = "<!-- links -->"  # everything after it is generated; invisible in Obsidian
 FOLDERS = {ResearchNodeKind.QUESTION: "questions", ResearchNodeKind.HYPOTHESIS: "hypotheses",
            ResearchNodeKind.FINDING: "findings"}
@@ -116,40 +127,73 @@ def today() -> str:
     return now().date().isoformat()
 
 
-def _topic_name(title: str) -> str:
-    """A topic title as its folder name, refused when it would be one of the research root's own entries."""
-    name = sanitise(title)
-    if name.lower() in {NOTES_FOLDER, DAY_FILE}:
-        raise ValidationError(f"{name!r} is reserved in the research folder", code="RESERVED_NAME",
-                              hint="name the topic after its question")
-    return name
+_HELD: set[Path] = set()  # the project locks this process holds, so a nested write does not wait on itself
 
 
-def topic_dir(topic: str, *, must_exist: bool = True) -> Path:
-    path = paths.safe_join(root(), _topic_name(topic))
-    if must_exist and not (path / TOPIC_FILE).is_file():
+@contextlib.contextmanager
+def locked(project_dir: Path) -> Iterator[None]:
+    """The project's lock (`<project>/.lock`), re-entrant within one process; a stale one is broken."""
+    key = project_dir.resolve()
+    if key in _HELD:
+        yield
+        return
+    project_dir.mkdir(parents=True, exist_ok=True)
+    with files.lock(project_dir, stale=STALE_LOCK_S):
+        _HELD.add(key)
+        try:
+            yield
+        finally:
+            _HELD.discard(key)
+
+
+def project_dirs() -> list[Path]:
+    base = root() / PROJECTS_FOLDER
+    return sorted(p.parent for p in base.glob(f"*/{PROJECT_FILE}")) if base.is_dir() else []
+
+
+def project_of(graph: Graph) -> Path:
+    return graph.dir.parent.parent
+
+
+def topic_dirs(project_dir: Path | None = None) -> list[Path]:
+    folders = [project_dir] if project_dir else project_dirs()
+    return sorted((p.parent for f in folders for p in (f / TOPICS_FOLDER).glob(f"*/{TOPIC_FILE}")),
+                  key=lambda p: p.name.casefold())
+
+
+def topic_dir(topic: str) -> Path:
+    """A topic's folder, in whichever project holds it."""
+    name = sanitise(topic).casefold()
+    found = next((d for d in topic_dirs() if d.name.casefold() == name), None)
+    if found is None:
         raise NotFound(f"no research topic {topic!r}", code="TOPIC_NOT_FOUND", hint="plsi research topic")
-    return path
+    return found
 
 
-def list_topics() -> list[str]:
-    base = root()
-    return sorted(p.parent.name for p in base.glob(f"*/{TOPIC_FILE}")) if base.is_dir() else []
+def list_topics(project_dir: Path | None = None) -> list[str]:
+    return [d.name for d in topic_dirs(project_dir)]
 
 
-def active_name(required: bool = True) -> str | None:
-    """The one active topic. Several or none raise unless `required` is False, which gives the first or None."""
-    active = [n for n in list_topics() if load(n).topic.get("status") == ResearchStatus.ACTIVE]
+def topic_meta(directory: Path) -> dict[str, Any]:
+    return read_md(directory / TOPIC_FILE)[0]
+
+
+def active_name(project_dir: Path, required: bool = True) -> str | None:
+    """The project's one active topic (its daily topic). Several or none raise unless `required` is False, which
+    gives the first or None."""
+    active = [d.name for d in topic_dirs(project_dir) if topic_meta(d).get("status") == ResearchStatus.ACTIVE]
     if len(active) == 1:
         return active[0]
     if not required:
         return active[0] if active else None
-    raise NotFound("no single active research topic" if not active else f"{len(active)} topics are active",
+    raise NotFound("this project has no single active topic" if not active else f"{len(active)} topics are active",
                    hint="plsi research topic --switch '<name>'")
 
 
 def parse(text: str) -> tuple[dict[str, Any], str]:
-    """Markdown with YAML frontmatter, as (frontmatter, body)."""
+    """Markdown with YAML frontmatter, as (frontmatter, body). A byte-order mark and CRLF line ends are read
+    like plain LF text."""
+    text = text.removeprefix("\ufeff").replace("\r\n", "\n")
     if not text.startswith("---\n") or "\n---" not in text[4:]:
         return {}, text
     head, _, body = text[4:].partition("\n---")
@@ -160,8 +204,17 @@ def parse(text: str) -> tuple[dict[str, Any], str]:
     return (meta if isinstance(meta, dict) else {}), body.lstrip("\n")
 
 
-def render(meta: dict[str, Any], body: str) -> str:
-    clean = {k: v for k, v in meta.items() if v not in (None, [], {}, "")}
+def read_md(path: Path) -> tuple[dict[str, Any], str]:
+    """`parse` of one file; unreadable frontmatter is refused naming the file."""
+    try:
+        return parse(path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        raise ValidationError(f"{path.name}: {exc.message}", code=exc.code, hint=exc.hint) from None
+
+
+def render(meta: dict[str, Any], body: str, keep_empty: bool = False) -> str:
+    """Frontmatter and body as one Markdown file; empty fields are left out unless `keep_empty`."""
+    clean = meta if keep_empty else {k: v for k, v in meta.items() if v not in (None, [], {}, "")}
     head = yaml.safe_dump(clean, allow_unicode=True, sort_keys=False, width=100).rstrip("\n")
     return f"---\n{head}\n---\n\n{body.strip()}\n"
 
@@ -169,16 +222,16 @@ def render(meta: dict[str, Any], body: str) -> str:
 def load(topic: str) -> Graph:
     """Read a whole topic. A file whose declared kind differs from its folder is skipped with a warning."""
     directory = topic_dir(topic)
-    meta, body = parse((directory / TOPIC_FILE).read_text(encoding="utf-8"))
+    meta, body = read_md(directory / TOPIC_FILE)
     graph = Graph(name=directory.name, dir=directory, topic={**meta, "kind": ResearchNodeKind.TOPIC,
                                                              "name": directory.name, "body": body})
     for kind, folder in FOLDERS.items():
         for path in sorted((directory / folder).glob("*.md")) if (directory / folder).is_dir() else []:
-            node_meta, node_body = parse(path.read_text(encoding="utf-8"))
+            node_meta, node_body = read_md(path)
             declared = str(node_meta.get("kind") or kind)
             if declared != kind:
                 warn("FOREIGN_NODE", f"{path.name} in {folder}/ declares kind {declared!r}; it is not part of "
-                                     "the graph and was skipped. Notes belong in research/notes/")
+                                     "the graph and was skipped. Notes belong in the project's notes/")
                 continue
             graph.nodes[path.stem] = {**node_meta, "kind": kind, "name": path.stem, "body": node_body}
     return graph
@@ -187,6 +240,16 @@ def load(topic: str) -> Graph:
 def prose(body: str) -> str:
     """The bot's own words, without the generated link footer."""
     return str(body or "").split(LINK_MARK)[0].rstrip()
+
+
+def clip(text: str, limit: int) -> str:
+    """Shorten to `limit` characters at a sentence end where one is near, else at a word boundary."""
+    text = str(text or "").strip()
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    cut = max(head.rfind(". "), head.rfind("? "), head.rfind("! "), head.rfind("\n"))
+    return (head[:cut + 1] if cut > limit // 2 else head.rsplit(" ", 1)[0]).rstrip() + " […]"
 
 
 def _flat(text: Any) -> str:
@@ -221,7 +284,8 @@ def write_node(graph: Graph, kind: str, name: str, meta: dict[str, Any], body: s
     footer = link_footer(kind, meta)
     text = render(stored, "\n\n".join(p for p in (prose(body), f"{LINK_MARK}\n{footer}" if footer else "") if p))
     path = node_path(graph, kind, name)
-    files.atomic_write_text(path, text)
+    with locked(project_of(graph)):
+        files.atomic_write_text(path, text)
     graph.nodes[name] = {**stored, "kind": kind, "name": name, "body": body}
     return path
 
@@ -230,21 +294,23 @@ def write_topic(graph: Graph) -> Path:
     meta = meta_of(graph.topic)
     check_fields(ResearchNodeKind.TOPIC, meta)
     path = graph.dir / TOPIC_FILE
-    files.atomic_write_text(path, render({"kind": str(ResearchNodeKind.TOPIC), **meta,
-                                          "updated": today()}, graph.topic.get("body", "")))
+    with locked(project_of(graph)):
+        files.atomic_write_text(path, render({"kind": str(ResearchNodeKind.TOPIC), **meta,
+                                              "updated": today()}, graph.topic.get("body", "")))
     return path
 
 
-def create_topic(title: str, question_in_chief: str, source: dict[str, Any] | None = None,
-                 depth: str | None = None) -> Graph:
-    name = _topic_name(title)
-    directory = paths.safe_join(root(), name)
-    if (directory / TOPIC_FILE).is_file():
+def create_topic(title: str, question_in_chief: str, project_dir: Path, project: str,
+                 source: dict[str, Any] | None = None, depth: str | None = None) -> Graph:
+    """A new topic in the project's topics/; its name may be taken in no project."""
+    name = sanitise(title)
+    if name.casefold() in {n.casefold() for n in list_topics()}:
         raise ValidationError(f"topic {name!r} already exists", hint=f"plsi research topic --switch '{name}'")
+    directory = paths.safe_join(project_dir, TOPICS_FOLDER, name)
     graph = Graph(name=name, dir=directory, topic={
         "kind": ResearchNodeKind.TOPIC, "name": name, "title": title, "question_in_chief": question_in_chief,
         "status": str(ResearchStatus.ACTIVE), "cursor": {"question": None, "move": str(ResearchMove.ASK), "attempt": 0},
-        "cycles": 0, "source": source or {}, "depth": str(check_depth(depth)),
+        "cycles": 0, "source": source or {}, "depth": str(check_depth(depth)), "project": project,
         "body": f"# {title}\n\n{question_in_chief}\n"})
     write_topic(graph)
     return graph
@@ -261,7 +327,8 @@ def depth_of(graph: Graph) -> ResearchDepth:
 
 
 def append_log(graph: Graph, entry: dict[str, Any]) -> None:
-    files.append_jsonl(graph.dir / LOG_FILE, {"at": now().isoformat(), **entry})
+    with locked(project_of(graph)):
+        files.append_jsonl(graph.dir / LOG_FILE, {"at": now().isoformat(), **entry})
 
 
 def read_log(graph: Graph) -> list[dict[str, Any]]:
@@ -269,5 +336,16 @@ def read_log(graph: Graph) -> list[dict[str, Any]]:
 
 
 def moves_logged(graph: Graph) -> int:
-    """How many moves the topic's log holds."""
     return sum(1 for line in read_log(graph) if line.get("move"))
+
+
+def summaries(project_dir: Path | None = None) -> list[dict[str, Any]]:
+    """Every topic, or one project's, one entry each with its project's id."""
+    out = []
+    for name in list_topics(project_dir):
+        graph = load(name)
+        out.append({"topic": name, "project": graph.topic.get("project"), "status": str(graph.topic.get("status")),
+                    "question_in_chief": graph.topic.get("question_in_chief"), "depth": str(depth_of(graph)),
+                    "cursor": graph.topic.get("cursor"), "cycles": graph.topic.get("cycles", 0),
+                    "nodes": len(graph.nodes), "source": graph.topic.get("source") or {}})
+    return out

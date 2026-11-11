@@ -9,17 +9,18 @@ from typing import Any
 
 import yaml
 
-from plsi import codes, errors, files, net, paths, references
+from plsi import codes, errors, files, net, paths
 from plsi.errors import NotFound, ValidationError, violation
+from plsi.life.normalize import loinc_search_url
 from plsi.life.store import EventStore
 from plsi.map import biolearn, derive
 from plsi.map.models import Derive, MapContract, MapCoordinate
 from plsi.models import SourceRef, parse
-from plsi.paths import REPO_ROOT
+from plsi.paths import MAPS_DIR as SHIPPED_DIR
 from plsi.vocab import ClaimLevel, CodeSystem, CoordinateKind, CorrespondenceType, DeriveEngine, Ethnicity, Sex, SourceKind
 
-SHIPPED_DIR = REPO_ROOT / "maps"
 LIVE_BATCH = 50
+USER_PREFIX = "user_"  # user map ids; shipped map ids never start with it
 LOAD_CHECKED = frozenset({DeriveEngine.NATIVE, DeriveEngine.EXTENSION})  # biolearn names: maps validate only (slow import)
 
 
@@ -34,8 +35,8 @@ def _parse(text: str, origin: str) -> MapContract:
 def _rule_violations(m: MapContract, user: bool, checked: frozenset[DeriveEngine] = LOAD_CHECKED) -> list[dict[str, str]]:
     """Checks beyond the schema; derive model names are checked for the `checked` engines that can list them."""
     out = []
-    if user and not m.id.startswith("user_"):
-        out.append(violation("id", "map.user_prefix", "user map ids must start with user_", f"user_{m.id}"))
+    if user and not m.id.startswith(USER_PREFIX):
+        out.append(violation("id", "map.user_prefix", f"user map ids must start with {USER_PREFIX}", USER_PREFIX + m.id))
     if user and m.claim_level != ClaimLevel.DESIGNED:
         out.append(violation("claim_level", "map.user_claim_level", "user maps must have claim_level designed", "designed"))
     used = {c.derive.engine for c in m.coordinates if c.derive} & checked
@@ -77,7 +78,7 @@ def _live_violations(m: MapContract) -> list[dict[str, str]]:
             for j, code in enumerate(getattr(c.accepts, field)):
                 if code.system == CodeSystem.LOINC:
                     where.setdefault(code.code, (f"coordinates.{i}.accepts.{field}.{j}", accepted))
-    url = references.api_base("nlm_clinical_tables_loinc") + "/api/loinc_items/v3/search"
+    url = loinc_search_url()
     names: dict[str, str] = {}
     todo = sorted(where)
     for k in range(0, len(todo), LIVE_BATCH):
@@ -107,9 +108,8 @@ def _expanded(m: MapContract) -> MapContract:
                       sources=[SourceRef(kind=SourceKind.MODEL, id="biolearn", title=c["name"], url=c["source"])])
         for c in biolearn.clocks() if (cid := re.sub(r"[^a-z0-9_]+", "_", c["name"].lower()).strip("_")) not in have
     ]
-    return MapContract.model_validate({**m.dump(),
-                                       "coordinates": [*m.dump()["coordinates"],
-                                                       *(x.dump() for x in extra)]})
+    doc = m.dump()
+    return MapContract.model_validate({**doc, "coordinates": [*doc["coordinates"], *(x.dump() for x in extra)]})
 
 
 @lru_cache(maxsize=32)
@@ -155,6 +155,13 @@ def get(map_id: str, instance: str | None = None) -> MapContract:
     return maps[map_id]
 
 
+def coordinate(m: MapContract, coordinate_id: str) -> MapCoordinate:
+    """One coordinate of `m`. Raises errors.NotFound (code COORDINATE_NOT_FOUND)."""
+    if (c := m.coordinate(coordinate_id)) is None:
+        raise NotFound(f"map {m.id} has no coordinate {coordinate_id!r}", code="COORDINATE_NOT_FOUND", hint=f"plsi maps show {m.id}")
+    return c
+
+
 def declared_codes(instance: str | None = None) -> set[tuple[str, str]]:
     """(system, code) of every free and cpg code a shipped or installed map accepts: PLSI names that may leave."""
     return {(k.system.value, k.code) for m in load_all(instance).values() for c in m.coordinates for k in c.accepts.codes
@@ -192,7 +199,7 @@ def load_snapshot(instance: str, map_id: str, map_hash: str) -> MapContract:
 def _validate(text: str, origin: str, user: bool, live: bool) -> dict[str, Any]:
     m = _expanded(_parse(text, origin))
     if not biolearn.available() and any(c.derive and c.derive.engine == DeriveEngine.BIOLEARN for c in m.coordinates):
-        errors.warn("DEPENDENCY_MISSING", f"biolearn model names not checked; {biolearn.HINT}")
+        errors.warn("DEPENDENCY_MISSING", f"biolearn model names not checked; {errors.CLOCKS_EXTRA}")
     bad = _rule_violations(m, user, frozenset(DeriveEngine)) + (_taken_violations(m) if user else [])
     bad += _live_violations(m) if live else []
     if bad:
@@ -224,13 +231,12 @@ def list_maps(instance: str | None = None) -> list[dict[str, Any]]:
     """`plsi maps list`: [{id, title, map_version, claim_level, tags, coordinates, user_map, map_hash}] sorted by id."""
     return [
         {"id": m.id, "title": m.title, "map_version": m.map_version, "claim_level": m.claim_level.value, "tags": m.tags,
-         "coordinates": len(m.coordinates), "user_map": m.id.startswith("user_"), "map_hash": m.compute_hash()}
+         "coordinates": len(m.coordinates), "user_map": m.id.startswith(USER_PREFIX), "map_hash": m.compute_hash()}
         for m in sorted(load_all(instance).values(), key=lambda m: m.id)
     ]
 
 
 def show(map_id: str, instance: str | None = None) -> dict[str, Any]:
-    """`plsi maps show ID`: the full map plus map_hash."""
     m = get(map_id, instance)
     return {**m.dump(), "map_hash": m.compute_hash()}
 
@@ -238,7 +244,7 @@ def show(map_id: str, instance: str | None = None) -> dict[str, Any]:
 def select(instance: str) -> list[dict[str, Any]]:
     """`plsi maps select --instance N`: per map {map_id, title, present, missing, ratio, tags}, sorted by ratio desc
     then id. Coverage only (no clock is computed); Grok chooses; nothing is written."""
-    from plsi.map import mapper
+    from plsi.map import mapper  # mapper imports registry
 
     events = EventStore(instance).observations()  # the log is read once for every map
     out = []

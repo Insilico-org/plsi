@@ -1,4 +1,4 @@
-"""`plsi feedback`: timed setup stages and the usage report for the PLSI team, sent by email (WIRE §8)."""
+"""`plsi feedback`: timed setup stages and the usage report for the PLSI team, sent by email."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from plsi import files, paths, references, role
+from plsi import __version__, files, paths, references, role
 from plsi.clock import now, parse_time
 from plsi.errors import UsageError, ValidationError
 from plsi.mothership import gate
@@ -22,6 +22,8 @@ LABELS = {"install": "Install and environment", "team": "Identity, persona and c
           "instance": "Your record", "routines": "Check-in, digest and routines", "mothership": "Longevity Mothership",
           "welcome": "Welcome", "records": "Sending records", "plans": "Plans", "research": "Research",
           "other": "Other"}
+if set(LABELS) != set(FeedbackStage):  # the report names every stage by its label
+    raise RuntimeError("feedback.LABELS must name every FeedbackStage exactly once")
 
 
 def _folder() -> Path:
@@ -42,7 +44,7 @@ def mark(stage: str, at: datetime | None = None) -> dict[str, Any]:
 
 
 def _run() -> list[dict[str, Any]]:
-    marks = files.read_jsonl(_timeline()) if _timeline().is_file() else []
+    marks = files.read_jsonl(_timeline())
     starts = [n for n, m in enumerate(marks) if m["stage"] == FeedbackStage.INSTALL]
     return marks[starts[-1]:] if starts else marks
 
@@ -108,12 +110,12 @@ def report(file: str) -> dict[str, Any]:
     timed = {e["stage"] for e in measured}
     estimated = [{**e, "measured": False} if isinstance(e, dict) else e for e in draft.get("stages") or []
                  if not (isinstance(e, dict) and e.get("stage") in timed)]
-    doc = {"kind": MothershipMessage.FEEDBACK.value, "schema_version": SCHEMA_VERSION, "role": role.show()["role"],
+    doc = {"kind": MothershipMessage.FEEDBACK.value, "schema_version": SCHEMA_VERSION, "plsi_version": __version__, "role": role.show()["role"],
            "stages": measured + estimated, "frustrations": draft.get("frustrations") or [],
            "suggestions": draft.get("suggestions") or []}
     gate.require(doc, None, what="feedback report")
     day = now()
-    stem = _folder() / f"usage-report_{day.strftime('%Y%m%d-%H%M%S')}"
+    stem = files.unique_stem(_folder(), f"usage-report_{day.strftime('%Y%m%d-%H%M%S')}", ".json", ".md")
     text = _markdown(doc, day.date().isoformat())
     files.atomic_write_json(stem.with_suffix(".json"), doc)
     files.atomic_write_text(stem.with_suffix(".md"), text)

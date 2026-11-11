@@ -5,8 +5,6 @@ description: Use as PLSI Wearables when PLSI asks which at-home test, wearable o
 
 # PLSI choose a home test or device
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Wearables**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - "Which wearable / home test / monitor should I get?", "is <device> accurate?".

@@ -5,7 +5,6 @@ description: Use as PLSI when the user wants to tell the PLSI team how PLSI work
 
 # PLSI usage report
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI**.
 The report is about PLSI, never about the user's health: it goes to the PLSI team by email, so it needs no Mothership
 join and no token. Data Controller clears it before the user sees the send card (`shared/team` rule 6).
 
@@ -57,8 +56,8 @@ join and no token. Data Controller clears it before the user sees the send card 
    "send"): the same card. `email` is null (no feedback address set): no card; say the report is saved.
 
 4. **Send.** Send: email `email.to`, `email.subject` and `email.body` exactly as drafted, from the user's Grok email;
-   one line that it went, then create the routine **"PLSI Mothership replies"** or update it (`shared/team`,
-   Mothership replies): the Mothership's receipt or refusal arrives in the user's Grok email and wakes it. Edit: ask
+   one line that it went; the routine **"PLSI Mothership replies"** is created or updated by the primary hub
+   (another hub asks it hub to hub; `shared/hub`, Mothership replies): the Mothership's receipt or refusal arrives in the user's Grok email and wakes it. Edit: ask
    what to change in one chat line, apply it to the draft, then steps 1-3 again. Just keep it: one line with the file
    name.
 

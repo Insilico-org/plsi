@@ -1,9 +1,5 @@
-"""Mapper: project the event log into a StateDocument.
-
-This is the ONLY gateway from Policy to the world: Policy calls context(), coordinate_observations(),
-latest_state(), is_current(), last_world_change(), subject() and event_store() and never imports plsi.life.
-Never invents values: units convert only through plsi.map.units (identity, a sourced map conversion or a generic UCUM scale).
-"""
+"""Mapper: project the event log into a StateDocument, and Policy's one view of the world (states, care context,
+subject, scoring values). Never invents values: units convert only through plsi.map.units."""
 
 from __future__ import annotations
 
@@ -17,7 +13,6 @@ from plsi.map.models import CareContext, CoordinateValue, Gap, MapContract, MapC
 from plsi.models import parse
 from plsi.life.store import EventStore
 from plsi.map import registry
-from plsi.map import storyline as _storyline
 from plsi.map.projection import Projection, hybrid, set_items
 from plsi.vocab import CoordinateKind, EventType, ObservationKind, ValueStatus
 
@@ -45,6 +40,21 @@ def _gaps(c: MapCoordinate, v: CoordinateValue) -> list[Gap]:
     if uncoded:
         return [Gap(coordinate=c.id, reason=f"{len(uncoded)} uncoded item(s)", suggestion="plsi normalize observations, then retract and re-ingest coded items")]
     return []
+
+
+def _storyline(state: StateDocument, previous: StateDocument | None) -> dict[str, Any]:
+    """{accelerations: {coord_id: value} (present *_acceleration coordinates), changes: [{coordinate, from, to, delta,
+    unit}] (numeric values that differ from the previous stored projection), gaps}."""
+    accelerations = {
+        cid: v.value for cid, v in state.coordinates.items()
+        if cid.endswith("_acceleration") and v.status == ValueStatus.PRESENT and isinstance(v.value, float)
+    }
+    changes = []
+    for cid, v in state.coordinates.items():
+        old = previous.coordinates.get(cid) if previous else None
+        if old and isinstance(v.value, float) and isinstance(old.value, float) and v.value != old.value:
+            changes.append({"coordinate": cid, "from": old.value, "to": v.value, "delta": v.value - old.value, "unit": v.unit})
+    return {"accelerations": accelerations, "changes": changes, "gaps": [g.model_dump(mode="json") for g in state.gaps]}
 
 
 def build_state(instance: str, m: MapContract, as_of: datetime | None = None) -> StateDocument:
@@ -78,7 +88,7 @@ def project(instance: str, map_id: str, as_of: datetime | None = None, storyline
         file = folder / f"{clock.ts_filename(state.generated_at)}_{files.hash12(state.state_hash)}.json"
         files.atomic_write_json(file, doc)
         files.atomic_write_json(folder / "latest.json", doc)
-    return {"state": doc, "storyline": _storyline.build(state, previous) if storyline else None,
+    return {"state": doc, "storyline": _storyline(state, previous) if storyline else None,
             "paths": {"latest": str(folder / "latest.json"), "file": str(file)}}
 
 
@@ -114,9 +124,7 @@ def coordinate_observations(instance: str, m: MapContract, coordinate_id: str) -
     """Every candidate value of one measured or derived coordinate, oldest first, for scoring (converted through `m`;
     derived: one per input-complete day, recorded_at = max input recorded_at, basis assumed if any input is).
     Raises errors.NotFound for an unknown coordinate; set coordinates -> ValidationError."""
-    c = m.coordinate(coordinate_id)
-    if c is None:
-        raise errors.NotFound(f"map {m.id} has no coordinate {coordinate_id!r}", code="COORDINATE_NOT_FOUND")
+    c = registry.coordinate(m, coordinate_id)
     if c.kind == CoordinateKind.SET:
         raise errors.ValidationError(f"{coordinate_id} is a set coordinate")
     proj = Projection(EventStore(instance), m, None)
@@ -148,7 +156,6 @@ def last_world_change(instance: str) -> datetime | None:
 
 
 def subject(instance: str) -> Subject:
-    """The instance's deidentified Subject."""
     return EventStore(instance).subject
 
 

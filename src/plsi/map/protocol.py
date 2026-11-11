@@ -1,7 +1,9 @@
 """Map protocol: the handoff messages between PLSI bots (skills/shared/team), checked by `plsi handoff check`.
 
-Hub and spoke: the orchestrator sends `request`/`answer` to the other bots and receives `result`/`question`.
-Messages cite the state documents they rely on, so every bot reasons over the same current published state."""
+Hubs and spokes: a hub (vocab.HUBS) sends `request`/`answer` to a worker and receives `result`/`question`; the
+workers are shared and reply to the hub that sent the request. Hub to hub, a `request` and its `result` hand a thread
+over. Every handoff names its `instance`; a ward bot's is its pinned patient's (team.json). Messages cite the state
+documents they rely on, so every bot reasons over the same current published state."""
 
 from __future__ import annotations
 
@@ -9,18 +11,19 @@ from typing import Annotated, Any
 
 from pydantic import Field, model_validator
 
-from plsi import errors
+from plsi import errors, team
 from plsi.files import load_json
 from plsi.map import mapper
 from plsi.models import Id, LocalId, Model, PrefixedHash, parse
-from plsi.vocab import BotRole, HandoffKind
+from plsi.vocab import HUBS, BotRole, HandoffKind
 
 SkillName = Annotated[str, Field(pattern=r"^[a-z]+/[a-z0-9][a-z0-9-]{0,63}$")]  # <role>/<skill>, as under skills/
-FROM_ORCHESTRATOR = (HandoffKind.REQUEST, HandoffKind.ANSWER)
+FROM_HUB = (HandoffKind.REQUEST, HandoffKind.ANSWER)
+HUB_TO_HUB = (HandoffKind.REQUEST, HandoffKind.RESULT)
 
 
 class Question(Model):
-    """Asked by the orchestrator: a question card when `options` are given, else a plain chat question."""
+    """Asked by a hub: a question card when `options` are given, else a plain chat question."""
 
     id: LocalId
     text: str
@@ -52,18 +55,24 @@ class Handoff(Model):
 
     @model_validator(mode="after")
     def _route(self) -> Handoff:
-        hub = BotRole.ORCHESTRATOR
-        if (self.sender == hub) == (self.recipient == hub):
-            raise ValueError("every handoff goes to or from the orchestrator")
-        if (self.type in FROM_ORCHESTRATOR) != (self.sender == hub):
-            raise ValueError(f"{self.type.value} is sent by {'the orchestrator' if self.type in FROM_ORCHESTRATOR else 'another bot'}")
+        sent, received = self.sender in HUBS, self.recipient in HUBS
+        if not (sent or received):
+            raise ValueError("every handoff goes to or from a hub")
+        if self.sender == self.recipient:
+            raise ValueError("a bot does not hand off to itself")
+        if sent and received and self.type not in HUB_TO_HUB:
+            raise ValueError(f"{self.type.value} goes between a hub and a worker, not hub to hub")
+        if self.type in FROM_HUB and not sent:
+            raise ValueError(f"{self.type.value} is sent by a hub")
+        if self.type not in FROM_HUB and not received:
+            raise ValueError(f"{self.type.value} is sent to a hub")
         if self.questions and self.type not in (HandoffKind.QUESTION, HandoffKind.RESULT):
             raise ValueError("questions travel in a question or result")
         if self.answers and self.type != HandoffKind.ANSWER:
             raise ValueError("answers travel in an answer")
-        worker = self.recipient if self.sender == hub else self.sender
-        if self.skill.split("/")[0] not in (worker.value, hub.value, "shared"):
-            raise ValueError(f"{self.skill} is not a skill of {worker.value} (skills/{worker.value}/)")
+        doer, hub = (self.recipient, self.sender) if self.type in FROM_HUB else (self.sender, self.recipient)
+        if self.skill.split("/")[0] not in (doer.value, hub.value, BotRole.ORCHESTRATOR.value, "shared"):
+            raise ValueError(f"{self.skill} is not a skill of {doer.value} (skills/{doer.value}/) or {hub.value}")
         return self
 
 
@@ -81,8 +90,13 @@ def published(instance: str, map_id: str) -> dict[str, Any]:
 
 def check(file: str) -> dict[str, Any]:
     """`plsi handoff check --file F`: schema and route, and every cited state is the current projection
-    (latest.json, hash verifies, no observation recorded after it). Writes nothing."""
+    (latest.json, hash verifies, no observation recorded after it), and a ward bot's handoff names its pinned
+    instance. Writes nothing."""
     msg = parse(Handoff, load_json(file), "handoff")
+    if BotRole.WARD in (msg.sender, msg.recipient) and msg.instance not in {
+            b.get("instance") for b in team.show()["hubs"] if b["role"] == BotRole.WARD}:
+        raise errors.ValidationError(f"no ward bot is pinned to {msg.instance}", code="WARD_INSTANCE",
+                                     hint="a ward bot's handoffs name its own instance (plsi team show)")
     hint = f"re-project: plsi project --instance {msg.instance} --map <map_id>"
     problems = []
     changed = mapper.last_world_change(msg.instance)

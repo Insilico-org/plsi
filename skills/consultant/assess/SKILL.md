@@ -5,8 +5,6 @@ description: Use as PLSI Health Consultant when PLSI asks where the user stands 
 
 # PLSI assess
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Health Consultant**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - After PLSI Data Processor recorded new observations (`processor/intake`, `processor/history`); PLSI hands over the

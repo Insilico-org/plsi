@@ -5,7 +5,7 @@ kind: plsi_map
 schema_version: 1
 id: cardiometabolic
 title: Cardiometabolic markers
-map_version: 1.3.0
+map_version: 1.3.1
 claim_level: instantiated
 summary: Lipids, apolipoproteins, glycaemia, insulin resistance (HOMA-IR), blood pressure, adiposity and hs-CRP.
 tags: [cardiometabolic, lipids, glycaemia, blood_pressure]
@@ -158,6 +158,12 @@ coordinates:
     - {system: loinc, code: 106634-9, display: 'Deprecated Hemoglobin A1c/Hemoglobin.total [Molar ratio] in Blood by IFCC protocol'}
     - {system: loinc, code: 41995-2, display: 'Hemoglobin A1c [Mass/volume] in Blood'}
     - {system: loinc, code: 86910-7, display: Hemoglobin A1c/Hemoglobin.total goal Blood}
+  conversions:
+  - from_unit: mmol/mol
+    factor: 0.09148
+    offset: 2.152
+    source: {kind: doi, id: 10.1373/clinchem.2003.024802, title: Hoelzel W et al 2004. IFCC reference system for HbA1c and the
+        national standardization schemes (the IFCC-NGSP master equation). Clin Chem}
   correspondence_type: terminology
 - id: fasting_glucose
   label: Fasting glucose
@@ -203,6 +209,10 @@ coordinates:
     - {system: loinc, code: 6901-3, display: 'Insulin Free [Units/volume] in Serum or Plasma'}
     - {system: loinc, code: 34156-0, display: 'Insulin.bound [Units/volume] in Serum or Plasma'}
     requires_fasting: true
+  conversions:
+  - from_unit: mU/L
+    factor: 1
+    source: {kind: rule, id: 'ucum:mU/L=m[IU]/L', title: 'a hormone reported in WHO international units: mU/L and mIU/L name the same unit'}
   correspondence_type: terminology
 - id: sbp
   label: Systolic blood pressure
@@ -289,6 +299,8 @@ coordinates:
   ranges:
   - {low: 18.5, high: 25, source: {kind: pmid, id: '11234459'}}
   - {low: 18.5, high: 23, ethnicity: [south_asian, east_asian, southeast_asian], source: {kind: pmid, id: '14726171'}}
+  conversions:
+  - {from_unit: '', factor: 1, source: {kind: rule, id: 'definition:bmi', title: 'BMI is weight in kg over height in m squared, so a BMI printed without a unit is in kg/m2'}}
   correspondence_type: terminology
   sources:
   - {kind: rule, id: 'expr:bmi'}

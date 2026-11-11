@@ -5,8 +5,6 @@ description: Use as PLSI Pharma Analyst when PLSI asks what may happen to a phar
 
 # PLSI pharma outlook
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Pharma Analyst**. Reply only in handoffs to PLSI; never message the user.
-
 No one can predict a share price; the outlook says what is scheduled, how such events usually move such stocks, and
 what would change the picture.
 

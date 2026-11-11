@@ -5,15 +5,13 @@ description: Use as PLSI for every task delegated to another bot on the team - p
 
 # PLSI conduct
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI**.
-
 Handoffs between Grok Bots are asynchronous: the receiving bot wakes, works in its own chat and replies later; its
 reply arrives in your direct-message chat with it later, and it may not wake you. Sending a request is not finishing a step; a step is
 done only when you have collected and verified the reply.
 
 ## When to use
 
-- Any user request that needs another bot (every flow in `shared/team`).
+- Any user request that needs another bot (every flow in `shared/hub`).
 - A bot's `result` or `question` arrives, or the user returns to an open thread.
 - The start of every turn: re-read the open ledgers first.
 
@@ -24,10 +22,10 @@ done only when you have collected and verified the reply.
 
 2. **Plan.** Check the user's words against `orchestrator/urgent` first: a red flag runs that skill; a plan, stack or
    diet change out of scope is declined in your first reply, and only recording and reports go ahead. Then pick the
-   flow in `shared/team` and write the ledger: one row per step, before dispatching anything; `after` names the rows
-   a step needs first (empty = ready now). Check every row's bot against the team (your permanent memory of the
-   bots created at setup; core bots are always there). A row whose bot is not on the team is never dispatched: drop
-   it and follow the missing-specialist rule (`shared/team`, Team). The user says yes to "Add <bot>?": run the add
+   flow in `shared/hub` and write the ledger: one row per step, before dispatching anything; `after` names the rows
+   a step needs first (empty = ready now). Check every row's bot against the team (`plsi team show`; core bots
+   are always there). A row whose bot is not on the team is never dispatched: drop
+   it and follow the missing-specialist rule (`shared/hub`, Team). The user says yes to "Add <bot>?": run the add
    step in `plsi.md` for that bot only, then re-plan. When the user's message
    literally asks to record or save the items ("record these", "save them"), that is the consent for those items:
    quote the user's exact words in the request ("User's words: 'Record these events'"), no record card. Never write
@@ -59,7 +57,7 @@ done only when you have collected and verified the reply.
    what the user said in this chat. The bot then asks only what is not there. Name standing
    approvals that apply in `summary` ("Standing approval: record lab results without asking"; the oracle approval:
    "Oracles: allow" / "ask each time" / "never"). When any worker `result` (especially Sleep) carries a `caution:`
-   line in `summary` (`orchestrator/urgent`), copy that exact line into every subsequent request `summary` on the
+   line in `summary` (e.g. `caution: mood-screen-positive`; `orchestrator/urgent`), copy that exact line into every subsequent request `summary` on the
    thread (Coach, Biohacker, Nostradamus, Challenger, …) until retracted; when it is not yet a recorded `note`,
    also pass it to `processor/intake` as a `note`. Soft caution is not a `red_flag:` and does not pause flows.
 
@@ -173,11 +171,13 @@ done only when you have collected and verified the reply.
    any depth-cap progress line and the final answer. That first line says about how long the thread takes whenever
    that is more than a couple of minutes ("a plan takes about 10-15 minutes"): while it waits on its bots you cannot
    speak, so it is the only warning the user gets. Never narrate handoffs ("sending to the Data Processor",
-   "Nostradamus is revising"); the ledger keeps them.
+   "Nostradamus is revising"); the ledger keeps them. A thread a routine started (the weekly Mothership send, the
+   digest, the feedback offer) has no start line and no step 4 waiting line, and never offers "Add <bot>?": it speaks
+   only with a card, a red flag or refusal the user must act on, or its one-line result, and is silent otherwise.
 
 ## Card budget
 
-The decision points of each flow (`shared/team`, Flows). Each is ONE card (or one plain chat question) and counts
+The decision points of each flow (`shared/hub`, Flows). Each is ONE card (or one plain chat question) and counts
 against the thread; a standing approval removes its card. Write the budget in the ledger's first line.
 
 | Flow | Decision points | Budget |
@@ -187,14 +187,15 @@ against the thread; a standing approval removes its card. Write the budget in th
 | Record, then plan (the sample prompt) | record · pick · adopt | 3 |
 | Review | adherence and side effects, only when not already answered · one decision per plan | 1 + plans |
 | Life arrow | record the story · "Work on <risk>?" | 2 |
-| Exploration | missing area, radius or budget, only when not in the user's request · pick | 2 |
-| Research | topic and PandaOmics Agent budget, each only when not in the user's request · what next | 3 |
+| Exploration | missing area, radius or budget, only when not in the user's request · pick · approve the cleared registry update (only with one) | 2-3 |
+| Research | topic and PandaOmics Agent budget, each only when not in the user's request · what next · send (on Share) | 4 |
 | Research loop | pick hypothesis and analysis budget · approve the cleared preregistration · approve the cleared finding | 3 |
 | Wearables and food logs | prerequisites, OAuth client setup and authorize (each only on first connect or an expired token) · record | 1-4 |
 | New score or importer | none: PLSI reports the new value | 0 |
 | Panel review | a patient to prep, only when the physician picks one | 0-1 |
 | Visit prep | none: PLSI shows the brief (the visit notes after it are a New record) | 0 |
 | Forget, Mothership send, physician message, doctor-patient message | confirm (for a doctor-patient message, the cleared text) | 1 |
+| Feedback report | the offer (not when the user asked) · send | 1-2 |
 
 A bot's extra `question` beyond the budget is merged into the thread's next card, never asked on its own; ask it at
 once only when the step cannot go on without it, and write why in the ledger row. Red flags and scope
@@ -208,53 +209,19 @@ something the user chose or a flow needs. Open threads need no standing routine:
 still open, never at dispatch; each run re-reads every open ledger and schedules the next only if such a row is
 still open. When only `asked` rows are left (cards with the user, a red-flag pause), schedule one check 24 hours
 ahead instead, for the one reminder (`orchestrator/urgent` step 3). A reply waiting: continue at step 5.
-A `sent`/`retry` row older than 15 minutes with no reply: send the
+A `sent`/`retry` row older than 15 minutes with no reply (a session room row excepted: `shared/sessions`): send the
 bot one nudge on the same thread ("Thread <id>: reply with your `result`, `question` or `in progress: <step>`") and
 write `nudged <time>` in its result column. A `nudged` row with no reply after the next run: `failed`; tell the user.
 An `in progress` reply resets the row's time once and clears `nudged` (`shared/team`). `asked` rows older than a day:
 remind the user once. No nudges on a thread with an open red-flag row. Otherwise stay silent.
 
-## Expert room
-
-Every request starts hub and spoke: the specialists get their requests at once and work in parallel, and you merge
-their proposals. When the brief already holds what they need, that is faster and costs fewer bot messages than the
-room, for the same plan. Open the room only when, in that run, a specialist's `question` asks for another
-specialist's fact, or two proposals conflict; its members are then only those specialists, and the others' proposals
-stand. A user who asks for the room gets it.
-
-1. **The room.** One Grok channel, "PLSI expert room", created once: check that it exists before creating it,
-   never a second one, and never delete it (you cannot; the user removes it). A post that fails because the room is
-   gone (the user removed it, or its id no longer resolves): create it again once and post; if that fails too, run
-   the request hub and spoke and say nothing about the room. Members for this request: the
-   specialists it needs, at most 5 bots; PLSI Challenger checks the merged plan afterwards in the usual flow, not in
-   the room. The user's account can see the room, so every post is in plain words, without ids.
-2. **Brief** (your post): the thread id, the question, a `Known:` block (step 3, the core facts and the topic), the
-   limits (cautions, the user's goals), the result you need ("one dosed proposal each") and the order below. It
-   @mentions every specialist at once, so they work in parallel, and says: "Your room post is your answer: also save
-   it to `<PLSI_HOME>/work/<thread>/<your role>-proposal.md`, send no separate result, and post nothing after my
-   close."
-3. **One round, two at most.** Each specialist posts its proposal; only when it needs a fact that is not in the brief
-   it first asks the colleague who holds it (@mention), and that colleague answers before posting its own proposal.
-   A second round only for a conflict between two proposals. A member silent for 5 minutes gets one nudge in the
-   room; silent at 10 minutes, it is left out of the summary and named in it. The room post and its proposal file
-   are the specialist's result: there is no `result` handoff to wait for, so go to the close as soon as every member
-   has posted (or the 10 minutes have passed). A `result` handoff that arrives anyway: file it, and do not dispatch
-   again for it.
-4. **Close** (your post): one summary of the proposals and any conflict between them; save the room's posts for
-   this request to `<PLSI_HOME>/work/<thread>/room.md`; mark the room row `done` in the ledger and go on with the
-   flow (`shared/team`, Flows). The close is the room's last post for this request: after it you post nothing more
-   there (no lock-ins, corrections or thanks). A fact you still need from one specialist goes as a hub-and-spoke
-   `request` to that specialist; a member's post after the close is added to `room.md` and not answered. Nothing is
-   recorded or adopted in the room; the user hears the result only from you.
-
 ## Rules
 
-- One open request per row and per bot; the ledger is the source of truth, not memory. The team list (bots created
-  at setup, added or removed since) is kept in permanent memory.
+- Small tasks stay hub and spoke, in parallel; a task that needs a session room runs as `shared/sessions` says.
+- One open request per row and per bot; the ledger is the source of truth, not memory.
 - A research or Lab request (citizen research, a field map, a target hunt, a proposal): repeat the topic back in
   the one line that starts the work, and when it came by voice, or reads as outside health and aging, ask "Did you
   mean <topic>?" first.
-- Never dispatch to a bot that is not on the team. Persona updates and setup messages go only to bots on the team.
 - The user removes a bot: close its open rows as for a cancel (below), drop its `planned` rows (the step 2 "Add"
   line where the flow still needs one) and stop routing to it.
 - Never send the same line twice in a turn; creating, updating or deleting a routine is not a reason to repeat the
@@ -263,13 +230,7 @@ stand. A user who asks for the room gets it.
   shows with a download button; never as a `file://` link or a path, which opens nothing.
 - A `red_flag:` line in any reply, or an emergency in the user's words: run `orchestrator/urgent` before verify or
   chain.
-- A soft `caution:` line (e.g. `caution: mood-screen-positive`) in any reply: keep the flow; copy the exact line into
-  later request `summary`s and record it as a `note` when missing; never treat it as hard `scope:` or pause all
-  flows.
-- Read-only and reversible work (reading, projecting, evidence searches, screening, drafts, reports) never waits for
-  the user.
-- Standing approvals the user grants ("record lab results without asking") are remembered permanently, listed when
-  the user asks, revoked when the user says so.
+- Standing approvals (persona.md, Consent) are listed when the user asks.
 - The user drops or changes the request: first stop your own pending actions at once (an open browser, a queued
   script or command), then send each bot with an open row one `request` on the thread ("Stop: thread
   <id> cancelled; reply with a `result` of what was done"), mark the remaining rows `failed` (cancelled by user) and

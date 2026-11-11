@@ -13,9 +13,8 @@ from typing import Any
 
 from plsi.events import NewEvent
 from plsi.errors import UsageError, ValidationError
-from plsi.files import decode_input, parse_input_json, read_input_bytes, sha256_hex
 from plsi.life import importers
-from plsi.life.ingest import dedupe_key, to_observation
+from plsi.life.ingest import dedupe_key, read_source, to_observation
 from plsi.life.models import DOCUMENT_RE, Observation, Origin, Retraction
 from plsi.life.store import EventStore
 from plsi.vocab import EventType
@@ -41,16 +40,15 @@ def revise(instance: str, document: str, file: str | None = None, csv: str | Non
     """
     if (file is None) == (csv is None):
         raise UsageError("give exactly one of --file, --csv")
-    data = read_input_bytes(file or csv)  # type: ignore[arg-type]
-    text = decode_input(data)
-    imported = (importers.Imported.from_items(importers.observation_items(parse_input_json(text))) if file is not None
-                else importers.from_csv(text, sha256_hex(data)))
+    text, sha = read_source(file or csv)  # type: ignore[arg-type]
+    imported = importers.from_json(text) if file is not None else importers.from_csv(text, sha)
     if imported.rejected and not dry_run:  # a rejected row would otherwise read as dropped, and be retracted
         raise ValidationError(f"{len(imported.rejected)} row(s) of the new version are invalid; fix them first",
                               code="REVISE_REJECTED", hint="the dry run lists them under rejected")
     if not re.match(DOCUMENT_RE, document):
         raise ValidationError(f"invalid document id: {document!r}", hint="a stable id such as the Drive file id; never a file name")
-    rows = [to_observation(o.model_copy(update={"origin": o.origin.model_copy(update={"document": document})})) for o in imported.observations]
+    rows = [(i, to_observation(o.model_copy(update={"origin": o.origin.model_copy(update={"document": document})})))
+            for i, o in imported.rows]
 
     store = EventStore(instance)
     before: dict[tuple[Any, ...], list[Any]] = defaultdict(list)
@@ -58,7 +56,7 @@ def revise(instance: str, document: str, file: str | None = None, csv: str | Non
         if e.payload.origin.document == document:
             before[_identity(e.payload)].append(e)
     unchanged, replaced, added = [], [], []
-    for i, obs in zip(imported.indexes, rows, strict=True):
+    for i, obs in rows:
         olds = before.get(_identity(obs))
         if not olds:
             added.append((i, obs))

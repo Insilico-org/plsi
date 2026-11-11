@@ -5,8 +5,7 @@ description: Use as PLSI Target Hunter when the researcher wants candidate targe
 
 # PLSI target discovery
 
-Follow `persona.md` (repo root) and `shared/team`. Owner: **PLSI Target Hunter**. Reply only in handoffs to PLSI; never
-message the user. Writes `<PLSI_HOME>/targets/<gene>/` through `plsi targets` and the target file under
+Writes `<PLSI_HOME>/targets/<gene>/` through `plsi targets` and the target file under
 `<PLSI_HOME>/work/<thread>/`; nothing else.
 
 The deliverable is a shortlist of 3-8 candidates the researcher can argue with, each with its band, its falsifier
@@ -24,6 +23,13 @@ and the one experiment that would settle it.
 Every step except step 4 uses free sources only, none needing a key: Open Targets, MyGene.info, Pharos, the RCSB
 PDB, AlphaFold, ChEMBL, UniProt, Open Genes, PubMed, Europe PMC and ClinicalTrials.gov. PandaOmics is optional
 enrichment on a finished free shortlist, never a dependency.
+
+## The session room
+
+Target discovery runs in a session room (`shared/sessions`) the hub opens: the hub, you, Visualizer and, only with a
+PandaOmics budget above zero, Data Controller. The brief is your request (thread, question, PandaOmics budget) and
+your room posts are your results. Without a room (it could not be created), the same steps run as handoffs to the
+hub.
 
 ## Steps
 
@@ -93,10 +99,11 @@ enrichment on a finished free shortlist, never a dependency.
    say why; a shortlist that drops nothing did not filter.
 
 4. **PandaOmics, only when the user has it, after step 3 and inside the budget.** Read `targets/pandaomics` first.
-   The budget comes from PLSI's request (`orchestrator/research` step 2), offered only when the user has set their
+   The budget comes from PLSI's request (`lab/research` step 2), offered only when the user has set their
    own token; no number means zero runs: skip this step and say "free sources only". Otherwise write the planned asks (`ask.json` for PandaClaw,
-   one `args.json` per PandaOmics call) and send them in ONE `question` for Data Controller (`controller/egress`);
-   run only what the `answer` clears:
+   one `args.json` per PandaOmics call) and send them in ONE `question` for Data Controller (`controller/egress`;
+   in the room, ONE post @mentioning Data Controller with the file names); run only what the `answer` (or its post)
+   clears:
 
    ```bash
    plsi oracle pandaomics tools
@@ -137,6 +144,11 @@ enrichment on a finished free shortlist, never a dependency.
      for the user to open; it never goes to the Mothership);
    - in `summary`: the top 3, each named with its band, and "PandaOmics runs used: <m> of <n>" or "free sources
      only".
+
+   In the room, this is ONE post: the top 3 with their bands, the runs used and the file names, @mentioning
+   Visualizer to draw the dashboard from the `target_<gene>.json` files ("target dossier" for one, "target
+   comparison" for a shortlist). A question from Visualizer about a file is answered in the room; nothing else
+   after this post.
 
 ## Rules
 

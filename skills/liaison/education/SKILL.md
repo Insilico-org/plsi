@@ -5,8 +5,7 @@ description: Use as PLSI Liaison when the physician wants longevity medicine tra
 
 # PLSI longevity medicine education
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Liaison**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used.
+**Status: draft**.
 
 ## When to use
 

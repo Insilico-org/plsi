@@ -95,8 +95,13 @@ class EventStore:
                 return event
         raise NotFound(f"event {event_id!r} not found", code="EVENT_NOT_FOUND")
 
+    def log(self) -> tuple[list[Event], set[str]]:
+        """Every event in log order, retracted ones included, and the ids a retraction targets."""
+        events = self.events(active=False)
+        return events, _retracted(events)
+
     def retracted_ids(self) -> set[str]:
-        return _retracted(self.events(EventType.RETRACTION))
+        return self.log()[1]
 
     def observations(self) -> list[Event]:
         return self.events(EventType.OBSERVATION)
@@ -146,7 +151,7 @@ def init_instance(instance: str, birth_year: int | None = None, sex: Sex | str |
     path = instance_dir(instance, must_exist=False)
     created = not (path / "subject.json").exists()
     if created:
-        path.mkdir(parents=True, exist_ok=True)
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
         with lock(path):
             fields = deid_subject_fields(birth_year, sex)
             subject = Subject(subject_id=f"s_{secrets.token_hex(6)}", created_at=now(), relation=relation,
@@ -157,13 +162,7 @@ def init_instance(instance: str, birth_year: int | None = None, sex: Sex | str |
     else:
         subject, changed = EventStore(instance).update_subject(birth_year=birth_year, sex=sex, relation=relation,
                                                                country=country, ethnicity=ethnicity, update=update)
-    return {
-        "instance": instance,
-        "created": created,
-        "path": str(path),
-        "subject": subject.dump(),
-        "updated_fields": changed,
-    }
+    return {"instance": instance, "created": created, "path": str(path), "subject": subject.dump(), "updated_fields": changed}
 
 
 def list_instances() -> list[dict[str, Any]]:
@@ -185,7 +184,7 @@ def delete_instance(instance: str, confirm: str) -> dict[str, Any]:
         raise ValidationError(f"refusing to delete {instance!r}: --confirm must repeat the instance name", code="CONFIRM_MISMATCH",
                               hint=f"plsi export --instance {instance} --out <PLSI_HOME>/exports/{instance} first (outside the instance folder), then plsi instances delete --instance {instance} --confirm {instance}")
     counts = event_counts(instance)
-    with lock(path):
+    with lock(path):  # the held .lock file goes last, with the folder, once the lock is released
         removed = sorted(p.relative_to(path).as_posix() for p in path.rglob("*") if p.is_file() and p.name != ".lock")
         for child in path.iterdir():
             if child.name != ".lock":
@@ -200,8 +199,8 @@ def delete_instance(instance: str, confirm: str) -> dict[str, Any]:
 
 def list_events(instance: str, type: EventType | str | None = None, kind: str | None = None, limit: int | None = None) -> dict[str, Any]:
     """`events list`: newest last; optional event type, observation kind and limit (last N)."""
-    events = EventStore(instance).events(active=False)
-    gone, wanted = _retracted(events), EventType(type) if type is not None else None
+    events, gone = EventStore(instance).log()
+    wanted = EventType(type) if type is not None else None
     events = [
         {**_dump(e), "retracted": e.id in gone}
         for e in events
@@ -214,8 +213,7 @@ def list_events(instance: str, type: EventType | str | None = None, kind: str | 
 
 
 def event_counts(instance: str) -> dict[str, Any]:
-    events = EventStore(instance).events(active=False)
-    gone = _retracted(events)
+    events, gone = EventStore(instance).log()
     return {
         "by_type": dict(Counter(e.type for e in events)),
         "retracted": len(gone),

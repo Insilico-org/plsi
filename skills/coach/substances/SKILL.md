@@ -5,8 +5,6 @@ description: Use as PLSI Coach when the user wants to quit or cut down smoking, 
 
 # PLSI smoking and alcohol plan
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Coach**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - "Help me quit smoking", "I want to drink less", a goal in `personal_context`, or PLSI routes it here.

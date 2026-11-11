@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from plsi.targets.opentargets import CAUSAL_DATATYPES
-from plsi.vocab.targets import ClinicalStage, DevelopmentLevel
+from plsi.targets.reads import answered
+from plsi.vocab.targets import CAUSAL_DATATYPES, L2G_CONFIDENT, ClinicalStage, DevelopmentLevel
 
 Reads = dict[str, Any]  # the computed block in progress: band, stage, structures, chemistry, selectivity, …
 
@@ -29,9 +29,8 @@ def disagreements(facts: dict[str, Any], reads: Reads) -> list[str]:
     found = reads.get("structures") or {}
     uniprot = facts.get("protein") or {}
     # Two sources disagree only when both answered, so each rule is guarded by the sources it compares.
-    spoke = {key: (reads.get(key) or {}).get("source_read") is not False
-             for key in ("development", "chemistry", "structures", "protein")}
-    assets_read = (facts.get("assets") or {}).get("read") is not False
+    spoke = {key: answered(reads.get(key)) for key in ("development", "chemistry", "structures", "protein")}
+    assets_read = answered(facts.get("assets"))
     if spoke["development"] and spoke["chemistry"] \
             and level == DevelopmentLevel.TCHEM and chem.get("known") and not chem.get("potent_100nm"):
         out.append("Pharos calls this Tchem - potent chemistry exists - and ChEMBL holds nothing against it "
@@ -61,13 +60,13 @@ def not_read(facts: dict[str, Any], reads: Reads) -> list[str]:
     for key, what in (("structures", "the PDB"), ("chemistry", "ChEMBL"), ("development", "Pharos"),
                       ("protein", "UniProt"), ("genetics", "the Open Targets credible sets")):
         block = reads.get(key) or {}
-        if block.get("source_read") is False:
+        if not answered(block):
             out.append(f"{what} was not read on this gather - {block.get('evidence')}. Nothing below about "
                        "it is a statement about the target")
-    if ((facts.get("assets") or {}).get("read")) is False:
+    if not answered(facts.get("assets")):
         out.append("the drug list was not read on this gather, so an empty asset table here is this "
                    "gather's silence and not the field's")
-    if (facts.get("aging") or {}).get("read") is False:
+    if not answered(facts.get("aging")):
         out.append("Open Genes was not read on this gather, so nothing here says whether this target has "
                    "anything to do with aging")
     if reads.get("stage_read") is False:
@@ -100,9 +99,9 @@ def open_questions(facts: dict[str, Any], reads: Reads) -> list[str]:  # noqa: C
                    f"of them is a statement about it. {reads.get('not_a_protein_note')}")
     elif not reads.get("modalities"):
         out.append("no tractability bucket is true for any modality")
-    if is_protein is not False and found.get("source_read") is not False and not found.get("co_crystals"):
+    if is_protein is not False and answered(found) and not found.get("co_crystals"):
         out.append(f"no co-crystal was read - {found.get('evidence')}")
-    if is_protein is not False and chem.get("source_read") is not False:
+    if is_protein is not False and answered(chem):
         if chem.get("known") and not chem.get("potent_100nm"):
             out.append("chemistry has been filed against this protein and none of it reaches 100 nM")
         elif not chem.get("known"):
@@ -113,7 +112,7 @@ def open_questions(facts: dict[str, Any], reads: Reads) -> list[str]:  # noqa: C
             out.append("every potent measurement read is an EC50 (activation); no inhibition measure is recorded")
         elif chem.get("known") and chem.get("inhibition") and not chem.get("activation"):
             out.append("every potent measurement read is inhibition or binding; no activation measure is recorded")
-    if assets_block.get("read") is not False:
+    if answered(assets_block):
         if withdrawn := reads.get("withdrawn"):
             out.append(f"{len(withdrawn)} drug(s) against this target were withdrawn "
                        f"({', '.join(withdrawn[:4])})")
@@ -138,34 +137,34 @@ def open_questions(facts: dict[str, Any], reads: Reads) -> list[str]:  # noqa: C
     if sel.get("model_below_mark"):
         out.append(f"the {sel.get('model_species')} orthologue is {sel.get('model_identity_pct')}% "
                    f"identical full-length (below {sel.get('model_mark_pct')}%)")
-    if level.get("source_read") is not False:
+    if answered(level):
         if level.get("level") == DevelopmentLevel.TDARK:
             out.append("Pharos calls this Tdark: almost nothing is known about it")
         elif not level.get("known"):
             out.append("Pharos holds no target development level for it")
-    if is_protein is not False and protein.get("source_read") is not False:
+    if is_protein is not False and answered(protein):
         if not features.get("domain"):
             out.append("no domain is annotated in UniProt")
         if not (features.get("binding") or features.get("active-site")):
             out.append("no binding or active site is annotated in UniProt")
     gen = reads.get("genetics") or {}
-    if gen.get("source_read") is not False:
-        if not gen.get("has_pqtl"):
-            out.append("no pQTL is recorded, as expected for an RNA gene" + ("; an eQTL is recorded" if gen.get("has_eqtl")
-                                                                    else "; no eQTL is recorded either")
-                       if is_protein is False else
-                       "no pQTL is recorded on this gene" + ("; an eQTL (transcript level) is recorded"
-                                                             if gen.get("has_eqtl") else ""))
+    if answered(gen):
+        if not gen.get("has_pqtl") and is_protein is False:
+            out.append("no pQTL is recorded, as expected for an RNA gene"
+                       + ("; an eQTL is recorded" if gen.get("has_eqtl") else "; no eQTL is recorded either"))
+        elif not gen.get("has_pqtl"):
+            out.append("no pQTL is recorded on this gene"
+                       + ("; an eQTL (transcript level) is recorded" if gen.get("has_eqtl") else ""))
     assignment = reads.get("gene_assignment") or {}
-    if assignment and assignment.get("read") is not False and indication:
-        best = assignment.get("best_l2g")
+    if assignment and answered(assignment) and indication:
+        best, mark = assignment.get("best_l2g"), assignment.get("threshold") or L2G_CONFIDENT
         if best is None:
             out.append(f"no GWAS credible set assigns a locus to this gene for {indication.get('name')}")
-        elif best < (assignment.get("threshold") or 0.5):
+        elif best < mark:
             out.append(f"the best locus-to-gene score for {indication.get('name')} is {best:.2f}, below the "
-                       f"{assignment.get('threshold')} Open Targets uses to assign a locus to a gene")
-    if (reads.get("direction") or {}).get("known") is False and indication \
-            and (reads.get("direction") or {}).get("source_read") is not False:
+                       f"{mark} Open Targets uses to assign a locus to a gene")
+    effect = reads.get("direction") or {}
+    if effect.get("known") is False and indication and answered(effect):
         out.append(f"no direction of effect is recorded for this target in {indication.get('name')}")
     if not target.get("safety"):
         out.append("no safety liability is recorded (an absence of curation, not a clean record)")
@@ -181,9 +180,8 @@ def open_questions(facts: dict[str, Any], reads: Reads) -> list[str]:  # noqa: C
         elif not live & CAUSAL_DATATYPES:
             out.append(f"the association with {indication.get('name')} rests on "
                        f"{', '.join(sorted(live))} - no genetics and no animal model")
-    if aging.get("read") is False:
-        pass  # said in `not_read`: an unreachable source is not a statement about the gene
-    elif aging.get("curated") is False:
+    # An unread Open Genes block carries no `curated` key, so neither branch fires (it is named in `not_read`).
+    if aging.get("curated") is False:
         out.append("Open Genes does not curate this gene")
     elif aging.get("curated"):
         if not aging.get("longevity"):

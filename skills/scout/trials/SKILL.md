@@ -5,8 +5,6 @@ description: Use as PLSI Trial Scout when PLSI asks whether the user could join 
 
 # PLSI find a clinical trial
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Trial Scout**. Reply only in handoffs to PLSI; never message the user.
-
 ## When to use
 
 - "Is there a trial I could join?", "who is studying <condition> near me?".

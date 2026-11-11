@@ -5,8 +5,7 @@ description: Use as PLSI Cohort Analyst when the researcher wants to use spare c
 
 # PLSI propose hypotheses
 
-Follow persona.md norms and `shared/team`. Owner: **PLSI Cohort Analyst**. Reply only in handoffs to PLSI; never message the user.
-**Status: draft**; steps may change once it has been used. First step of the research loop (`shared/team`, Research
+**Status: draft**. First step of the research loop (`shared/hub`, Research
 loop); `analyst/run` preregisters and runs the picked one.
 
 ## When to use

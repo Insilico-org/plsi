@@ -2,26 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
 from plsi.files import hash_json
+from plsi.map import formula
 from plsi.models import Code, EventId, Id, Model, PrefixedHash, SourceRef, UtcTime
 from plsi.vocab import (
-    ClaimLevel,
-    ClinicalStatus,
-    Comparator,
-    CoordinateKind,
-    CorrespondenceType,
-    DeriveEngine,
-    Ethnicity,
-    EvidenceClass,
-    MatchKind,
-    ObservationKind,
-    Sex,
-    TimeBasis,
-    ValueStatus,
+    ClaimLevel, ClinicalStatus, Comparator, CoordinateKind, CorrespondenceType, DeriveEngine,
+    Ethnicity, EvidenceClass, MatchKind, ObservationKind, Sex, TimeBasis, ValueStatus
 )
 
 SERIES_CAP = 20  # most recent active values kept in CoordinateValue.series
@@ -34,8 +24,9 @@ class Accepts(Model):
 
 
 class Conversion(Model):
-    from_unit: str
+    from_unit: str  # "" for a value printed without a unit, where the coordinate's unit is the only one it can have
     factor: float = Field(gt=0)
+    offset: float = 0.0  # canonical = value * factor + offset (HbA1c IFCC mmol/mol -> NGSP %); 0 for a pure scale
     source: SourceRef
 
 
@@ -63,14 +54,14 @@ class Derive(Model):
     inputs: list[Id] = []
     formula: str | None = None  # engine expr only, e.g. "fasting_glucose * fasting_insulin / 405"
     carry_forward: list[Id] = []  # inputs whose latest value on or before the day is used (adult height)
+    # the other inputs may come from draws up to this many days before the newest one (0: all on one day)
+    window_days: int = Field(default=0, ge=0, le=90)
 
     @model_validator(mode="after")
     def _formula(self) -> Derive:
         if (self.engine == DeriveEngine.EXPR) != (self.formula is not None):
             raise ValueError("formula is required for engine expr and forbidden otherwise")
         if self.formula is not None:
-            from plsi.map import formula
-
             names = formula.variables(self.formula) - formula.CONTEXT
             if names != set(self.inputs):
                 raise ValueError(f"inputs must be exactly the formula's variables {sorted(names)} (age, female, male are implicit)")
@@ -134,6 +125,17 @@ class InferenceBoundaries(Model):
     min_evidence_class_for_actions: EvidenceClass
 
 
+def _visit(node: str, deps: dict[str, list[str]], state: dict[str, int]) -> None:
+    """Depth-first derive-cycle check: state 1 = on the current path, 2 = done."""
+    if state.get(node) == 1:
+        raise ValueError(f"derive cycle through {node}")
+    if state.get(node) != 2:
+        state[node] = 1
+        for dep in deps[node]:
+            _visit(dep, deps, state)
+        state[node] = 2
+
+
 class MapContract(Model):
     """A State Map. User maps (instance maps/user/) must have an id starting `user_` and claim_level designed;
     that rule depends on where the file lives and is enforced by plsi.map.registry."""
@@ -163,18 +165,8 @@ class MapContract(Model):
             if missing := [i for i in inputs if i not in deps]:
                 raise ValueError(f"{cid}: unknown derive inputs {missing}")
         state: dict[str, int] = {}
-
-        def visit(node: str) -> None:
-            if state.get(node) == 1:
-                raise ValueError(f"derive cycle through {node}")
-            if state.get(node) != 2:
-                state[node] = 1
-                for dep in deps[node]:
-                    visit(dep)
-                state[node] = 2
-
         for cid in deps:
-            visit(cid)
+            _visit(cid, deps, state)
         return self
 
     def coordinate(self, coordinate_id: str) -> MapCoordinate | None:
@@ -269,14 +261,3 @@ class CareContext(Model):
     conditions: list[SetItem] = []
     allergies: list[SetItem] = []
 
-
-class Estimate(Model):
-    """A calculator input with its interval (plsi calc course, survival); a bare number is the expected value."""
-
-    expected: float
-    low: float | None = None
-    high: float | None = None
-
-    @classmethod
-    def of(cls, v: float | Self) -> Self:
-        return v if isinstance(v, cls) else cls(expected=v)

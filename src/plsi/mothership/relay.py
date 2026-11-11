@@ -1,6 +1,6 @@
-"""The Mothership relay client: its base URL (mothership/references/contact.yaml), one POST or GET with an
-install or professional token, and the refusal reasons it passes back. Tokens travel only in the Authorization header.
-A 429 (the relay's rate limit, {error: rate_limited, retry_after}) becomes RATE_LIMITED with the local time to retry."""
+"""Where the Longevity Mothership is and how PLSI talks to its relay: the reference ids (mothership/references/
+contact.yaml), the wire version, the relay's timings, one POST or GET with an install or professional token, and the
+refusal reasons it passes back. Tokens travel only in the Authorization header."""
 
 from __future__ import annotations
 
@@ -8,12 +8,19 @@ import json
 from datetime import timedelta
 from typing import Any
 
-from plsi import net, references
+from plsi import __version__, net, references
 from plsi.clock import now
-from plsi.errors import NetworkError
+from plsi.errors import NetworkError, ValidationError
 
-REFERENCE = "longevity_mothership"
+REFERENCE = "longevity_mothership"  # the relay
+RESEARCH_REFERENCE = "longevity_mothership_research"  # the address research notes are emailed to
+DRIVE_REFERENCE = "longevity_mothership_drive"  # the Drive reader a note's shared files are shared with
 SCHEMA_VERSION = 4  # the wire version every message carries
+TIMEOUT_S = 60
+RECEIPT_DAYS = 7  # the relay keeps a receipt this long; a ticket still open after it is never confirmed
+POLL_S = 15  # `mothership receipt --wait`: seconds between asks
+MAX_WAIT_S = 300
+MAX_REPLY = 500  # characters of a reply that is not JSON kept
 NOT_LOGGED = "nothing was logged as sent; try again at the next run"
 TOKEN_ERRORS = frozenset({"unauthorized", "token_revoked", "token_expired"})
 
@@ -23,16 +30,30 @@ def address() -> str:
     return references.api_base(REFERENCE)
 
 
+def header(kind: str) -> dict[str, Any]:
+    """The fields every message opens with: its kind, the wire version and the PLSI version that built it."""
+    return {"kind": str(kind), "schema_version": SCHEMA_VERSION, "plsi_version": __version__}
+
+
+def mail_address(reference: str, what: str, code: str) -> str:
+    """The email address of a Mothership reference; raises `code` when it is not set."""
+    found = references.get(reference).email
+    if not found:
+        raise ValidationError(f"the Mothership {what} is not set", code=code,
+                              hint=f"email in mothership/references/contact.yaml:{reference}")
+    return found
+
+
 def _parsed(text: str) -> Any:
     try:
         return json.loads(text) if text.strip() else {}
     except ValueError:
-        return {"text": text[:500]}
+        return {"text": text[:MAX_REPLY]}
 
 
 def post(path: str, body: Any, token: str | None = None) -> Any:
     """POST to the relay; the reply as JSON (text when it is not JSON). Never retried."""
-    return _parsed(net.post_json(f"{address()}{path}", body, token=token, timeout=60).text)
+    return _parsed(net.post_json(f"{address()}{path}", body, token=token, timeout=TIMEOUT_S).text)
 
 
 def get(path: str, token: str | None = None) -> Any:
@@ -40,24 +61,20 @@ def get(path: str, token: str | None = None) -> Any:
     try:
         return net.get_json(f"{address()}{path}", headers={"Authorization": f"Bearer {token}"} if token else None)
     except NetworkError as exc:
-        if exc.code == "BAD_RESPONSE":  # a web page instead of JSON: the deployed relay predates this route
+        if exc.code == "BAD_RESPONSE":  # a web page instead of JSON: the relay does not serve this route
             raise NetworkError(f"the Mothership relay does not serve {path} yet", code="NOT_SERVED",
                                hint="the relay may still run an older version; try again after it is updated") from None
         raise refused(exc, "document") from None
 
 
 def _reply(exc: NetworkError) -> dict[str, Any]:
-    try:
-        body = json.loads(exc.body)
-    except ValueError:
-        return {}
+    body = _parsed(exc.body)
     return body if isinstance(body, dict) else {}
 
 
 def relay_error(exc: NetworkError) -> str:
     """The refusal reason: the relay's {"error"}."""
-    body = _reply(exc)
-    return str(body.get("error") or exc.message)
+    return str(_reply(exc).get("error") or exc.message)
 
 
 def rate_limited(exc: NetworkError) -> NetworkError:
