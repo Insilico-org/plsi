@@ -14,8 +14,9 @@ Censored inputs (e.g. CRP '<0.3'): for a function monotone in each input the val
 a bound on the result; `bounded` finds its side by nudging each censored input inward. Native models are monotone;
 expr formulas qualify when they have no comparison or piecewise function; extensions declare it in their manifest.
 
-Age-based coordinates (`age_based`): a value computed from the person's age gives the birth year back (an age, or an
-age acceleration with its clock's inputs), so it never leaves the computer.
+Kept local (`kept_local`): a value in years (a measured or derived age, an age acceleration), a value computed from
+the person's age, or one derived from a kept coordinate gives the birth year back, so it never leaves the computer;
+nor does a coordinate its map marks `local_only: true`. `local_only: false` lets an age at a life event go.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ PHENOAGE_WEIGHTS = {
     "albumin": -0.0336, "creatinine": 0.0095, "glucose": 0.1953, "lymphocyte_pct": -0.0120, "mcv": 0.0268,
     "rdw": 0.3306, "alp": 0.00188, "wbc": 0.0554,
 }
-AGE_UNIT = "a"  # UCUM years: a derived value in years is an age or an age acceleration
+AGE_UNIT = "a"  # UCUM years: a value in years is an age or an age acceleration
 
 
 def rule_id(model: str) -> str:
@@ -121,20 +122,22 @@ ENGINES: dict[DeriveEngine, Engine] = {
         reads_age=lambda d: True, models=lambda: set(extensions.installed(ExtensionKind.DERIVER)),
         unknown=("map.extension_missing", "no active deriver extension {!r}", "plsi ext list")),
     DeriveEngine.BIOLEARN: Engine(
-        # reads_age False: the clocks that read age (GrimAge) output years, which age_based excludes by unit
+        # reads_age False: the clocks that read age (GrimAge) output years, which kept_local keeps by unit
         evaluate=None, rule_id=lambda d: f"{DeriveEngine.BIOLEARN.value}:{d.model}", censor_safe=lambda d: False,
         reads_age=lambda d: False, models=lambda: {x["name"] for x in biolearn.clocks()} if biolearn.available() else None,
         unknown=("map.biolearn_model", "{!r} is not a biolearn aging clock", "plsi clocks list")),
 }
 
 
-def age_based(coordinates: list[MapCoordinate]) -> set[str]:
-    """The derived coordinates computed from chronological age: the derive is given the age (every native model, an
-    expr formula reading `age`, any extension), the value is in years (any clock's age or age acceleration), or an
-    input is itself age-based."""
-    out: set[str] = set()
-    while more := {c.id for c in coordinates if c.derive and c.id not in out
-                   and (ENGINES[c.derive.engine].reads_age(c.derive) or c.unit == AGE_UNIT or out & set(c.derive.inputs))}:
+def kept_local(coordinates: list[MapCoordinate]) -> set[str]:
+    """The coordinates that never leave this computer: marked `local_only: true`, or (unless marked `false`) in years
+    (a measured or derived age, any clock's age or age acceleration), derived from the age (every native model, an
+    expr formula reading `age`, any extension), or derived from a kept coordinate."""
+    shared = {c.id for c in coordinates if c.local_only is False}
+    out = {c.id for c in coordinates if c.local_only}
+    while more := {c.id for c in coordinates if c.id not in out | shared
+                   and (c.unit == AGE_UNIT or (c.derive is not None and (ENGINES[c.derive.engine].reads_age(c.derive)
+                                                                         or bool(out & set(c.derive.inputs)))))}:
         out |= more
     return out
 

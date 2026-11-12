@@ -3,7 +3,7 @@ kind: plsi_map
 schema_version: 1
 id: womens_health
 title: Reproductive history and menopause
-map_version: 0.1.0
+map_version: 0.2.0
 claim_level: designed
 summary: Typical menstrual cycle length, age at menarche, number of pregnancies, age at menopause and months since the final menstrual period, as the user reports them.
 tags: [womens_health, reproductive, menopause, history]
@@ -30,6 +30,7 @@ coordinates:
     - {system: loinc, code: 42798-9, display: 'Age at menarche'}
   recency_days: 36500
   predictable: false
+  local_only: false  # an age at a life event: in years, but it does not give the current age
   correspondence_type: terminology
 - id: pregnancies
   label: Number of pregnancies, reported
@@ -56,6 +57,7 @@ coordinates:
     - {system: loinc, code: 63890-8, display: 'Age at last menstrual period'}
   recency_days: 36500
   predictable: false
+  local_only: false  # an age at a life event; months_since_final_period, which would date it, stays local
   correspondence_type: terminology
 - id: months_since_final_period
   label: Months since the final menstrual period, reported
@@ -66,6 +68,7 @@ coordinates:
     - {system: free, code: womens_health.months_since_final_period, display: 'Months since final menstrual period'}
   recency_days: 365
   predictable: false
+  local_only: true  # with age_at_menopause it gives the current age
   correspondence_type: terminology
 inference_boundaries:
   supports: [reproductive history and menopause timing as context for plans and risk estimates]

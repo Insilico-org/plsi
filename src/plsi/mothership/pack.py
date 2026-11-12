@@ -3,8 +3,7 @@ prediction scores, gate-checked into the instance's outbox. Coded fields only: i
 free or cpg code only when a map declares it, never a plsi.codes.NEVER_SHARED code (the subject is sex, a five-year age
 band and the ethnicity group); a unit only when it is a map's canonical unit or in the unit table (plsi.life.normalize),
 else its value stays too; a dose as {value, unit} only with a DOSE_UNITS or canonical unit, never as written.
-No age leaves: every coordinate plsi.map.derive.age_based finds in the state's map, and LOCAL_COORDINATES (which give
-the age back with another coordinate), stay on this computer."""
+No age leaves: every coordinate plsi.map.derive.kept_local finds in the state's map stays on this computer."""
 
 from __future__ import annotations
 
@@ -29,7 +28,6 @@ from plsi.vocab import ContributionKind, EventType, MothershipMessage, Observati
 
 LIFE_KINDS = frozenset({ObservationKind.CONDITION, ObservationKind.INTERVENTION, ObservationKind.LIFESTYLE,
                         ObservationKind.SYMPTOM, ObservationKind.MEDICATION, ObservationKind.ALLERGY})
-LOCAL_COORDINATES = frozenset({"months_since_final_period"})  # with age_at_menopause it gives the age
 MIN_SCORES = 5
 # UCUM symbols a dose may carry on the wire (annotations for counted forms)
 DOSE_UNITS = frozenset({"mg", "g", "ug", "ng", "mL", "L", "uL", "[iU]", "[IU]", "U", "mmol", "umol", "meq", "%",
@@ -89,7 +87,7 @@ class _Wire:
         for doc in mapper.latest_states(store.instance):
             if doc.map_id in mapper.LOCAL_MAPS:
                 continue
-            local = LOCAL_COORDINATES | derive.age_based(registry.load_snapshot(store.instance, doc.map_id, doc.map_hash).coordinates)
+            local = derive.kept_local(registry.load_snapshot(store.instance, doc.map_id, doc.map_hash).coordinates)
             out.append({"map_id": doc.map_id, "map_version": doc.map_version, "map_hash": doc.map_hash.removeprefix("sha256:"),
                         "as_of": _month(doc.as_of), "gaps": sorted(g.coordinate for g in doc.gaps),
                         "coordinates": {c: self.coordinate(v) for c, v in doc.coordinates.items()

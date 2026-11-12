@@ -22,7 +22,7 @@ from plsi import codes, files, keys, paths, references
 from plsi.clock import now
 from plsi.errors import EnvironmentProblem, GateFailed, NetworkError, NotFound, UsageError, ValidationError, violation
 from plsi.files import load_json, sha256_hex
-from plsi.map import mapper, registry
+from plsi.map import derive, mapper, registry
 from plsi.models import CAP_REPLY, parse, sanitize_external
 from plsi.policy.mcp import McpClient, external
 from plsi.policy.models import OracleInput
@@ -42,7 +42,8 @@ MCP_DEADLINE_S = 120.0
 
 def build_outbound(inp: OracleInput) -> str:
     """The prompt alone, or prompt + compact rendering of latest.json coordinates (value or item codes, unit, status,
-    month). A local map (personal_context) never leaves; an item without a code that may leave is only counted."""
+    month). A local map (personal_context) and a kept coordinate (plsi.map.derive.kept_local) never leave; an item
+    without a code that may leave is only counted."""
     prompt, instance, map_id = inp.prompt, inp.instance, inp.map_id
     if not (instance and map_id):
         return prompt
@@ -54,9 +55,12 @@ def build_outbound(inp: OracleInput) -> str:
         raise NotFound(f"no projected state for map {map_id}", code="STATE_NOT_FOUND", hint=f"plsi project --instance {instance} --map {map_id}")
     if not state.verify_hash():
         raise ValidationError("latest.json state_hash does not verify", hint=f"plsi project --instance {instance} --map {map_id}")
+    local = derive.kept_local(registry.load_snapshot(instance, state.map_id, state.map_hash).coordinates)
     lines = [f"State map {state.map_id} v{state.map_version}, as of {state.as_of:%Y-%m}:"]
     declared = registry.declared_codes(instance)
     for cid, cv in sorted(state.coordinates.items()):
+        if cid in local:
+            continue
         if isinstance(cv.value, list):
             shown = [f"{i.code.system}:{i.code.code}" for i in cv.value
                      if i.code and codes.shareable(i.code.system.value, i.code.code, declared)]

@@ -44,6 +44,10 @@ anything one formula cannot do (a file format, a fitted model) is PLSI Engineer'
    kind are the default). `inference_boundaries`: what the map supports (tracking and predictions on the quantity)
    and what it does not (diagnosis, comparing methods or devices, values estimated instead of measured or
    answered); `min_evidence_class_for_actions: hypothesis_only`; `claim_level: designed`.
+   **Values that give the age back stay local.** A value in years (a clock or organ age, an age difference) is kept
+   on this computer by itself; anything else that encodes age (a percentile for age, a pace of aging against age)
+   gets `local_only: true`, so it never goes to the Mothership or an oracle. A user map can never mark a value
+   shareable (`map.user_local_only`).
 
 5. **Write** `<PLSI_HOME>/work/<thread>/user_<topic>.yaml`, shaped like a shipped map (`plsi maps show
    sleep_activity`), with a first comment line saying when the codes were checked. Nothing about the user in it:

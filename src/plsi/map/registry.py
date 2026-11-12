@@ -39,6 +39,9 @@ def _rule_violations(m: MapContract, user: bool, checked: frozenset[DeriveEngine
         out.append(violation("id", "map.user_prefix", f"user map ids must start with {USER_PREFIX}", USER_PREFIX + m.id))
     if user and m.claim_level != ClaimLevel.DESIGNED:
         out.append(violation("claim_level", "map.user_claim_level", "user maps must have claim_level designed", "designed"))
+    out += [violation(f"coordinates.{i}.local_only", "map.user_local_only",
+                      f"{c.id}: a user map may keep a coordinate local, never mark it shareable", "local_only: true")
+            for i, c in enumerate(m.coordinates) if user and c.local_only is False]
     used = {c.derive.engine for c in m.coordinates if c.derive} & checked
     known = {e: fn() for e in used if (fn := derive.ENGINES[e].models)}
     for i, c in enumerate(m.coordinates):

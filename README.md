@@ -143,7 +143,8 @@ its layer or any patching of `plsi`, guard rails rather than a sandbox. Values t
 ## Consent
 
 PLSI collects consent on its question cards (`persona.md`, Consent, batched); standing approvals replace a card until revoked. Joining the Longevity Mothership records the version of `mothership/consent.md` the user saw (`plsi mothership join --consent-version`), and `plsi mothership pack` refuses with `CONSENT_OUTDATED` once that text changes. Outbound oracle text is built in code from the saved state document only (values, item codes and months; never
-`personal_context`) and every text sent to an oracle is kept in `egress/oracles.jsonl` (the instance's, or PLSI_HOME's).
+`personal_context`, and never a coordinate that gives the age back: one in years, derived from the age, or marked
+`local_only: true` in its map, the same rule as the Mothership package) and every text sent to an oracle is kept in `egress/oracles.jsonl` (the instance's, or PLSI_HOME's).
 
 **Longevity Mothership wire.** PLSI, the relay (`plsi refs show longevity_mothership`) and the Mother (Insilico's Grok
 Bot with its own toolbelt and storage) share one contract, kept with the relay and the Mother in

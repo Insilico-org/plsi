@@ -88,6 +88,9 @@ class MapCoordinate(Model):
     predictable: bool = True
     score_window_days: ScoreWindow = ScoreWindow()
     ranges: list[Range] | None = None  # None, not [], so maps without ranges keep their hash
+    # True: never leaves this computer. False: may leave although it is in years (an age at a life event, shipped
+    # maps only). None: the default rule (plsi.map.derive.kept_local). None, not False, so old maps keep their hash.
+    local_only: bool | None = None
     correspondence_type: CorrespondenceType
     sources: list[SourceRef] = []
 
