@@ -5,7 +5,7 @@ kind: plsi_map
 schema_version: 1
 id: cardiometabolic
 title: Cardiometabolic markers
-map_version: 1.3.1
+map_version: 1.3.2
 claim_level: instantiated
 summary: Lipids, apolipoproteins, glycaemia, insulin resistance (HOMA-IR), blood pressure, adiposity and hs-CRP.
 tags: [cardiometabolic, lipids, glycaemia, blood_pressure]
@@ -213,6 +213,10 @@ coordinates:
   - from_unit: mU/L
     factor: 1
     source: {kind: rule, id: 'ucum:mU/L=m[IU]/L', title: 'a hormone reported in WHO international units: mU/L and mIU/L name the same unit'}
+  - from_unit: pmol/L
+    factor: 0.16666666666666666
+    source: {kind: doi, id: 10.1177/1932296818805074, url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6501531/',
+      title: 'Knopp JL et al. 2019. Insulin Units and Conversion Factors: 1 microIU/mL = 6.00 pmol/L for human insulin'}
   correspondence_type: terminology
 - id: sbp
   label: Systolic blood pressure

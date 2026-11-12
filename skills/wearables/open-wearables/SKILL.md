@@ -59,7 +59,9 @@ Two setups:
    running** below says; when its log `/tmp/dockerd.log` names iptables, switch to `iptables-legacy`
    (`update-alternatives --set iptables /usr/sbin/iptables-legacy`). Name every version you installed. Clone the
    guide's repository at a release tag into `~/open-wearables` and use its compose file with the published images.
-   In the backend env file, set `ENVIRONMENT=production`, generate each other value the example says to change (in
+   The **backend env file** is `deploy/.env` with the published images (`deploy/docker-compose.yml`) and
+   `backend/config/.env` with a source build: the one beside the compose file you start. In it, set
+   `ENVIRONMENT=production`, generate each other value the example says to change (in
    place, never printed), and write the sign-in from the environment, never as a command argument:
 
    ```bash
@@ -79,16 +81,20 @@ Two setups:
    `CORS_ORIGINS=["http://localhost:3000"]` and `FRONTEND_URL=http://localhost:3000` in the backend env file. Never
    set the services to start at boot: the server runs only for syncs, and its data stays in its Docker volumes.
 
-4. **Start it for this setup** (this computer): **Docker running** below, then `docker compose up -d` in the compose
+4. **Start it for this setup** (this computer): **Docker running** below, then `$s docker compose up -d` in the compose
    folder; it is up when `curl -fsS http://localhost:8000/openapi.json` succeeds and the portal page loads.
 
    **Docker running.** A computer without systemd does not start Docker by itself; before any `docker compose`:
 
    ```bash
-   docker info >/dev/null 2>&1 || { [ "$(id -u)" = 0 ] && s= || s="sudo -n"
-     nohup $s dockerd >/tmp/dockerd.log 2>&1 &
-     for i in $(seq 30); do docker info >/dev/null 2>&1 && break; sleep 2; done; docker info >/dev/null; }
+   [ "$(id -u)" = 0 ] && s= || s="sudo -n"
+   $s docker info >/dev/null 2>&1 || pgrep -x dockerd >/dev/null || { nohup $s dockerd >/tmp/dockerd.log 2>&1 &
+     for i in $(seq 30); do $s docker info >/dev/null 2>&1 && break; sleep 2; done; }
+   $s docker info >/dev/null
    ```
+
+   A daemon started with sudo has a socket only root can use: run every `docker` and `docker compose` as `$s docker`,
+   and never start a second `dockerd` (a plain `docker info` failing does not mean it is down).
 
 5. **Providers** (this computer). With the user, in this computer's browser (`shared/team` rule 13): open
    `http://localhost:3000`, sign in with secure fill, and the user connects each provider; the portal may ask for the
@@ -102,16 +108,30 @@ Two setups:
    `plsi keys scan` shows a mapping for either, `plsi keys unmap --name <VAR>` and ask for the exact name. Go on once
    `plsi keys status` shows both set.
 
-7. **Test read and connector.** The test read prints only the status code; 200 is connected:
+7. **Test read and connector.** The test read prints only the status code; 200 is connected. It finds both names
+   where `plsi keys status` does (the environment, the repository `.env`, a mapping):
 
    ```bash
-   printf "X-Open-Wearables-API-Key: %s\n" "$OPEN_WEARABLES_API_KEY" | curl -sS -o /dev/null -w "%{http_code}\n" -H @- "$OPEN_WEARABLES_API_URL/api/v1/users"
+   python - <<'PY'
+   import urllib.error, urllib.request
+   from plsi import keys
+   req = urllib.request.Request(keys.require("OPEN_WEARABLES_API_URL").rstrip("/") + "/api/v1/users",
+                                headers={"X-Open-Wearables-API-Key": keys.require("OPEN_WEARABLES_API_KEY")})
+   try:
+       print(urllib.request.urlopen(req).status)
+   except urllib.error.HTTPError as exc:
+       print(exc.code)
+   PY
    ```
 
-   Elsewhere: REST only. This computer: the bundled MCP server runs here and reads both names from the environment;
-   never write them into its `config/.env`. Register `uv run --frozen --directory ~/open-wearables/mcp start` as a
+   The key goes in the `X-Open-Wearables-API-Key` header. The portal's Credentials page says
+   `Authorization: Bearer <key>`, which the server (0.11.0) answers with 401: never switch to it.
+
+   Elsewhere: REST only. This computer: the bundled MCP server runs here and reads both names from the process
+   environment only, never from the repository `.env`: a name `plsi keys status` shows set but `printenv` does not
+   is added again with the secret card, or the connector stays REST. Never write them into its `config/.env`. Register `uv run --frozen --directory ~/open-wearables/mcp start` as a
    stdio MCP server with your own tools if they can; otherwise REST. On this computer, stop the server after the
-   setup (`docker compose stop`); `wearables/import` starts it for each sync.
+   setup (`$s docker compose stop`); `wearables/import` starts it for each sync.
 
 8. **Key refused** (401 or 403 from `wearables/import` or the test read). A new key helps only when the key itself
    is the problem, so check first:
@@ -134,30 +154,37 @@ Two setups:
    `question` for a new key) and adds it with the secret card; once the test read returns 200, delete every other
    copy and correct the setup notes that name the old place.
 
-   **An admin password the user never chose** (generated at install). The server takes `ADMIN_PASSWORD` only at its
-   first start, so it is changed through the server. Step 2 for the sign-in the user chooses, start the server (step
-   4), then once, in one script that prints only status codes, sign in with the old password from the backend env
-   file and set the new one from the environment, with the password-change request `<api>/openapi.json` lists
-   (`shared/team` rule 15, the migration exception):
+   **An admin sign-in the user never chose** (a password generated at install, or the install-time `admin@…`
+   email). The server takes `ADMIN_EMAIL` and `ADMIN_PASSWORD` only at its first start, so both are changed through
+   the server. Step 2 for the sign-in the user chooses, start the server (step 4), then once, in one script that
+   prints only status codes, sign in with the old sign-in from the backend env file and set the new email and
+   password from the environment, with the profile-update and password-change requests `<api>/openapi.json` lists
+   (0.11.0: `PATCH /api/v1/auth/me` with `email`; the password change with `current_password`, `new_password` and
+   `confirm_password`) (`shared/team` rule 15, the migration exception):
 
    ```bash
-   python3 - <backend env file> <password-change path> <<'PY'
+   python - <backend env file> <password-change path> <profile-update path> <<'PY'
    import json, os, re, sys, urllib.parse, urllib.request
-   env, change = sys.argv[1], sys.argv[2]
+   env, change, profile = sys.argv[1:4]
    old = dict(re.findall(r"(?m)^(ADMIN_EMAIL|ADMIN_PASSWORD)=(.*)$", open(env, encoding="utf-8").read()))
+   email, password = os.environ["OPEN_WEARABLES_ADMIN_EMAIL"], os.environ["OPEN_WEARABLES_ADMIN_PASSWORD"]
    api = "http://localhost:8000"
    login = urllib.parse.urlencode({"username": old["ADMIN_EMAIL"], "password": old["ADMIN_PASSWORD"]}).encode()
    token = json.load(urllib.request.urlopen(f"{api}/api/v1/auth/login", login))["access_token"]
-   body = json.dumps({"current_password": old["ADMIN_PASSWORD"],
-                      "new_password": os.environ["OPEN_WEARABLES_ADMIN_PASSWORD"]}).encode()
-   req = urllib.request.Request(api + change, body, method="POST",
-                                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-   print(urllib.request.urlopen(req).status)
+   def send(method, path, body):
+       req = urllib.request.Request(api + path, json.dumps(body).encode(), method=method,
+                                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+       print(path, urllib.request.urlopen(req).status)
+   if email != old["ADMIN_EMAIL"]:
+       send("PATCH", profile, {"email": email})
+   send("POST", change, {"current_password": old["ADMIN_PASSWORD"], "new_password": password,
+                         "confirm_password": password})
    PY
    ```
 
-   The method and field names come from `openapi.json`; change them there, never by trial. A 2xx: write the sign-in
-   into the backend env file as in step 3, so no password the user never chose is left, and sign in to the portal
+   The methods, paths and fields come from `openapi.json` (every field its schema marks required); change them
+   there, never by trial. Both 2xx: write the sign-in into the backend env file as in step 3 (its `ADMIN_EMAIL` must
+   stay equal to the account's email: the server's start-up check depends on it), so no password the user never chose is left, and sign in to the portal
    once with secure fill to see it work. No password-change request, or a refusal: report it as not done, with the
    old setup left running; a new install (its data and provider connections are lost) only on the user's yes.
    Remove any start at boot (an `@reboot` line in `crontab -l`, an enabled service): the server runs only for syncs.

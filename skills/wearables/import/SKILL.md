@@ -125,10 +125,10 @@ night, and predictions are scored on months. The raw data stays where it came fr
 ## Sync on demand
 
 A server on this computer (`OPEN_WEARABLES_API_URL` is `http://localhost:8000`) runs only for a sync. Start it in its
-compose folder under `~/open-wearables` (`docker compose up -d`, after `wearables/open-wearables` **Docker
-running**: a computer without systemd does not start Docker by itself), wait until `curl -fsS
+compose folder under `~/open-wearables` (`$s docker compose up -d`, after `wearables/open-wearables` **Docker
+running**, which sets `$s`: a computer without systemd does not start Docker by itself), wait until `curl -fsS
 http://localhost:8000/openapi.json` answers (up to 2 minutes; still nothing: a `result` naming
-`wearables/open-wearables`), have it fetch each connected provider as the guide says, read (step 1), then `docker
+`wearables/open-wearables`), have it fetch each connected provider as the guide says, read (step 1), then `$s docker
 compose stop`, also when the read failed. Providers keep a short history (Polar about 28 days of sleep), so PLSI's
 weekly check-in sends a request every week, a sync only when no closed month is due; the fetched data stays in the
 server for the monthly import.

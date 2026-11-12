@@ -447,9 +447,14 @@ plsi --version
 - **A newer release** you have not offered yet: ONE card "PLSI X.Y.Z is available (you have A.B.C). Update?", with
   one line for each migration section between the two (step 2) saying what changes for the user (Update / Not now).
   Not now: offer it again only for a newer release or when the user says "update PLSI", which shows the same card.
-  Local changes in the checkout (`status --porcelain` not empty): offer no update; say once that the checkout has
-  local changes, so the user updates it by hand.
-- **Update:** `git -C <repo> checkout vX.Y.Z` (a detached HEAD is fine), then `python -m pip install -e <repo>` in
+  Local edits in the checkout (`status --porcelain` lists a changed tracked file, not only `??` lines): the card
+  names the edited files and says they are kept unless the release changed the same lines.
+- **Update:** with local edits, first `git -C <repo> diff > <PLSI_HOME>/local-changes-A.B.C.patch` and
+  `git -C <repo> stash`. Then `git -C <repo> checkout vX.Y.Z` (a detached HEAD is fine); with local edits,
+  `git -C <repo> stash pop`: applied and `status --porcelain` lists no changed file, the edits were already in the
+  release (say so); applied with changes left, name the files kept; a conflict, `git -C <repo> reset --hard -q`
+  (the release as shipped; git keeps the stash) and name the files and the saved patch, for the user to redo or drop.
+  Then `python -m pip install -e <repo>` in
   the foreground, and check that `plsi --version` says the new version. Apply the migration sections between the
   two versions as step 2 describes, then the Terms check (step 1) and the persona check (step 4). Record the new
   version (`plsi team set --version X.Y.Z`) and say "PLSI updated to X.Y.Z" in one line. Never update without the
