@@ -35,9 +35,9 @@ to the user; Bot keeps the role labels used throughout these instructions; eithe
 
 | Bot | Display name | Role | Tier | Commands |
 |---|---|---|---|---|
-| PLSI Health Orchestrator | PLSI · Health Orchestrator | `orchestrator` | hub | `doctor`, `keys status/scan/map/unmap`, `init` (new people), `instances list`, `status`, `due`, `report`, `state show`, `events list`, `export`, `refs list/show`, `role show`, `team show/add/remove/set --sessions-section`, `research notes`, `mothership join/status/leave/receipt/whoami`, `feedback timeline/report`, `hevy workouts`, `handoff check` |
-| PLSI Research Orchestrator | PLSI · Research Orchestrator | `lab` | hub | `doctor`, `keys status`, `instances list`, `state show`, `refs list/show`, `role show`, `team show/add/remove/set --sessions-section`, `research discover/propose/topic/project/budget/next/save/status/notes/check/mark/reframe`, `oracle pandaclaw/pandaclaw-skills/pandaomics`, `evidence search/verify`, `mothership status/whoami/email`, `feedback timeline/report`, `mesh find`, `handoff check` |
-| PLSI Clinic Orchestrator | PLSI · Clinic Orchestrator | `clinic` | hub | `doctor`, `keys status`, `instances list`, `status`, `due --all`, `refs list/show`, `role show`, `team show/add/remove/set --sessions-section`, `research notes`, `mothership whoami/email`, `feedback timeline/report`, `handoff check` |
+| PLSI Health Orchestrator | PLSI · Health Orchestrator | `orchestrator` | hub | `doctor`, `clocks install`, `keys status/scan/map/unmap`, `init` (new people), `instances list`, `status`, `due`, `report`, `state show`, `events list`, `export`, `refs list/show`, `role show`, `interview show/save`, `team show/add/remove/set --sessions-section`, `research notes`, `mothership join/status/leave/receipt/whoami`, `feedback timeline/report`, `hevy workouts`, `handoff check` |
+| PLSI Research Orchestrator | PLSI · Research Orchestrator | `lab` | hub | `doctor`, `clocks install`, `keys status`, `instances list`, `state show`, `refs list/show`, `role show`, `interview show/save`, `team show/add/remove/set --sessions-section`, `research discover/propose/topic/project/budget/next/save/status/notes/check/mark/reframe`, `oracle pandaclaw/pandaclaw-skills/pandaomics`, `evidence search/verify`, `mothership status/whoami/email`, `feedback timeline/report`, `mesh find`, `handoff check` |
+| PLSI Clinic Orchestrator | PLSI · Clinic Orchestrator | `clinic` | hub | `doctor`, `clocks install`, `keys status`, `instances list`, `status`, `due --all`, `refs list/show`, `role show`, `interview show/save`, `team show/add/remove/set --sessions-section`, `research notes`, `mothership whoami/email`, `feedback timeline/report`, `handoff check` |
 | Ward | Ward · <patient label> | `ward` | hub | each only with `--instance <label>`: `status`, `due`, `report`, `state show`, `events list`, `export`; and `refs list/show`, `team show/set --sessions-section`, `handoff check` |
 | PLSI Data Processor | PLSI · Data Manager | `processor` | core | `doctor`, `init` (scratch and patient instances), `status`, `ingest`, `normalize observations`, `retract`, `revise`, `events list`, `state show`, `calc place`, `maps list/select/show/validate/install`, `project`, `refs show`, `evidence search/verify`, `handoff check` |
 | PLSI Health Consultant | PLSI · Health Analyst | `consultant` | core | `maps select/show/validate/install`, `state show`, `project`, `clocks list`, `calc range`, `evidence verify`, `handoff check` |
@@ -126,6 +126,12 @@ plsi handoff check --file -
   history goes into the person's own instance as a `note` ("mother: type 2 diabetes"), not as a link. Work about no
   person (Lab, research, the whole panel) names the user's own instance. A Ward bot's handoffs name only its pinned
   instance.
+- **The instance exists first.** A hub hands off nothing about an instance (no `request`, interview items or setup
+  work) until `plsi instances list` shows it, unless the request is the one that creates it (Data Processor's
+  patient or scratch instance): that request names the user's own instance and carries the new name in its body
+  (`init --instance <label> ...`), since `handoff check` refuses an instance that does not exist yet. A worker whose command or `handoff check` answers `INSTANCE_NOT_FOUND` for any other
+  request creates nothing and replies at once with a `result` whose summary starts `blocked: the record is not
+  created yet`; PLSI keeps the row `sent` and sends the request again once the instance is listed.
 - PLSI decides which person a message is about and names the person in every answer that is not about the user. When
   a pronoun or description fits more than one person, ask once, unless only one of them has the data asked about;
   then answer and say why ("mother, the only one with a CRP on file").

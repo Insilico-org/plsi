@@ -44,14 +44,17 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    one line that PLSI will offer usage reports and stop. No data kind picked, or "Not now": say "You can join later"
    and stop. Then one single-select card "How should I send it?": Show me each file first / Send each week without
    asking. Never put the send mode on the kinds card. On a re-consent
-   (`CONSENT_OUTDATED`) keep the send mode already chosen and show only the kinds card.
+   (`CONSENT_OUTDATED`: what is shared changed) keep the send mode already chosen and show only the kinds card. A
+   wording-only change (`CONSENT_REWORDED`) never gets the kinds card: step 3.
 
 2. **Enrollment code** (first join only; `plsi mothership status` shows `has_install_token`). Right after the
    send-mode card, never later and never folded into another card: one message with the join page as a link on its own
    line ("Open <join_page from status>, press Get enrollment code, then paste the code below. It works once and
-   expires in about 15 minutes.") and ONE card "Your enrollment code" with a text field for the code and the option
-   "Skip: join later". Wait for it: do not go on until the user pastes a code or picks Skip. Skip: say "You can
-   join any time: say 'join the Mothership'" and stop. The code may be pasted in chat too; the permanent install
+   expires in about 15 minutes.") and ONE card "Your enrollment code (paste it within 15 minutes of getting it)" with
+   a text field for the code and the option "Skip: join later". Wait for it: do not go on until the user pastes a
+   code or picks Skip. Skip: say "You can join any time: say 'join the Mothership'" and stop. A code that comes back
+   when the card has sat over 15 minutes is likely expired: try it anyway (below), and on `ENROLL_FAILED` offer a
+   fresh code once. The code may be pasted in chat too; the permanent install
    token never appears anywhere. Then, at once:
 
    ```bash
@@ -60,8 +63,10 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
 
    with one `--kind` per picked item (Health states `states`, Life story `life_events`, Prediction scores `scores`)
    and the version from the `<!-- plsi-mothership-consent: X.Y.Z -->` marker of the
-   text you showed; omit `--code` when the install already has a token. `ENROLL_FAILED` (used or expired code): show the
-   code card once more. Remember the send mode; with "Send each week without asking", the user's join is the
+   text you showed; omit `--code` when the install already has a token. `ENROLL_FAILED` (used or expired code): once,
+   one message "That code has expired or was used (codes last about 15 minutes). Open <join_page> for a fresh one and
+   paste it here." with the same code card. Failing again: say "You can join any time: say 'join the Mothership'"
+   and stop. Remember the send mode; with "Send each week without asking", the user's join is the
    standing approval to send each week. Create an ENABLED weekly routine **"PLSI Mothership"** (step 3). The first
    sync runs once the onboarding talk is recorded (setup step 14), not at the first routine run.
 
@@ -75,8 +80,17 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    ```
 
    (`receipt` only when `receipts_pending` is not 0; a `done` one is not said, a `refused` one goes in the result
-   line). Not enrolled: stop. A `CONSENT_OUTDATED` error means the text changed: show the new text with step 1's
-   card once, and send nothing until the user answers. A send card of an earlier run still unanswered: this run does
+   line). Not enrolled: stop. A `CONSENT_OUTDATED` error means what is shared changed: show the new text with step
+   1's card once, and send nothing until the user answers. `CONSENT_REWORDED` (also `consent_reworded: true` in
+   status) means only the wording changed: ONE card "PLSI's consent text was updated; what you share is unchanged.
+   Accept?" (Accept / Not now) with `mothership/consent.md` attached. Accept: at once, with the new marker and no
+   `--kind` (the kinds stay):
+
+   ```bash
+   plsi mothership join --instance <instance> --consent-version <marker>
+   ```
+
+   and go on with this run's send. Not now: send nothing; the next weekly run shows the card once more. A send card of an earlier run still unanswered: this run does
    nothing more (that card stays the one open card, `orchestrator/conduct`); an answer on it goes on as below.
 
    Every bot-to-bot step of the send runs in the session room **"Mothership sync"** (`shared/sessions`): you, Data
@@ -90,14 +104,22 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    ledger for what bears on the user's plan (`explorer/mothership`, Receive). Data Controller posts `cleared` or
    `rejected`; the `package_hash`, and after a send the relay's reply and ticket, are in its `controller-check.md`,
    never in a post. Close the round before any card (`shared/sessions`, The close). Then:
-   - `rejected` (`GATE_FAILED` or a finding): send nothing; the result line says which rule failed (the
+   - `rejected` (`GATE_FAILED` or a reject finding): send nothing; the result line says which rule failed (the
      violations, never the values).
+   - `omit` findings (an item that singles the user out and cannot be coarsened): the rest of the week can still go.
+     ONE card naming each item in plain words, never its value: "1 condition is too rare to share. Leave it out and
+     send the rest? It stays out of later packages too." (Leave it out / Don't send this week). Leave it out: a
+     new round whose brief relays the user's choice and the finding paths; Data Controller packs again with one
+     `--omit <path>` each (`controller/egress`, step 0) and checks; then as below, the standing approval or the send
+     card. Don't send this week: nothing goes; the next run finds it again.
    - "Nothing new" (Data Controller's check said `nothing_new`: the same data was stored or is pending): send nothing; `send`
      refuses it anyway (`ALREADY_STORED`, `ALREADY_SENT`). Never resend to get a missing receipt: run `receipt`.
    - "Send each week without asking" mode, cleared with no findings: Data Controller sent it in the room before
      its post.
    - "Show me each file first" mode, or cleared with `coarsen` findings in either mode: ONE message with the counts
-     and the file attached and ONE card (Send / Don't send). Send: open a new round in the room whose brief relays
+     and the file attached and ONE card (Send / Don't send). The package's `left_out` (Data Controller's post) goes
+     in that message and in the result line in plain words: "left out: 1 condition, too rare to share" (an item
+     left out in an earlier week: "left out as you chose: 1 condition"). Send: open a new round in the room whose brief relays
      the user's approval of the file checked in `controller-check.md` (never the hash itself: Data Controller sends
      with the `package_hash` saved there); Data Controller sends and posts; close the round (without the room: a
      new `request` to Data Controller naming the approval and the hash).

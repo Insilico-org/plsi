@@ -19,7 +19,7 @@ from plsi.life.normalize import known_unit
 from plsi.map import derive, mapper, registry
 from plsi.map.models import CoordinateValue
 from plsi.models import Code
-from plsi.mothership import gate
+from plsi.mothership import gate, omitted
 from plsi.mothership.content import SCORE_KEYS
 from plsi.mothership.enroll import active, outbox
 from plsi.mothership.relay import address, header
@@ -88,11 +88,13 @@ class _Wire:
             if doc.map_id in mapper.LOCAL_MAPS:
                 continue
             local = derive.kept_local(registry.load_snapshot(store.instance, doc.map_id, doc.map_hash).coordinates)
-            out.append({"map_id": doc.map_id, "map_version": doc.map_version, "map_hash": doc.map_hash.removeprefix("sha256:"),
-                        "as_of": _month(doc.as_of), "gaps": sorted(g.coordinate for g in doc.gaps),
-                        "coordinates": {c: self.coordinate(v) for c, v in doc.coordinates.items()
-                                        if v.value is not None and c not in local
-                                        and (isinstance(v.value, list) or self.unit(v.unit))}})
+            gaps = sorted(g.coordinate for g in doc.gaps if g.coordinate not in local)
+            coordinates = {c: self.coordinate(v) for c, v in doc.coordinates.items()
+                           if v.value is not None and c not in local and (isinstance(v.value, list) or self.unit(v.unit))}
+            if coordinates or gaps:  # a map whose every coordinate stays local is not named either
+                out.append({"map_id": doc.map_id, "map_version": doc.map_version,
+                            "map_hash": doc.map_hash.removeprefix("sha256:"), "as_of": _month(doc.as_of), "gaps": gaps,
+                            "coordinates": coordinates})
         return out
 
     def life_events(self, store: EventStore) -> list[dict[str, Any]]:
@@ -129,8 +131,10 @@ def _age_band(birth_year: int | None, age_group: str | None) -> str | None:
     return f"{low}-{low + 4}"
 
 
-def pack(instance: str, out: str | None = None) -> dict[str, Any]:
-    """`mothership pack`: the deidentified package of the consented kinds, gate-checked; nothing is sent."""
+def pack(instance: str, out: str | None = None, omit: list[str] | None = None) -> dict[str, Any]:
+    """`mothership pack`: the deidentified package of the consented kinds, gate-checked; nothing is sent. The items
+    the user left out stay out (plsi.mothership.omitted); `omit` adds the items at these paths of the package as it
+    is packed now, and remembers them."""
     record = active(instance)
     store = EventStore(instance)
     kinds = set(record["kinds"])
@@ -143,9 +147,16 @@ def pack(instance: str, out: str | None = None) -> dict[str, Any]:
     build = {ContributionKind.STATES: wire.states, ContributionKind.LIFE_EVENTS: wire.life_events,
              ContributionKind.SCORES: _scores}
     doc |= {kind.value: section(store) for kind, section in build.items() if kind in kinds}
+    keys = omitted.remembered(instance)
+    left = omitted.apply(doc, keys)
+    new = [omitted.key(doc, at) for at in omit or []]  # every path read before any item goes
+    for label, n in omitted.apply(doc, new).items():
+        left[label] = left.get(label, 0) + n
     gate.require(doc, instance, what="package")
+    if new:
+        omitted.remember(instance, keys + new)
     path = Path(out) if out else outbox(instance, "contribution")
     files.atomic_write_json(path, doc)
     counts = {"states": len(doc.get("states", [])), "life_events": len(doc.get("life_events", [])),
               "scored_predictions": doc.get("scores", {}).get("overall", {}).get("n_scored", 0)}
-    return {"file": str(path), "to": address(), "package_hash": files.hash_json(doc), "counts": counts}
+    return {"file": str(path), "to": address(), "package_hash": files.hash_json(doc), "counts": counts, "left_out": left}

@@ -5,7 +5,7 @@ This file is a first-run instruction. Follow every step, in order, as one contin
 - **Never skip a setup step.** A flow the user starts during setup (a plan, a question) runs alongside; setup still
   goes on with every remaining step, the Mothership card (step 6.7) included.
 - **Never end your turn mid-setup.** After each step (including creating a routine or waiting for an install), go straight to the next one. Stop only to wait for the user's answer to a question, then continue.
-- **Ask once, one topic at a time.** Setup questions come only in step 6: one topic per step 6.1-6.7, one card (or chat question) per message; steps 7-13 apply the answers without asking again. The only other asks are the Terms card (step 1) and the sidebar sections (steps 5 and 7).
+- **Ask once, one topic at a time.** Setup questions come only in step 6: one topic per step 6.1-6.7, one card (or chat question) per message; steps 7-13 apply the answers without asking again. The only other ask is the Terms card (step 1); sidebar sections never block (one optional line in step 7).
 - Keep the user posted with one short line at a few milestones only (after the welcome in step 0): team created (after step 7), choices applied (after step 10) and done ("PLSI setup complete"). No line per step.
 - Setup is complete only after step 14; then say "PLSI setup complete".
 - **Time the stages** for the usage report (`orchestrator/feedback`): at the start of each stage below run
@@ -54,9 +54,28 @@ Clone the repo from `<PLSI_REPO_URL>` (or use an existing local checkout), then:
 
 ```bash
 python -m pip install -e <repo>
+plsi --version
 ```
 
-Run it in the foreground and wait until it exits (a minute or two), then continue with step 2 in the same turn.
+Run it in the foreground and wait until it exits (a minute or two; `python3` where there is no `python`). Fix these
+without asking:
+
+- pip refuses with "externally-managed-environment" (a system Python): install into a virtual environment and put
+  its `plsi` on PATH (no `venv` module: `sudo apt-get install python3-venv` first):
+
+  ```bash
+  python3 -m venv ~/.plsi-venv
+  ~/.plsi-venv/bin/python -m pip install -e <repo>
+  mkdir -p ~/.local/bin && ln -sf ~/.plsi-venv/bin/plsi ~/.local/bin/plsi
+  ```
+
+  From then on "the Python of step 1" is `~/.plsi-venv/bin/python`.
+- `plsi --version` says command not found (the scripts folder is not on PATH): try `python -m plsi --version`
+  (after a venv install `~/.plsi-venv/bin/plsi --version`). Use the one that works wherever these steps say `plsi`,
+  remember it permanently ("PLSI command: <command>"), and in every first message (steps 5 and 7) write "`plsi` is
+  installed on this computer (run it as `<command>`)".
+
+Then continue with step 2 in the same turn.
 
 **Terms.** Unless `terms_accepted` in `plsi team show` (an install from before 0.3.0 has no team file yet: the
 "Terms accepted" you remember) equals the `<!-- plsi-legal: … -->` marker of `<repo>/legal/TERMS.md`, send ONE card "Terms of Service" with `legal/TERMS.md` and `legal/PRIVACY.md` as chat
@@ -124,15 +143,12 @@ description and avatar again from that row, at once.
 
 ## 5. Create the core team
 
-**The section first.** Step 2 found no **PLSI Workers**: create no bot until it exists, asking as `shared/hub`
-(Sidebar sections, A missing section) says, with the message "Before I create your team, please add a section named
-exactly PLSI Workers in Grok's side menu, so its bots stay out of your way."
-
 Create the core workers yourself, as for any teammate: every row of the roster table in
 `<repo>/skills/shared/team/SKILL.md` with Tier `core`. For each, set the name (column Display name) and the
 description (its Description in `shared/hub`, Profiles, then "Works only on handoffs from the PLSI hubs and replies only to the hub that
-sent the request; never messages the user."); its skills folder is `skills/<Role>/`. Create it in the sidebar section **PLSI Workers** (unassigned after a Skip; a collapsible
-category in Grok's side menu, not a group chat; the hubs, you included, stay outside it).
+sent the request; never messages the user."); its skills folder is `skills/<Role>/`. Create it in the sidebar section **PLSI Workers** when it exists, else unassigned: never wait for
+a section (`shared/hub`, Sidebar sections; a collapsible category in Grok's side menu, not a group chat; the hubs,
+you included, stay outside it).
 
 For a new worker, send the complete message below as its first direct message, with `<name>` from Display name
 and `<opening>` from its Opening in `shared/hub` (Profiles), unchanged. The opening lines explain its job when the user opens its chat;
@@ -141,9 +157,8 @@ instructions field). `<shape>` comes from Tier: `core` `square`, `recommended` o
 `physician` `heart`, `researcher` `capsule`.
 
 An existing Bot found in step 2 is updated in place, with its description, as `shared/hub` (Names and opening
-messages) says; use the chosen name. You cannot move a bot, so for the core bots found in step 2 ask here, in one line
-naming them, that the user drag any that are not in **PLSI Workers** yet into it (specialists and section bots found
-earlier: step 7). Record every bot in the team file as soon as it is created or found, here and in step 7 and later:
+messages) says; use the chosen name. You cannot move a bot: core bots found in step 2 outside **PLSI Workers** are named in
+step 7's closing line. Record every bot in the team file as soon as it is created or found, here and in step 7 and later:
 `plsi team add --role <slug> --display-name "<chosen name>" --hub <your slug>` (a bot the user deleted: `plsi team
 remove --display-name "<name>"`). Keep each bot's last introduction in your permanent memory.
 
@@ -177,19 +192,24 @@ answered or dismissed card is never the end of a turn while a step is left, and 
 No other text in between (no "Got it", "saved" or
 "next is …" lines: the answered card shows the answer). Skip a step that does not apply. Apply the answers in steps
 7-13 without asking again. An answer applies only to its own card's options: the team changes only on the
-specialists card (step 6.4) or when the user names a bot to add or remove. Every multi-select card in this step except the deletion card and the Mothership card
-ends with "All of the above" and then "None of these": "All of the above" selects every option offered on that card.
+specialists form (step 6.4) or when the user names a bot to add or remove. Every multi-select card in this step except the deletion card and the Mothership card
+ends with "All of the above" and then "None of these": "All of the above" selects every option offered on that card
+(on a form, on that page). Nothing can be preselected: the user ticks what they want, and a recommended option comes
+first, marked "(recommended)". A card with more than six options, the catch-alls counted (instances, other bots or
+secrets included), becomes a form of 2-8 pages of at most six options each, never shortened
+(`orchestrator/conduct`, More than six options).
 
 1. **Your earlier data** (only if step 2 found instances other than `sample`, or other Grok Bots). Card "Which one is you?" (only with such instances): one option
    per non-sample instance, labelled with its facts ("me: M, born 1995, 80 observations, last 2026-10-20"), plus
    "None of these: start fresh". Then, only if other instances remain (samples included), card "Delete the others
-   for good? This cannot be undone." (multi-select, none preselected): one option per remaining instance, plus
-   "Export them first" and "None of these". The card "Bring in what your other bots know about your health?" (only if
-   step 2 found other Grok Bots; multi-select, all preselected: one option per bot, plus "All of the above" and "None
+   for good? This cannot be undone." (multi-select): one option per remaining instance, plus
+   "Export them first" and "None of these" (as a form: "Export them first" on the first page only). The card "Bring in what your other bots know about your health?" (only if
+   step 2 found other Grok Bots; multi-select: one option per bot, plus "All of the above" and "None
    of these") comes in step 6.3, right after the role, and only when PLSI is for the user's own health.
 2. **How to set up.** Card "How shall we do the setup?" (intro: a short talk about you, then a few choices):
    "Talk by voice (recommended)" / "Here in chat". Voice: keep "Setup: by voice, next step 6.3" in your permanent
-   memory, updated after every answered step until step 14, and say: "Switch on voice mode and say
+   memory, updated after every answered step until step 14 (resuming from it, in a new chat or after a dropped call:
+   run `plsi interview show` first and ask only what is `missing`; never a second full interview), and say: "Switch on voice mode and say
    anything; the voice assistant will ask the questions below. What we don't settle on the call comes as a card
    here afterwards.",
    with the interview plan of `orchestrator/talk`, Voice calls, in the same message. The interview and the easy
@@ -202,7 +222,9 @@ ends with "All of the above" and then "None of these": "All of the above" select
    Male / Other / Prefer not to say) with the plain chat question "What is your birth year (e.g. 1980)? You can also
    leave it out.", asked once; by voice they are spoken questions, and the role card and the "Did I get this
    right?" card come in the chat after the call.
-   An instance picked in 6.1 that has sex and birth year skips those.
+   An instance picked in 6.1 that has sex and birth year skips those. Before asking, run `plsi interview show` and
+   ask only the `missing` topics; save each answer as it comes (`plsi interview save`; `orchestrator/talk`,
+   Progress), the own-health card as `--topic own_health`.
    A physician or researcher gets one card right after the role, before any personal question: "Use PLSI for your
    own health too?" (intro: "As a <longevity physician / researcher>, PLSI can also keep your own health record, or
    work only on your <patients / research>.") with "Only my patients" (physician) or "Only my research"
@@ -222,7 +244,7 @@ ends with "All of the above" and then "None of these": "All of the above" select
      plsi team add --role <orchestrator|lab|clinic> --display-name "<your name>"
      ```
 
-     Everyone gets the core team; the role adds its section in step 7 and changes which specialists are preselected
+     Everyone gets the core team; the role adds its section in step 7 and changes which specialists are recommended
      in step 6.4. For a physician or researcher, send the role's lines in one message:
      - **Longevity physician:** you talk to me, PLSI · Clinic Orchestrator, about the panel, and when you want to work
        on one patient, I open their own Ward bot (section **Ward**), where you work on that patient. The section **PLSI Clinic** keeps a
@@ -240,50 +262,64 @@ ends with "All of the above" and then "None of these": "All of the above" select
        necessary, by invitation; the token with Grok's secret card in step 6.6, never in chat).
    - Create or pick the user's instance now (step 9), so the interview and the Mothership join have somewhere to
      go, and close the interview there (`orchestrator/talk` step 3; own health off: nothing to close).
-4. **Specialists.** Card "Which specialists do you want?" (multi-select; intro: the core team is always on, each
-   specialist adds one capability and can be added or removed later). One option per roster row with Tier
-   `recommended` (preselected, first) or `optional`: its Display name and Description; plus "All of the above" and
-   "None of these". A specialist found in step 2 is preselected too, so are the ones the interview points to
-   (`orchestrator/talk`, Onboarding interview), and these by role (step 6.3): Longevity physician: PLSI · Care
-   Navigator, PLSI · Trial Scout; Pro researcher: PLSI · Biotech Analyst. Unless you are the Research Orchestrator,
-   the card also offers PLSI · Research Orchestrator with its Description (not preselected): picking it turns research
-   on, so it is created as a hub of its own in step 7. Choosing PLSI · Research Curator turns the digest on (step 11);
-   the user can later say "digest monthly". **Own health off** (step 6.3): offer only the specialists that work
-   without the user's own record, so never PLSI · Device Technician, PLSI · Nutritionist, PLSI · Longevity Coach, PLSI
-   · Sleep Coach, PLSI · Biohacker, PLSI · Care Navigator or PLSI · Trial Scout; the recommended option names only
-   what is preselected. Pro researcher: PLSI · Biotech Analyst and PLSI · Research Curator (research notes to the
-   Mothership) preselected, PLSI · Systems Engineer and PLSI · Science Writer optional. Longevity physician: none
-   preselected (PLSI Clinic covers the patients); PLSI · Research Curator, PLSI · Biotech Analyst, PLSI · Research
-   Orchestrator, PLSI · Systems Engineer and PLSI · Science Writer optional.
-5. **Recommended extras.** Card "Which extras should I turn on?" (multi-select, all four preselected). The extras
-   are the options themselves, each named in full, so the card lists them even where Grok drops the intro:
+4. **Specialists.** Form "Which specialists do you want?" (intro: the core team is always on, each specialist adds
+   one capability and can be added or removed later): three multi-select pages, each option a specialist's Display
+   name and Description, each page ending with "All of the above" and "None of these":
+   - **Body and daily life:** PLSI · Device Technician, PLSI · Nutritionist, PLSI · Longevity Coach, PLSI · Sleep Coach.
+   - **Care, experiments and tools:** PLSI · Care Navigator, PLSI · Trial Scout, PLSI · Biohacker, PLSI · Systems
+     Engineer.
+   - **Research and writing:** PLSI · Research Curator, PLSI · Biotech Analyst, PLSI · Science Writer and, unless you
+     are the Research Orchestrator, PLSI · Research Orchestrator (never recommended): picking it turns research on,
+     so it is created as a hub of its own in step 7.
+
+   Marked "(recommended)" and first on their page: the roster rows with Tier `recommended`, a specialist found in
+   step 2, the ones the interview points to (`orchestrator/talk`, Onboarding interview), and these by role (step
+   6.3): Longevity physician: PLSI · Care Navigator, PLSI · Trial Scout; Pro researcher: PLSI · Biotech Analyst.
+   Choosing PLSI · Research Curator turns the digest on (step 11); the user can later say "digest monthly". **Own
+   health off** (step 6.3): offer only the specialists that work without the user's own record, so never PLSI ·
+   Device Technician, PLSI · Nutritionist, PLSI · Longevity Coach, PLSI · Sleep Coach, PLSI · Biohacker, PLSI · Care
+   Navigator or PLSI · Trial Scout; the empty page is dropped, and a page with one option has no "All of the
+   above". Pro researcher: PLSI · Biotech Analyst and PLSI · Research Curator (research notes to the Mothership)
+   recommended, PLSI · Systems Engineer and PLSI · Science Writer not. Longevity physician: none recommended (PLSI
+   Clinic covers the patients); PLSI · Research Curator, PLSI · Biotech Analyst, PLSI · Research Orchestrator, PLSI ·
+   Systems Engineer and PLSI · Science Writer offered. Then save the picks: `plsi interview save --topic specialists
+   --answer "<the picks>"`.
+5. **Recommended extras.** Card "Which extras should I turn on?" (multi-select; nothing is preselected, the user
+   ticks the extras they want). The extras are the options themselves, each named in full, so the card lists them
+   even where Grok drops the intro; the first four are recommended:
    "Evidence reviews from Evipedia" (step 8) / "At most one tip a day" (step 13) / "Second opinions from an outside
    AI model, asking me each time (your data goes without your name)" / "A weekly talk with me, by voice or text"
    (step 10) / "Daily research with usage you don't spend" (only with research on: you are the Research
-   Orchestrator, or it was picked in step 6.4; not preselected; step 11) / "All of the above" / "None of these". Keep the extras choice in your permanent memory, never as a record or a file. An unselected extra is off;
+   Orchestrator, or it was picked in step 6.4; not recommended; step 11) / "All of the above" / "None of these".
+   With research on and own health on that is seven options, so it is a form of two pages, each ending with "All
+   of the above" and "None of these": **Everyday help** (the tip, the weekly talk) and **Evidence and research**
+   (Evipedia, second opinions, daily research). Keep the extras choice in your permanent memory, never as a record or a file. An unselected extra is off;
    an unselected second-opinion option means oracles "never". Store the oracle answer as a standing approval; for
    "ask each time" PLSI puts the oracle consent in the thread's first card. The user can later say "tips off" or
-   "always allow second opinions".
-6. **Tools and keys.** Card "Connect extra tools?" (multi-select, every option by name, one short line each, then "All of the above" and "None of these"; a row marked
-   "with <bot>" is offered only if that specialist was chosen in step 6.4 or is in the user's role section):
+   "always allow second opinions". Then save the picks: `plsi interview save --topic extras --answer "<the picks>"`.
+6. **Tools and keys.** Form "Connect extra tools?" (every option by name, one short line each): one multi-select
+   page per Page in the table, in its order, each ending with "All of the above" and "None of these"; a row marked
+   "with <bot>" is offered only if that specialist was chosen in step 6.4 or is in the user's role section. A page
+   left empty is dropped and a page with one option has no "All of the above"; when what is left fits six options
+   in all, the catch-alls counted, it is one card instead:
 
-| Option | Line on the card | Setup |
-|---|---|---|
-| Methylation clocks | read DNA-methylation files | `python -m pip install -e "<repo>[clocks]"` |
-| PubMed key | faster literature search | `NCBI_API_KEY`, `NCBI_EMAIL` |
-| openFDA key | more drug-safety lookups | `OPENFDA_API_KEY` |
-| PandaOmics Agent | Insilico bioinformatics agent | `PANDACLAW_BEARER_TOKEN` (optional `PANDACLAW_MCP_URL`) |
-| PandaOmics | Insilico target discovery | `PANDAOMICS_BEARER_TOKEN` (optional `PANDAOMICS_MCP_URL`) |
-| L-LLM | Insilico longevity model for research and targets | Insilico's playground with the bot's own e-mail sign-in (`shared/l-llm`); picked: a standing approval for topic asks, and the first sign-in now |
-| Wearables (Open Wearables, with Wearables) | import sleep and activity | the user's own Open Wearables server, set up by PLSI Wearables (`wearables/open-wearables`); `OPEN_WEARABLES_API_URL`, `OPEN_WEARABLES_API_KEY` (`plsi refs show open_wearables`) |
-| Hevy (with Wearables) | your workout log: Coach plans the next session from it and puts it in Hevy on your approval | Hevy Pro; the key from https://hevy.com/settings?developer as `HEVY_API_KEY` with the secret card; PLSI Wearables walks the user through it (`wearables/hevy`) |
-| Apple Health (with Wearables) | steps, sleep, heart rate, HRV and workouts from an iPhone or Apple Watch | the free P.R.O. iPhone app, added in Grok as a custom connector (`api_base` of `plsi refs show pro_app`) with a code from the app; no key (`wearables/apple-health`) |
-| Google Health (with Wearables or Nutritionist) | steps, sleep, heart rate, HRV and nutrition from Google Health | `GOOGLE_HEALTH_CLIENT_ID`, `GOOGLE_HEALTH_CLIENT_SECRET`, `GOOGLE_HEALTH_REFRESH_TOKEN`; PLSI Wearables walks the user through it (`wearables/google-health`), or PLSI Nutritionist (`nutritionist/food-log`) when only Nutritionist is on the team |
-| Patient Drive folders (with PLSI Panel) | patients send you files and get reports through Google Drive | an existing Google service account or Drive connector first, else a new service account on a Workspace shared drive (`PLSI_DRIVE_CREDENTIALS`, `PLSI_CLINIC_DRIVE`; `python -m pip install -e "<repo>[drive]"`); PLSI Panel walks the physician through it (`panel/clinic` step 1) |
-| Mothership professional access (with PLSI Liaison or PLSI Cohort Analyst) | your invited physician or researcher access | `MOTHERSHIP_PROFESSIONAL_TOKEN`; then `plsi mothership whoami` (`orchestrator/mothership` step 6) |
-| FatSecret (with Nutritionist) | import your food diary | `FATSECRET_CONSUMER_KEY`, `FATSECRET_CONSUMER_SECRET`, `FATSECRET_ACCESS_TOKEN`, `FATSECRET_ACCESS_SECRET`; PLSI Nutritionist walks the user through it (`nutritionist/food-log`) |
+| Page | Option | Line on the card | Setup |
+|---|---|---|---|
+| Literature and drugs | PubMed key | faster literature search | `NCBI_API_KEY`, `NCBI_EMAIL` |
+| Literature and drugs | openFDA key | more drug-safety lookups | `OPENFDA_API_KEY` |
+| Insilico tools | PandaOmics Agent | Insilico bioinformatics agent | `PANDACLAW_BEARER_TOKEN` (optional `PANDACLAW_MCP_URL`) |
+| Insilico tools | PandaOmics | Insilico target discovery | `PANDAOMICS_BEARER_TOKEN` (optional `PANDAOMICS_MCP_URL`) |
+| Insilico tools | L-LLM | Insilico longevity model for research and targets | Insilico's playground with the bot's own e-mail sign-in (`shared/l-llm`); picked: a standing approval for topic asks, and the first sign-in now |
+| Devices and apps | Wearables (Open Wearables, with Wearables) | import sleep and activity | the user's own Open Wearables server, set up by PLSI Wearables (`wearables/open-wearables`); `OPEN_WEARABLES_API_URL`, `OPEN_WEARABLES_API_KEY` (`plsi refs show open_wearables`) |
+| Devices and apps | Apple Health (with Wearables) | steps, sleep, heart rate, HRV and workouts from an iPhone or Apple Watch | the free P.R.O. iPhone app, added in Grok as a custom connector (`api_base` of `plsi refs show pro_app`) with a code from the app; no key (`wearables/apple-health`) |
+| Devices and apps | Google Health (with Wearables or Nutritionist) | steps, sleep, heart rate, HRV and nutrition from Google Health | `GOOGLE_HEALTH_CLIENT_ID`, `GOOGLE_HEALTH_CLIENT_SECRET`, `GOOGLE_HEALTH_REFRESH_TOKEN`; PLSI Wearables walks the user through it (`wearables/google-health`), or PLSI Nutritionist (`nutritionist/food-log`) when only Nutritionist is on the team |
+| Devices and apps | Hevy (with Wearables) | your workout log: Coach plans the next session from it and puts it in Hevy on your approval | Hevy Pro; the key from https://hevy.com/settings?developer as `HEVY_API_KEY` with the secret card; PLSI Wearables walks the user through it (`wearables/hevy`) |
+| Data and access | Methylation clocks | read DNA-methylation files | `plsi clocks install`, in the foreground: it installs only the clocks packages, never PLSI itself; a failure returns one cause and next step: say it in one line, the clocks stay off, and setup goes on |
+| Data and access | FatSecret (with Nutritionist) | import your food diary | `FATSECRET_CONSUMER_KEY`, `FATSECRET_CONSUMER_SECRET`, `FATSECRET_ACCESS_TOKEN`, `FATSECRET_ACCESS_SECRET`; PLSI Nutritionist walks the user through it (`nutritionist/food-log`) |
+| Data and access | Patient Drive folders (with PLSI Panel) | patients send you files and get reports through Google Drive | an existing Google service account or Drive connector first, else a new service account on a Workspace shared drive (`PLSI_DRIVE_CREDENTIALS`, `PLSI_CLINIC_DRIVE`; with the Python of step 1: `<python> -m pip install -e "<repo>[drive]"`); PLSI Panel walks the physician through it (`panel/clinic` step 1) |
+| Data and access | Mothership professional access (with PLSI Liaison or PLSI Cohort Analyst) | your invited physician or researcher access | `MOTHERSHIP_PROFESSIONAL_TOKEN`; then `plsi mothership whoami` (`orchestrator/mothership` step 6) |
 
-   Before the card, find keys the user already has under other names (other bots, earlier setups):
+   Before the form, find keys the user already has under other names (other bots, earlier setups):
 
    ```bash
    plsi keys scan
@@ -316,11 +352,11 @@ ends with "All of the above" and then "None of these": "All of the above" select
 ## 7. Create the specialists, the role section and the other hubs
 
 Create each specialist chosen in step 6.4 exactly as in step 5: Display name and Description from its roster row, in the
-section **PLSI Workers**, the same complete first message, an existing Bot updated rather than created again; record
+section **PLSI Workers** when it exists, the same complete first message, an existing Bot updated rather than created again; record
 it with `plsi team add`. Nothing chosen: create none. Then, for the role from step 6.3, create every roster row
 whose Tier equals it (`physician` or `researcher`) the same way, in its own sidebar section: **PLSI Clinic** for a
 physician, **PLSI Lab** for a pro researcher (collapsible categories like PLSI Workers, not group chats; the hubs
-stay outside them). Missing: the same message and card as in step 5, with that name, before its first bot. An individual gets no section. Check all their `result`s with the core team's before step 14.
+stay outside them). A missing section never waits: its bots are created unassigned. An individual gets no section. Check all their `result`s with the core team's before step 14.
 
 **The other hubs.** Only the primary hub creates hubs. Create, outside every section (each is the user's own chat):
 
@@ -354,15 +390,17 @@ Record it with `plsi team add --role <slug> --display-name "<name>" --hub <your 
 its notifications stay on. Its routines come in steps 10-12 (step 15). Check its `result` with the workers' before
 step 14.
 
-Then turn off **Notifications** of every bot in **PLSI Workers** and in the role's section yourself, in Grok's bot
+Then turn off **Notifications** of every worker and section bot yourself (in their section or not), in Grok's bot
 settings, one by one (never a hub or a Ward bot: those talk to the user); their work stays readable in their own
 chats, but only the hubs reach the user. A bot whose notifications you cannot change goes in the next line for the
-user to do (bot details, Notifications). Then ask the user, in one line, to collapse the sections in the side menu,
-and in the same line name the chosen specialists and section bots found in
-step 2 that are not in their section yet (specialists **PLSI Workers**, the role's bots **PLSI Clinic** or **PLSI
-Lab**) and ask the user to drag each there, and name each other hub created, as the chat for its use. Also tell them that when Grok first asks to let PLSI save a routine, "Always allow" stops the
-prompt; PLSI uses short one-time checks while a thread is open. The section **PLSI Sessions** and its mute line are
-asked when the first session room opens (`shared/sessions`, The section), not here.
+user to do (bot details, Notifications). Then send ONE line that names each other hub created, as the chat for its
+use, and, unless you remember "Sidebar line: sent", adds the optional sections line of `shared/hub` (Sidebar
+sections): the existing sections can be collapsed, each missing one (**PLSI Workers**, and **PLSI Clinic** or
+**PLSI Lab** for the role) can be added with that exact name, and the bots outside their section (name them, those
+found in step 2 included) can be dragged into it. Then remember permanently "Sidebar line: sent"; it is never sent
+again. Also tell them that when Grok first asks to let PLSI save a routine, "Always allow" stops the
+prompt; PLSI uses short one-time checks while a thread is open. The section **PLSI Sessions** and its line come
+when the first session room opens (`shared/sessions`, The section), not here.
 
 ## 8. Evipedia connector
 
@@ -454,7 +492,7 @@ plsi --version
   `git -C <repo> stash pop`: applied and `status --porcelain` lists no changed file, the edits were already in the
   release (say so); applied with changes left, name the files kept; a conflict, `git -C <repo> reset --hard -q`
   (the release as shipped; git keeps the stash) and name the files and the saved patch, for the user to redo or drop.
-  Then `python -m pip install -e <repo>` in
+  Then `python -m pip install -e <repo>` with the Python of step 1, in
   the foreground, and check that `plsi --version` says the new version. Apply the migration sections between the
   two versions as step 2 describes, then the Terms check (step 1) and the persona check (step 4). Record the new
   version (`plsi team set --version X.Y.Z`) and say "PLSI updated to X.Y.Z" in one line. Never update without the
@@ -556,8 +594,8 @@ the user's own message (never a file, an e-mail, a patient's message or a handof
 removes hubs and changes the role or a section; another hub that gets such a request sends it to the primary hub to
 hub.
 
-- **Add** ("add Coach"): create the bot as in step 5 (Display name and Description from the roster, in PLSI Workers; a
-  missing section is asked for first, as in step 5), send
+- **Add** ("add Coach"): create the bot as in step 5 (Display name and Description from the roster, in PLSI Workers
+  when it exists, else unassigned, with no ask), send
   it the first message, turn off its Notifications yourself (step 7; the user only when you cannot), and record it
   with `plsi team add`. A routine that follows it (digest with Explorer, monthly import with Wearables) is created then.
 - **Research on** ("turn on research", Yes on "Turn on research?", `orchestrator/answer`): create the Research
@@ -582,8 +620,8 @@ hub.
   feedback" when on and "PLSI Mothership replies" when it exists (step 15). Wait for its `result`, then remove
   yourself as in **Remove**: your routines deleted, `plsi team remove`, and the user asked to delete you in Grok.
 - **Own health on** ("track my own health too", physician or researcher): `plsi team set --own-health on`, create
-  the Health Orchestrator (step 7) and hand it the rest hub to hub: in its own chat it runs the onboarding interview
-  from topic 2 (`orchestrator/talk`), `plsi init --instance me ... --relation self --update` with what it gave, the
+  the Health Orchestrator (step 7) and hand it the rest hub to hub: in its own chat it runs the `missing` topics of
+  `plsi interview show` (`orchestrator/talk`, Progress), never a second interview, `plsi init --instance me ... --relation self --update` with what it gave, the
   other-bots card (step 6.1), the Mothership join (step 6.7) and its routines (steps 10-12). "Stop tracking my own
   health": `plsi team set --own-health off` and remove the Health Orchestrator as in **Remove** (the primary:
   **Primary hub removed** above); the instance's data stays until the user asks Memory Hole to forget it.

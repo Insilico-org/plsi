@@ -31,11 +31,11 @@ A user who asks for a room gets one. Every member is on the team; never add a bo
 ## The section
 
 Rooms belong in the sidebar section **PLSI Sessions**. Only the user can create it and only the user can move a group
-chat into it; a bot cannot place a room. Before the first room, read `sessions_section` in `plsi team show`: set,
-never ask again. Unset: check that the section exists. Missing: ask as `shared/hub` (Sidebar sections, A missing
-section) says, with the message "Before I open a work room, please add a section named exactly PLSI Sessions in
-Grok's side menu, so the rooms stay out of your way." Record the answer with
-`plsi team set --sessions-section ready|skipped`. With `ready`, the line that names a new room asks the user to drag
+chat into it; a bot cannot place a room. At the first room, read `sessions_section` in `plsi team show`: set,
+never again. Unset: check that the section exists; never wait for it. Missing: the one optional line of `shared/hub`
+(Sidebar sections, A missing section), "Optional: to keep the work rooms together, add a section named exactly
+PLSI Sessions in Grok's side menu and drag them into it." Record it with
+`plsi team set --sessions-section ready` (it exists) or `skipped` (the line was sent). With `ready`, the line that names a new room asks the user to drag
 it there ("I opened the room <name>; please drag it into PLSI Sessions."). The first time only, the same line also
 asks to turn off the room's **Notifications** and collapse PLSI Sessions: the rooms stay readable, but only the hubs
 reach the user. With `skipped`, the room just stays in the side menu, and the first line naming a room asks only to turn off its

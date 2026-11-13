@@ -22,7 +22,7 @@ from typing import Any
 
 import pydantic
 
-from plsi import __version__, errors, keys
+from plsi import __version__, errors, keys, paths
 from plsi.cmdspec import Cmd, Exclusive
 from plsi.commands import COMMANDS
 from plsi.models import Model, validation_error
@@ -140,6 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ns = build_parser().parse_args(argv)
         command = ns._command
         cmd = COMMANDS[command]
+        paths.require_repo_data()
         data = _call(cmd, ns)
         if cmd.refresh:
             from plsi.clinic.dashboard import refresh_after  # the clinic loads only for a command that changes records

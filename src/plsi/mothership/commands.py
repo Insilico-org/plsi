@@ -7,12 +7,16 @@ from plsi.vocab import ContributionKind
 
 COMMANDS: dict[str, Cmd] = {
     "mothership join": Cmd("plsi.mothership.enroll:join",
-                           (INSTANCE, A("--kind", action="append", required=True, choices=V(ContributionKind)),
+                           (INSTANCE, A("--kind", action="append", choices=V(ContributionKind),
+                                         help="a kind the user picked; none to accept reworded consent text (kinds stay)"),
                             A("--consent-version", required=True, help="version marker of mothership/consent.md shown to the user"),
                             A("--code", help="one-time enrollment code from the relay's /join page (first join only)")),
                            "record the user's consent to share the chosen kinds", ("plsi mothership pack --instance {instance}",)),
     "mothership status": Cmd("plsi.mothership.enroll:status", (INSTANCE,), "enrollment, consent, address and what was sent"),
-    "mothership pack": Cmd("plsi.mothership.pack:pack", (INSTANCE, A("--out", help="output file")),
+    "mothership pack": Cmd("plsi.mothership.pack:pack",
+                           (INSTANCE, A("--out", help="output file"),
+                            A("--omit", action="append", help="leave this item out, as a finding names it "
+                                                              "(life_events[3]); remembered for later packages")),
                            "build the deidentified package (gate-checked, not sent)"),
     "mothership check": Cmd("plsi.mothership.send:check", (FILE, SENDER, A("--hash", dest="expected", help="package_hash it must have")), "gate-check a file before sending"),
     "mothership send": Cmd("plsi.mothership.send:send", (FILE, HASH, SENDER),

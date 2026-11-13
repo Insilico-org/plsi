@@ -46,7 +46,8 @@ chose to send the physician their data.
 3. **New patient.** Put in ONE `question`: the label to use, a handle if the physician wants one (with three random
    two-word suggestions such as "amber fox"), sex and birth year (or none), and the physician's confirmation that
    the patient agreed to share exactly what was sent. After the `answer`, return a `result` with the work for Data
-   Processor (via PLSI): `init` with `--relation other` for the new label. Add the row once Data Processor's `result`
+   Processor (via PLSI): `init` with `--relation other` for the new label, in a request that names the physician's
+   own instance (`shared/team`, The instance exists first). Add the row once Data Processor's `result`
    arrives, and return the work for PLSI: the file paths for `processor/intake` on the new label (a ward bot is made
    later, on request, `clinic/ward`).
 

@@ -44,8 +44,9 @@ PLSI guides it; it is the user's first talk and the source of the setup answers.
 apply: you lead, topic by topic, and do not follow the user's lead. Voice: post the interview plan (Voice calls, below) and ask
 the user to switch on Grok's voice mode; Grok's voice assistant asks the questions, one short question at a time.
 Chat: role and sex are cards
-(setup step 6.3), every other topic one plain chat question. Cover these in order, skipping what an instance picked
-in setup step 6.1 already holds and what the user already said, and follow up once where an answer is vague:
+(setup step 6.3), every other topic one plain chat question. First run `plsi interview show` (see **Progress**
+below): ask only the topics it lists as `missing`. Cover these in order, skipping what an instance picked in setup
+step 6.1 already holds and what the user already said, and follow up once where an answer is vague:
 
 1. **Role:** for their own health, as a longevity physician, or as a researcher. A physician or researcher then
    answers "Use PLSI for your own health too?" (setup step 6.3) before any other topic; "Only my patients" or "Only
@@ -60,12 +61,33 @@ in setup step 6.1 already holds and what the user already said, and follow up on
    (amounts are recorded as numbers, `processor/intake`).
 6. **Goals:** what they want from a longer life, longevity goals and worries.
 
-At most 10 questions in all; no advice during the interview. Voice: after it, back in chat, show ONE card "Did I get
+At most 10 questions in all; no advice during the interview. In chat, save each topic as soon as it is answered
+(**Progress**). Voice: after it, back in chat, show ONE card "Did I get
 this right?" with the role, sex and birth year and every number heard with its unit (amounts, doses, readings, lab
 values, years), each as heard (Yes / Change), because speech can be misheard. Then close as in step 3 (the
-transcript goes to Data Processor once the instance exists, setup step 9). Use what was said to
-preselect specialists in setup step 6.4 (sleep trouble: Sleep; food or weight: Nutritionist; exercise, smoking or
-alcohol: Coach; supplements: Biohacker; a wearable, Google Health or Apple Health: Wearables).
+transcript goes to Data Processor once the instance exists, setup step 9). Use what was said to recommend
+specialists in setup step 6.4 (marked "(recommended)", first on their page; sleep trouble: Sleep; food or weight:
+Nutritionist; exercise, smoking or alcohol: Coach; supplements: Biohacker; a wearable, Google Health or Apple Health: Wearables).
+
+## Progress
+
+Every answered topic is saved at once, so nothing the user said is lost and nothing is asked twice:
+
+```bash
+plsi interview show                                     # answered topics, and the ones still missing, in order
+plsi interview save --topic <topic> --answer "<the user's words>"
+```
+
+Topics, in order: `role`, `own_health` (physician or researcher), `about` (birth year, sex, country, ethnicity),
+`health`, `medications`, `lifestyle`, `goals`, `specialists`, `extras`. A declined topic is saved as said ("rather not
+say"); a correction is saved again under the same topic and replaces it. Save after each chat answer, and after a
+call right away, one save per topic the summary or the user's lines answered, before anything else.
+
+Before every interview question, also in a new chat, after a dropped call or when a later offer to restart or finish
+onboarding comes up: run `plsi interview show` and ask only the topics in `missing`, one at a time, in order. When
+`complete` is true there is no interview left: say what is on file in one line and go on with the first setup step
+not done. Never run a second full interview, by voice or in chat; to change one answer the user says so, and that
+topic is asked and saved again.
 
 ## Voice calls
 
@@ -74,11 +96,12 @@ from a `voice:<call>` address, during the call and once more when it ends; a rep
 text), a reply with no channel goes to this chat (cards, text, images), and what you post to the chat is seen when
 the user looks at it, often only after the call. The talker can read the recent chat. So:
 
-- **Before the call,** read `plsi.md` step 6 and the roster once and keep what the questions need: during the call
-  you read no file and run no command. Then post the interview plan to the chat as one message, which is both the
+- **Before the call,** read `plsi.md` step 6 and the roster once, run `plsi interview show`, and keep what the
+  questions need: during the call you read no file and run no command. Then post the interview plan to the chat as one message, which is both the
   talker's brief and the user's text to read along. The talker follows it only loosely, so write every question out
   in full, with its options filled in from `plsi.md` step 6 (the specialists step 6.4 would offer and the extras of
-  step 6.5 except the second-opinions one, never a placeholder left in), and leave out what is already on file. An
+  step 6.5 except the second-opinions one, never a placeholder left in), and leave out what is already on file and
+  every topic `plsi interview show` does not list as `missing` (renumber the rest). An
   option is its short name and what it does in a few words, never its whole Description: the brief has to arrive
   whole, and a long one is cut.
 
@@ -96,7 +119,7 @@ the user looks at it, often only after the call. The talker can read the recent 
   4. Which medicines and supplements do you take, with doses, and any allergies?
   5. How do you sleep, move and eat, and how much do you drink or smoke in a usual week?
   6. What do you most want from a longer, healthier life?
-  7. Which specialists should join? I'd suggest <preselected, each as "name: what it does">; the others are
+  7. Which specialists should join? I'd suggest <recommended, each as "name: what it does">; the others are
      <other options, the same way>.
   8. Which extras should I turn on: <extras, each as "name: what it does">? All of them is the usual choice.
   The call ends only after question 8 is answered: ask every question in order, and say goodbye only then. The rest
@@ -105,14 +128,17 @@ the user looks at it, often only after the call. The talker can read the recent 
 
 - **During the call,** answer an ask at once with one short spoken line, without long work, and do the work after
   the call. Read no file and run no command: a call waits for nobody, and a missing detail is filled in afterwards.
-  Post nothing to the chat for a topic still being talked about.
-- **A call that ends early** (the user hangs up): keep every ask the talker already sent, and go on in the chat from
-  the first question it did not answer, one card or plain question at a time. Never put a question again that the
-  call answered, and never start the interview over.
+  Post nothing to the chat for a topic still being talked about, and save nothing yet: the saves come right after.
+- **A call that ends early** (the user hangs up, or the call drops): save every topic the talker's asks and lines
+  answered (**Progress**), then run `plsi interview show` and go on in the chat with its `missing` topics, one card
+  or plain question at a time, each saved when answered. A new call instead is fine when the user asks for one: its
+  plan holds only the `missing` topics. Never put a question again that the call answered, and never start the
+  interview over.
 - **After the call** (the summary, or the call-end wake), in the chat: the "Did I get this right?" card built from
   the summary and the user's lines the talker passed on (`What the user said on the call: "…"`, or `user said`),
-  with every number and unit as heard; a topic missing from both is one plain chat question. Never ask again what the
-  summary already answers.
+  with every number and unit as heard, after saving each topic they answered (**Progress**; a "Change" on the card
+  is saved again); a topic missing from both is one plain chat question. Never ask again what the summary already
+  answers.
 - **Choices said on the call.** A clear choice that is easy to change (the role, own health, specialists, extras
   other than second opinions from an outside AI model, tips, the weekly talk) is applied after the call with one
   "Heard: you chose <it>" line each, and its card is skipped; the user changes it with one message. A choice the

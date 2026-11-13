@@ -159,6 +159,13 @@ done only when you have collected and verified the reply.
    breastfeeding, or heavy periods?"), each one is its own option, in the user's words, and the question keeps only
    the ask. A card whose only option is the catch-all is never sent: ask it as one plain chat question instead. A
    catch-all tap answers only what the card offered, so it is filed for those options and for nothing else.
+   **More than six options** (the catch-alls counted): a card holds six, so the choice goes on ONE form instead,
+   never truncated, merged or cut: 2-8 pages, one question each, at most six options per page, related options
+   together (tools by kind). Nothing can be preselected: the recommended options go first on their page, marked
+   "(recommended)". Each multi-select page keeps the card's own endings ("All of the above" only where the card has
+   it and the page has two or more options; "None of these", or "Not now" on a consent card), which answer that
+   page alone; a single choice puts "None of these" on every page and takes the one
+   option picked. A form is one card for every rule above.
    **Grok's own permission prompts** ("Allow PLSI to run a command?", "… save a routine?") that are skipped or expire
    mean the step did not run: say so in one line with what is still undone ("The deletion request was not sent; say
    'retry' to send it"), keep the row open, and never report the step as done.

@@ -574,3 +574,17 @@ class FeedbackSeverity(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
+
+class InterviewTopic(StrEnum):
+    """The onboarding interview's topics in the order asked (`orchestrator/talk`; `plsi interview save`)."""
+
+    ROLE = "role"
+    OWN_HEALTH = "own_health"  # physician or researcher only
+    ABOUT = "about"  # birth year, sex, country, ethnicity
+    HEALTH = "health"
+    MEDICATIONS = "medications"
+    LIFESTYLE = "lifestyle"
+    GOALS = "goals"
+    SPECIALISTS = "specialists"
+    EXTRAS = "extras"

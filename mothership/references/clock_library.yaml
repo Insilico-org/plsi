@@ -4,4 +4,4 @@ biolearn:
   licence: >-
     biolearn is BSD-3-Clause; individual clock models carry their own usage terms (reported as usage_note)
   notes: >-
-    Optional extra, pip install -e ".[clocks]". Methylation clocks run through one generic adapter (plsi.map.biolearn).
+    Optional extra, plsi clocks install. Methylation clocks run through one generic adapter (plsi.map.biolearn).

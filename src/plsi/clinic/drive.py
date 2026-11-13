@@ -71,7 +71,8 @@ class Drive:
                 from cryptography.hazmat.primitives import hashes, serialization
                 from cryptography.hazmat.primitives.asymmetric import padding
             except ImportError:
-                raise DependencyMissing("Drive needs the cryptography package", hint='pip install -e ".[drive]"') from None
+                raise DependencyMissing("Drive needs the cryptography package",
+                                        hint='with the Python PLSI runs on: <python> -m pip install -e "<repo>[drive]"') from None
             now, aud = int(time.time()), self.info.get("token_uri", "https://oauth2.googleapis.com/token")
             claims = {"iss": self.email, "scope": SCOPE, "aud": aud, "iat": now, "exp": now + 3600}
             signing = _b64(JWT_HEADER) + "." + _b64(json.dumps(claims).encode())

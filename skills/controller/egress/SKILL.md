@@ -45,7 +45,17 @@ hub-and-spoke `request` or `answer`, naming the hash.
    plsi mothership pack --instance <instance>
    ```
 
-   Take its output (`file`, in the instance outbox) into step 1. A pack failure (`GATE_FAILED`, not enrolled) is the rejection: say which.
+   When the brief relays the user's choice to leave items out (an `omit` finding of yours, `orchestrator/mothership`),
+   pack with one `--omit` per finding path; the instance remembers them, so later packages leave them out without it:
+
+   ```bash
+   plsi mothership pack --instance <instance> --omit life_events[3]
+   ```
+
+   Take its output (`file`, in the instance outbox) into step 1, and its `left_out` counts (by kind, `state value`,
+   `state item` or subject field) into your post: they are counts, never values. `BAD_OMIT`: the path names no item
+   of the package as packed now; check the finding against the new file. A pack failure (`GATE_FAILED`, not
+   enrolled, `CONSENT_OUTDATED`, `CONSENT_REWORDED`) is the rejection: say which.
 
 1. **Code gate** (every Mothership file: package, withdrawal, note, registry update, preregistration, finding;
    a feedback report; a Hevy session):
@@ -92,7 +102,7 @@ hub-and-spoke `request` or `answer`, naming the hash.
    carries codes, numbers, units, months and years only, and a subject of sex, age band and ethnicity group (no
    labels, notes or item text, no value computed from age):
    any text in it is a gate failure, not a judgment call. Not
-   enrolled or `CONSENT_OUTDATED`: reject packages and contributions and say which. A withdrawal file (kind
+   enrolled, `CONSENT_OUTDATED` or `CONSENT_REWORDED`: reject packages and contributions and say which. A withdrawal file (kind
    `withdrawal`, from PLSI's leave in `orchestrator/mothership`) is expected while the status is withdrawn: only `plsi mothership
    check` and an existing install token (`has_install_token`) decide for it. A registry update needs the
    instance's install token, which only joining the Mothership creates (and the join
@@ -153,7 +163,11 @@ hub-and-spoke `request` or `answer`, naming the hash.
    - for a Hevy session: only for the user's own instance, relation `self` (reject any other); its title and notes are about the exercises
      only (cues, tempo, rest): no health values, conditions, injuries, medicines, people or places.
      `plsi hevy routine` refuses dates, numbers that look like identifiers, addresses, links and names itself.
-   List each finding as `[reject|coarsen] <path or line>: <reason>`. Never fix the file yourself: the bot that
+   List each finding as `[reject|coarsen|omit] <path or line>: <reason>`. In a package, an item that singles the
+   user out and that no coarser form fixes (a rare condition, a rare combination, a subject field in a tiny group)
+   is `[omit] <path>: <reason in plain words>`, the path as the package names it (`life_events[3]`,
+   `states[0].coordinates.<id>`, `states[0].coordinates.<id>.items[1]`, `subject.ethnicity`): the user decides
+   whether to leave it out and send the rest (step 0). Never fix the file yourself: the bot that
    prepared it rewrites it, and the new file comes back through PLSI for a new check.
 
 3. **Rank Mothership relevance** (packages and contributions that pass step 2). Per section or item: `high` (a scored
@@ -162,16 +176,19 @@ hub-and-spoke `request` or `answer`, naming the hash.
    yourself. `nothing_new: true` from `plsi mothership check` (the same data was stored or is pending, whatever the
    month or PLSI version that packed it): result "Nothing new", nothing to send.
 
-4. **Result to PLSI.** One `result`: `cleared` or `rejected` in the first line of `summary`, then the findings, the
+4. **Result to PLSI.** One `result`: `cleared` or `rejected` in the first line of `summary` (`rejected` only for
+   `GATE_FAILED` or a reject finding; a package whose findings are all `omit` or `coarsen` is `cleared`, with them
+   listed), then the findings, the
    relevance ranks and what the user will be asked ("Send to the Longevity Mothership?" / "Send this message as
    written?"). Name the message kind (package, withdrawal, note, registry update, preregistration, finding,
    feedback report, oracle query, physician message, doctor-patient message, patient report). `files`: the checked file
    unchanged, with its `package_hash` (from `check` or `email`) in `summary`: the approval is for that hash. A
    rejection names which bot must rewrite what (in a room: the post, above).
    When the request already names the approval (the standing "send each week" join for a package, or the user's
-   Stop card for a withdrawal) and the file is cleared with no reject or coarsen findings, go straight to step 5
+   Stop card for a withdrawal) and the file is cleared with no reject, coarsen or omit findings, go straight to step 5
    and return ONE result with the relay's reply and ticket. A `coarsen` finding sends nothing: the file goes to the
-   user's card.
+   user's card. An `omit` finding sends nothing either: PLSI asks the user, and a repack with `--omit` comes back
+   for a new check.
 
 5. **Send** (Mothership files and Hevy sessions, after PLSI relays the user's approval of that exact file, or names the standing
    approval from the user's join in "send each week" mode; that standing approval covers weekly packages only; a

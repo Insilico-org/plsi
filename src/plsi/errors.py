@@ -74,7 +74,7 @@ class DependencyMissing(EnvironmentProblem):
     code = "DEPENDENCY_MISSING"
 
 
-CLOCKS_EXTRA = 'pip install -e ".[clocks]"'  # pandas and biolearn, for methylation clocks
+CLOCKS_EXTRA = "plsi clocks install"  # the clocks extra's packages only (biolearn, pandas), never plsi itself
 
 
 class InstanceLocked(EnvironmentProblem):

@@ -23,12 +23,28 @@ CONSENT_PATH = paths.REPO_ROOT / "mothership" / "consent.md"
 STALE_DELETION_H = 1  # a deletion with no receipt after this is told to the user, never left to sit
 
 
+def _marker(name: str) -> str:
+    match = re.search(rf"<!-- {name}: ([0-9.]+) -->", CONSENT_PATH.read_text(encoding="utf-8"))
+    if not match:
+        raise ValidationError(f"mothership/consent.md has no {name} marker")
+    return match.group(1)
+
+
 def current_consent() -> str:
     """The version marker of mothership/consent.md, the text the user agrees to."""
-    match = re.search(r"<!-- plsi-mothership-consent: ([0-9.]+) -->", CONSENT_PATH.read_text(encoding="utf-8"))
-    if not match:
-        raise ValidationError("mothership/consent.md has no plsi-mothership-consent marker")
-    return match.group(1)
+    return _marker("plsi-mothership-consent")
+
+
+def _version(v: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in v.split("."))
+
+
+def reworded(record: dict[str, Any] | None) -> bool:
+    """The consent text changed since `record` only in wording: its version is older than the current one and not
+    older than the `plsi-mothership-shared` marker, the version that last changed the kinds or what they share."""
+    given = (record or {}).get("consent_version")
+    return isinstance(given, str) and _version(_marker("plsi-mothership-shared")) <= _version(given) < _version(
+        current_consent())
 
 
 def folder(instance: str) -> Path:
@@ -132,6 +148,11 @@ def active(instance: str) -> dict[str, Any]:
     if not consented(found) or _proof(instance, found) is None:
         raise NotFound(f"{instance!r} has not joined the Longevity Mothership", code="NOT_ENROLLED",
                        hint=f"plsi mothership join --instance {instance} --kind states --consent-version {current}")
+    if reworded(found):
+        raise ValidationError("the consent text changed in wording only; what is shared is unchanged",
+                              code="CONSENT_REWORDED",
+                              hint=f"ask the user to accept the new text, then plsi mothership join --instance {instance} "
+                                   f"--consent-version {current} (no --kind: the kinds stay)")
     if found["consent_version"] != current:
         raise ValidationError("the consent text changed since the user joined", code="CONSENT_OUTDATED",
                               hint=f"show mothership/consent.md {current} and ask again before sending")
@@ -143,9 +164,10 @@ def deletion_waiting(instance: str) -> bool:
     return bool((enrollment(instance) or {}).get("deletion_requested")) and install(instance) is not None
 
 
-def join(instance: str, kind: list[str], consent_version: str, code: str | None = None) -> dict[str, Any]:
+def join(instance: str, consent_version: str, kind: list[str] | None = None, code: str | None = None) -> dict[str, Any]:
     """`mothership join`: record the user's consent for the kinds they picked. The first join trades the one-time
-    code from the relay's /join page for this install's id and token; later joins (other kinds) need no code. Never
+    code from the relay's /join page for this install's id and token; later joins (other kinds) need no code. With
+    no kinds, the user accepted reworded consent text (`reworded`): the active enrollment keeps its kinds. Never
     while a deletion waits for its receipt: one install holds one contributor, and the deletion forgets it."""
     store = EventStore(instance)
     if store.subject.relation != Relation.SELF:
@@ -159,6 +181,12 @@ def join(instance: str, kind: list[str], consent_version: str, code: str | None 
     if consent_version != current_consent():
         raise ValidationError(f"consent version {consent_version} is not the current text", code="CONSENT_OUTDATED",
                               hint="show the current mothership/consent.md and pass its version")
+    if not kind:
+        record = enrollment(instance)
+        if not (consented(record) and (reworded(record) or record["consent_version"] == consent_version)):
+            raise ValidationError("pick the kinds to share: what is shared changed, or the user has not joined",
+                                  code="KIND_REQUIRED", hint="show the kinds card and pass one --kind per picked item")
+        kind = record["kinds"]
     kinds = sorted({ContributionKind(k).value for k in kind})
     found = _enroll(instance, code) if code else install(instance)  # a code always re-enrolls (new install id)
     if found is None:
@@ -243,7 +271,7 @@ def status(instance: str) -> dict[str, Any]:
     """`mothership status`: enrollment, whether its consent is current, the address and what was sent."""
     record, found, log, current = enrollment(instance), install(instance), sends(folder(instance)), current_consent()
     return {"instance": instance, "enrolled": consented(record), "enrollment": record, "consent_version": current,
-            "consent_current": bool(record and record["consent_version"] == current),
+            "consent_current": bool(record and record["consent_version"] == current), "consent_reworded": reworded(record),
             "to": address(), "join_page": f"{address()}/join", "has_install_token": found is not None,
             "has_contributor_secret": "contributor_secret" in (found or {}),
             "deletion_pending": deletion_waiting(instance),

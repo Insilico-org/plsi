@@ -97,6 +97,31 @@ bots cite them by hash. Every plan goes to Challenger before the user sees it; a
 the code gate, then Data Controller; predictions are scored by `plsi score`, never by the bot that made them. One
 instance per person (`plsi init --relation self|family|other|sample`); every handoff names one.
 
+## What you can import today
+
+Send the file or say the value in the hub's chat; the bot in the right column records it.
+
+| Source | How it comes in | Who | Limits |
+|---|---|---|---|
+| Lab reports, discharge letters (PDF or photo), values typed in chat | read and coded, shown on one Record card first | Data Processor (`processor/intake`) | |
+| Lab or clinic tables (CSV, spreadsheet), a FHIR bundle, another PLSI's export | `plsi ingest --csv` / `--fhir` / `--file` | Data Processor | a FHIR bundle only as a file you download yourself |
+| Methylation betas (CSV, CpG id per row) | `plsi ingest --methylation`, then the clocks | Data Processor | needs the clocks extra (`plsi clocks install`) |
+| Apple Health, live | the P.R.O. iPhone app as a Grok connector | Wearables (`wearables/apple-health`) | about 90 days; no weight, blood pressure or VO2max; data passes through the app's servers |
+| Apple Health, full history | the Health app's export zip, `plsi apple export` | Wearables (`wearables/import`) | |
+| Google Health | the user's own Google OAuth client, read-only | Wearables (`wearables/google-health`) | often only about 90 days |
+| Open Wearables (Polar, Oura, Whoop, Garmin, Suunto, Strava, Ultrahuman, ...) | a server the user runs, elsewhere or on this computer | Wearables (`wearables/open-wearables`, `wearables/import`) | on this computer only providers the server fetches; Withings, Samsung Health and Health Connect need an always-on server elsewhere |
+| Other device exports (watch, ring, CGM, cuff, scale: zip, XML, JSON, CSV) | read as is, or through an `importer` extension | Wearables; Systems Engineer (`engineer/extend`) builds the extension | a format with no importer waits for the extension |
+| FatSecret food diary, food-app exports (CSV, JSON, XLSX), nutrition in Google Health | FatSecret 3-legged OAuth, or the file | Nutritionist (`nutritionist/food-log`) | |
+| Hevy workouts | the Hevy Pro API key (`plsi hevy`) | Wearables, for Coach | read for training plans, not recorded as measurements |
+
+Not possible yet, plainly:
+
+- **No genome importer.** A personal VCF, 23andMe-style raw file or whole-genome data cannot be recorded.
+- **No insurer or patient-portal connection.** PLSI cannot sign in to an insurer or a portal; a FHIR file or PDF the
+  user downloads from one can be sent like any other.
+- **Garmin only through Open Wearables**, on a server the user runs; there is no direct Garmin connection.
+- **No direct Apple Health API.** Only the P.R.O. app or the export zip.
+
 ## Packages
 
 | Package | Role |
@@ -142,9 +167,9 @@ its layer or any patching of `plsi`, guard rails rather than a sandbox. Values t
 
 ## Consent
 
-PLSI collects consent on its question cards (`persona.md`, Consent, batched); standing approvals replace a card until revoked. Joining the Longevity Mothership records the version of `mothership/consent.md` the user saw (`plsi mothership join --consent-version`), and `plsi mothership pack` refuses with `CONSENT_OUTDATED` once that text changes. Outbound oracle text is built in code from the saved state document only (values, item codes and months; never
-`personal_context`, and never a coordinate that gives the age back: one in years, derived from the age, or marked
-`local_only: true` in its map, the same rule as the Mothership package) and every text sent to an oracle is kept in `egress/oracles.jsonl` (the instance's, or PLSI_HOME's).
+PLSI collects consent on its question cards (`persona.md`, Consent, batched); standing approvals replace a card until revoked. Joining the Longevity Mothership records the version of `mothership/consent.md` the user saw (`plsi mothership join --consent-version`), and `plsi mothership pack` refuses with `CONSENT_OUTDATED` once what is shared changes (`CONSENT_REWORDED`, one Accept, when only the wording did). Outbound oracle text is built in code from the saved state document only (values, item codes and months; never
+`personal_context`, never a genetic marker (an rsID or CpG probe as a coordinate), and never a coordinate that gives the age
+back: one in years, derived from the age, or marked `local_only: true` in its map, the same rule as the Mothership package) and every text sent to an oracle is kept in `egress/oracles.jsonl` (the instance's, or PLSI_HOME's).
 
 **Longevity Mothership wire.** PLSI, the relay (`plsi refs show longevity_mothership`) and the Mother (Insilico's Grok
 Bot with its own toolbelt and storage) share one contract, kept with the relay and the Mother in
@@ -173,7 +198,7 @@ The State Map vocabulary: State Map; registry, selector, mapper, storyline; corr
 
 ```bash
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
-python -m pip install -e ".[dev]"                  # add ,clocks for methylation clocks
+python -m pip install -e ".[dev]"                  # then plsi clocks install for methylation clocks
 plsi doctor
 plsi init --instance me --birth-year 1970 --sex F
 plsi ingest --instance me --csv labs.csv --dry-run

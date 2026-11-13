@@ -17,3 +17,4 @@ Each file describes you only by sex, a 5-year age band and, when you gave it, yo
 **Your choices:** stop sharing any time ("stop sharing with the Mothership"), or ask the Mothership to delete everything it received under your contributor code. A deletion request carries a secret only your PLSI holds, which proves it comes from you; the Mothership records a deletion receipt. If the Mothership's storage can only move a deleted file to its trash, that copy is purged within 30 days. Deidentified data can never be made fully anonymous; joining means accepting a small risk that someone could link it back to you.
 
 <!-- plsi-mothership-consent: 0.8.0 -->
+<!-- plsi-mothership-shared: 0.8.0 -->

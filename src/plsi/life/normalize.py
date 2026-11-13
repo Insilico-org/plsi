@@ -36,12 +36,18 @@ _CASE_ALIASES = {"G/l": "10*9/L", "G/L": "10*9/L", "T/l": "10*12/L", "T/L": "10*
                  "Gpt/l": "10*9/L", "Gpt/L": "10*9/L", "Tpt/l": "10*12/L", "Tpt/L": "10*12/L"}
 # a label printed with the unit that names the method, not the quantity: "% (NGSP)" is %
 _ANNOTATION_RE = re.compile(r"\((?:NGSP|DCCT)\)", re.I)
+# spelled-out words, before the spaces go: "per" is a slash, "cubic millimeter" is mm3, "cells"/"beats" name a count
+_PHRASES = ((re.compile(r"\s*\bper\b\s*", re.I), "/"), (re.compile(r"\bcubic\s+millimet(?:er|re)s?\b", re.I), "mm3"),
+            (re.compile(r"\b(?:cells?|beats?)\b", re.I), ""))
 # one token -> UCUM: alternative spellings of a prefix and base; spelling only, never a change of quantity
 _TOKEN_WORDS = {
     "mcg": "ug", "mcmol": "umol", "mcl": "uL", "gm": "g",
     "micromol": "umol", "millimol": "mmol", "nanomol": "nmol", "picomol": "pmol",
-    "um3": "fL", "mm3": "uL", "cumm": "uL", "cells": "", "cell": "", "k": "10*3", "thous": "10*3", "tsd": "10*3",
-    "mio": "10*6", "mrd": "10*9",
+    "um3": "fL", "mm3": "uL", "cumm": "uL", "cells": "", "cell": "", "k": "10*3", "thous": "10*3",
+    "tsd": "10*3", "mio": "10*6", "mrd": "10*9", "thousand": "10*3", "thousands": "10*3", "million": "10*6", "millions": "10*6",
+    "billion": "10*9", "billions": "10*9", "microliter": "uL", "microlitre": "uL", "microliters": "uL",
+    "microlitres": "uL", "milliliter": "mL", "millilitre": "mL", "deciliter": "dL", "decilitre": "dL", "liter": "L",
+    "litre": "L",
     # Cyrillic, as Russian-language reports print units
     "ммоль": "mmol", "мкмоль": "umol", "нмоль": "nmol", "пмоль": "pmol", "моль": "mol", "кг": "kg", "г": "g",
     "мг": "mg", "мкг": "ug", "нг": "ng", "пг": "pg", "л": "L", "дл": "dL", "мл": "mL", "мкл": "uL", "нл": "nL",
@@ -80,13 +86,15 @@ def _token(t: str) -> str | None:
 def normalize_unit(unit: str | None) -> str | None:
     """UCUM spelling of a reported unit string (no network, no value change): whitespace, case, micro signs,
     superscripts and power-of-ten forms. "K/uL", "x10E3/uL", "×10³/µL" -> "10*3/uL"; "MG/DL" -> "mg/dL"; "mcg/mL" ->
-    "ug/mL"; "mEq/L" -> "meq/L"; "kg/m²" -> "kg/m2". A string with no token it knows is returned stripped and
-    unchanged; None or blank -> None. The one normalizer: ingest and the maps' conversions both use it."""
+    "ug/mL"; "mEq/L" -> "meq/L"; "kg/m²" -> "kg/m2"; "Thousand per microliter" -> "10*3/uL". A string with no
+    token it knows is returned stripped and unchanged; None or blank -> None. The one normalizer: ingest and the maps' conversions both use it."""
     if unit is None or not unit.strip():
         return None
     raw = unit.strip().rstrip(".*").strip()  # a full stop or the lab's flag asterisk printed after the unit
     u = "".join(_GLYPHS.get(ch, ch) for ch in raw)
     u = re.sub("[" + "".join(_SUPERSCRIPT) + "]+", lambda m: "^" + "".join(_SUPERSCRIPT[c] for c in m.group()), u)
+    for pattern, spelled in _PHRASES:
+        u = pattern.sub(spelled, u)
     u = re.sub(r"(?<!10)\^([23])(?!\d)", r"\1", re.sub(r"\s+", "", _ANNOTATION_RE.sub("", u)))  # m^2 -> m2
     if u in _CASE_ALIASES:
         return _CASE_ALIASES[u]

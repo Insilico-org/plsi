@@ -49,6 +49,9 @@ anything one formula cannot do (a file format, a fitted model) is PLSI Engineer'
    gets `local_only: true`, so it never goes to the Mothership or an oracle. A user map can never mark a value
    shareable (`map.user_local_only`).
 
+   **Genetic markers never leave.** A coordinate named by an rsID or an array probe (`rs429358`, `cg00000029`) stays
+   on this computer whatever the map says: genotypes and CpG-level values are never shared. Name it by the marker.
+
 5. **Write** `<PLSI_HOME>/work/<thread>/user_<topic>.yaml`, shaped like a shipped map (`plsi maps show
    sleep_activity`), with a first comment line saying when the codes were checked. Nothing about the user in it:
    no names, dates of their records, values or story; labels and boundaries are generic, so the map can be shared

@@ -58,8 +58,8 @@ sit in the patient's row of `<PLSI_HOME>/work/panel/roster.json` (`panel/roster`
      5. In the Workspace Admin console (Drive and Docs -> Sharing settings), for the physician's unit: "Allow users
         outside your organization to access files in shared drives" and "Allow people who aren't shared drive
         members to be added to files" on, so a patient's own Google account can open their folders.
-     6. `python -m pip install -e "<repo>[drive]"`, then `plsi clinic check --drive`: `manager: true` and no
-        `problems`.
+     6. With the Python PLSI was installed with (setup step 1): `<python> -m pip install -e "<repo>[drive]"`, then
+        `plsi clinic check --drive`: `manager: true` and no `problems`.
    - **By hand** (no Workspace, no capable connector): the physician makes and shares the two folders in their own
      Drive (step 2), downloads what patients upload and gives PLSI the paths and the folder each came from, and
      uploads approved reports.

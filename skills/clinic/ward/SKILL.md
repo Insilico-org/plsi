@@ -36,12 +36,12 @@ no data, so creating or removing one loses nothing.
 1. **Match first.** `plsi team show`: a ward bot for this label already exists: update it in place, never a second
    one.
 
-2. **The section, asked once.** Before the first ward bot, check for the sidebar section **Ward**. Missing: ask as
-   `shared/hub` (Sidebar sections, A missing section) says, with the message "Each patient gets their own bot.
-   Please add a section named exactly Ward in Grok's side menu, so they stay together." Never ask again; later ward
-   bots go where the first one went.
+2. **The section, never waited for.** At the first ward bot, check for the sidebar section **Ward**. Missing:
+   create the bot unassigned and send, once, the optional line of `shared/hub` (Sidebar sections, A missing
+   section), "Each patient gets their own bot. Optional: to keep them together, add a section named exactly Ward in
+   Grok's side menu and drag them into it." Never again; later ward bots go in Ward when it exists.
 
-3. **Create** the bot in **Ward**: name from the `ward` row of `shared/team` and description from its profile in `shared/hub`, with `<patient label>`
+3. **Create** the bot in **Ward** (unassigned while it is missing): name from the `ward` row of `shared/team` and description from its profile in `shared/hub`, with `<patient label>`
    = the label (never a handle, name, initials or record number). Send this as its first direct message, the Opening
    from that profile with the label filled in:
 

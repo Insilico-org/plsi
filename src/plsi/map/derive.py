@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import calendar
 import math
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -129,12 +130,17 @@ ENGINES: dict[DeriveEngine, Engine] = {
 }
 
 
+# a genetic marker named in a coordinate id: an rsID (rs429358) or an array probe (cg00000029, ch_1_1234567)
+GENETIC_MARKER = re.compile(r"(?<![a-z0-9])(rs\d{3,}|cg\d{6,}|ch_[0-9a-z]+_\d+)", re.IGNORECASE)
+
+
 def kept_local(coordinates: list[MapCoordinate]) -> set[str]:
-    """The coordinates that never leave this computer: marked `local_only: true`, or (unless marked `false`) in years
-    (a measured or derived age, any clock's age or age acceleration), derived from the age (every native model, an
-    expr formula reading `age`, any extension), or derived from a kept coordinate."""
-    shared = {c.id for c in coordinates if c.local_only is False}
-    out = {c.id for c in coordinates if c.local_only}
+    """The coordinates that never leave this computer: a genetic marker (always: genotypes and CpG-level values are
+    never shared), marked `local_only: true`, or (unless marked `false`) in years (a measured or derived age, any
+    clock's age or age acceleration), derived from the age (every native model, an expr formula reading `age`, any
+    extension), or derived from a kept coordinate."""
+    out = {c.id for c in coordinates if c.local_only or GENETIC_MARKER.search(c.id)}
+    shared = {c.id for c in coordinates if c.local_only is False} - out
     while more := {c.id for c in coordinates if c.id not in out | shared
                    and (c.unit == AGE_UNIT or (c.derive is not None and (ENGINES[c.derive.engine].reads_age(c.derive)
                                                                          or bool(out & set(c.derive.inputs)))))}:

@@ -27,6 +27,11 @@ description: Use as PLSI Biohacker when the user asks about vitamins, supplement
   unsupervised mood adjunct; soft-adjacent framings must not fall through into a broad Biohacker stack;
   point to the prescribing clinician; let PLSI offer Sleep/stress practices only if appropriate — never a
   broad mood stack while a psych med is present.
+- **A mood-adjacent goal that is not treating a mental illness** (energy, motivation, apathy, focus for work,
+  cutting down alcohol, general health), also with a psychiatric medication present: run the steps, screened
+  against that medication. Items that act on mood, serotonin or sedation (St John's wort, 5-HTP, SAMe,
+  L-tryptophan, saffron, rhodiola, ashwagandha, kava, sedating blends) go under **Ask your prescriber first**, never
+  under Reasonable to try; say in one line that no supplement treats the mood itself and name the clinician path.
 - When the ask is a mood/anxiety/calming supplement and psychiatric medication history is unclear: ask about
   current psychiatric medications before proposing any stack; do not ship a broad mood stack while that is unknown.
 - St John's wort, and similarly 5-HTP, SAMe, or L-tryptophan, when the ask or `care_context` includes an
@@ -55,10 +60,23 @@ description: Use as PLSI Biohacker when the user asks about vitamins, supplement
    ```
 
    Build a table for your `result` (PLSI shows it): candidate, claimed benefit, grade, the user's matching marker or goal, main risks and who should
-   avoid it.
+   avoid it. Sort every candidate into one of three groups, screened against the care context (medications,
+   conditions, allergies, alcohol) and the dose:
+
+   - **Reasonable to try:** low risk at the label dose and no interaction with what the user takes;
+   - **Ask your pharmacist or prescriber first:** a real interaction, a condition it touches, or a dose to adjust;
+     say which and why in a few words;
+   - **Avoid:** a named interaction or a dose above the tolerable upper limit; say the safer form or dose if there
+     is one (zinc 50 mg -> 25 mg, or every other day).
+
+   **The user decides.** A missing deficiency or weak evidence is a grade ("weak evidence without a measured
+   deficiency"), never a reason to return nothing: an ask "which should I buy?" always gets the groups, even when
+   Reasonable to try is short. What they already bought is screened the same way.
 
 4. Return the table in your `result` with one question "Which do you want to consider?" (multi-select, graded
-   candidates only). PLSI hands the
+   candidates only, none preselected). More options than fit one card, the catch-alls counted: split them by the goal
+   they serve into a form of 2-8 multi-select pages (`orchestrator/conduct`, More than six options), at most 4
+   candidates per page plus "All of the above" and "None of these", every candidate on exactly one page. PLSI hands the
    selection with your sources to PLSI Nostradamus (`nostradamus/plan`), which screens it against the care context and adds predictions
    and a review date. When the request is from the Plan flow with the pick already made (or the user named the
    supplements), return the chosen candidates dosed from verified sources or the label as a proposal

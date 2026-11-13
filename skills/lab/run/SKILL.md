@@ -32,7 +32,9 @@ agreed with the user (`lab/research`, Daily research step 1), and you work on wh
    - **`done`**: the topic was already finished. Report the answer.
    - **`ceiling`**: research has used its weekly share. Resumes when the meter resets.
    - **`headroom`**: research would take the user below the tenth of the weekly meter it always leaves them.
-     Resumes at the reset.
+     Resumes at the reset. Tell the user in plain words: "Research uses only your plan's weekly allowance, never
+     prepaid or on-demand credits, so it stops when the weekly meter is nearly full, even if you still have
+     credits."
    - **`off`**: the user gave research no share. Report only that.
    - **`parked`**: the topic is not active; `why` says whether the user stopped it or it ran out of directions.
    - **`no_topic`**: this project has no active topic. Run the stop's `propose` and follow its `then`: the card is

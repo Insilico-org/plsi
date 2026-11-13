@@ -83,7 +83,7 @@ unchanged.
   the other hub's skill, its `result` back) or the user opens the other hub ("Open PLSI · Research Orchestrator for
   this"), the user's choice (`orchestrator/answer`); it is never done in the wrong chat.
 - **Core** bots are always created; the main loop (record, assess, plan, challenge, review) and the safety rules
-  depend on them. **Specialists** (Tier `recommended`, preselected on the setup card, or `optional`) are created only
+  depend on them. **Specialists** (Tier `recommended`, marked so on the setup form, or `optional`) are created only
   when the user picks them at setup or adds them later.
 - **Sections** follow the user's role (`plsi role show`): a physician gets every Tier `physician` row in the sidebar
   group **PLSI Clinic**, a pro researcher every Tier `researcher` row in **PLSI Lab**; an individual gets neither. A
@@ -109,11 +109,12 @@ unchanged.
   section bots in **PLSI Clinic** or **PLSI Lab**, Ward bots in **Ward**, and the session rooms (group chats,
   `shared/sessions`) in **PLSI Sessions**. The Health, Research and Clinic Orchestrators stay outside them, as the
   user's own chats. Only the user creates a section; a hub puts a bot in it only when creating the bot and cannot
-  move one later, and cannot place a group chat at all: the user drags each room (`shared/sessions`, The section). **A missing section**, before its first bot: ONE message asking the user to add it (the text the
-  step gives) and ONE card "Section ready?": Done / Skip. Done: check that it exists; still missing, say what you
-  see and ask once more with the same card. Skip, or missing after the second ask: say in one line that the bots
-  will sit loose in the side menu and that only the user can drag them into a section later, then create them
-  unassigned.
+  move one later, and cannot place a group chat at all: the user drags each room (`shared/sessions`, The section).
+  **Sections are optional and never block:** create the bots at once, in their section when it exists, else
+  unassigned; never wait for a section, never ask with a card. **A missing section** gets at most ONE short optional
+  line, after its bots exist, once and never again (the step says where that is recorded; PLSI Sessions:
+  `sessions_section`, `ready` when the section exists, else `skipped` once the line is sent): "Optional: to keep
+  these bots together, add a section named exactly <name> in Grok's side menu and drag them into it."
 - Bots hold no data (everything is in the `plsi` instance), so adding or removing a bot loses nothing.
 
 ## Flows

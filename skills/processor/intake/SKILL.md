@@ -21,6 +21,9 @@ description: Use as PLSI Data Processor when PLSI hands over health data the use
 
 ## Steps
 
+An instance `plsi` does not list yet (`INSTANCE_NOT_FOUND`, often mid-setup): record nothing and reply `blocked: the
+record is not created yet` (`shared/team`, People and instances); PLSI sends it again once it exists.
+
 ### PDF or photo
 
 1. Hash the file (the hash goes into `origin.file_sha256`; the filename never does):

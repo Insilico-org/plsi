@@ -10,13 +10,15 @@ from plsi.mothership.commands import COMMANDS as MOTHERSHIP
 from plsi.research.commands import COMMANDS as RESEARCH
 from plsi.targets.commands import COMMANDS as TARGETS
 from plsi.vocab import (HUBS, PRIMARY_HUBS, BotRole, ClinicFolder, Ethnicity, EventType, ExportFormat, FeedbackMark,
-                        FeedbackStage, ObservationKind, PandaclawCatalog, ReferenceKind, Relation, ReportFormat,
-                        SearchSource, Sex, SourceKind, UserRole)
+                        FeedbackStage, InterviewTopic, ObservationKind, PandaclawCatalog, ReferenceKind, Relation,
+                        ReportFormat, SearchSource, Sex, SourceKind, UserRole)
 
 CORE: dict[str, Cmd] = {
     # system
     "doctor": Cmd("plsi.doctor:doctor", (A("--online", action="store_true", help="also check reachability of references"),),
                   "versions, extras, PLSI_HOME, keys and fixes", ("plsi keys status",)),
+    "clocks install": Cmd("plsi.doctor:install_clocks", (), "install the methylation clocks packages (never plsi itself)",
+                          ("plsi doctor",)),
     "keys status": Cmd("plsi.keys:status", (), "which key variables are set (booleans only)"),
     "keys scan": Cmd("plsi.keys:scan", (), "names only: unset key variables, mappings, other secrets present",
                      ("plsi keys map",)),
@@ -28,6 +30,10 @@ CORE: dict[str, Cmd] = {
     "role show": Cmd("plsi.role:show", (), "the user's role (individual, physician or researcher)"),
     "role set": Cmd("plsi.role:set_role", (A("--role", required=True, choices=V(UserRole)),), "store the user's role",
                     ("plsi role show",)),
+    "interview show": Cmd("plsi.talk:show", (), "the onboarding interview so far: answered topics and the ones still to ask"),
+    "interview save": Cmd("plsi.talk:save", (A("--topic", required=True, choices=V(InterviewTopic)),
+                                             A("--answer", required=True, help="the answer in the user's words")),
+                          "keep one answered interview topic (saved again: replaced)", ("plsi interview show",)),
     "team show": Cmd("plsi.team:show", (), "the team every hub shares: bots, hubs, primary hub, own health, Terms, version"),
     "team set": Cmd("plsi.team:set_fields",
                     (A("--primary", choices=PRIMARY_HUBS, help="the hub that ran plsi.md"), A("--own-health", choices=("on", "off")),

@@ -228,7 +228,8 @@ up, that is a card for the user ("Write this up as a research note?").
 
      The weekly figure is the **ceiling**, four days' worth of the daily share, and code enforces it. Say in one
      line under the card: "two limits, the daily one and the weekly ceiling, whichever comes first, and research
-     always leaves you at least 10% of the week."
+     always leaves you at least 10% of the week. It uses only your plan's weekly allowance, never prepaid or
+     on-demand credits."
 
      Both numbers are free text; take whatever the user names ("1.5% a day", "15% a day but never more than 30%
      in a week", "as little as possible").
@@ -321,7 +322,8 @@ up, that is a card for the user ("Write this up as a research note?").
    `no_topic` card or its finished topic's cards, `lab/run`), or the user active in the last hour: stop for today.
    Otherwise run `lab/run` with `--project <id>` on thread `research-<project>-<date>`: it reads this account's usage,
    works move by move and stops when the project's share of the day is spent. A `headroom` stop means the week, not the day, is nearly
-   gone (research always leaves the user a tenth of it); tell it in those words.
+   gone (research always leaves the user a tenth of it); tell it in those words, with `lab/run`'s line that research
+   uses only the plan's weekly allowance, never prepaid or on-demand credits, so credits left do not keep it going.
 
    **A day that needs other bots** (a gene for Target Hunter, a field map for Cartographer, a contested answer for
    Challenger, a company for Biotech Analyst, a write-up for Science Writer) opens one session room for it
