@@ -32,7 +32,9 @@ patient's ward bot's (`ward/patient`, Display name "Ward · <label>"): the physi
 2. **`+patients` mail.** The routine **"PLSI patient mail"** (an e-mail trigger on `<user>+patients@mail.grokbot.com`)
    runs on you: save the e-mail and its attachments unopened under `<PLSI_HOME>/inbox/`, say in one line that a
    patient wrote, then Panel `panel/roster`, which asks the physician whose mail it is. A roster patient: move the
-   files under `<PLSI_HOME>/inbox/<label>/` and hand them to that patient's ward bot (step 6). A new patient: step 1. Never open
+   files under `<PLSI_HOME>/inbox/<label>/` and hand them to that patient's ward bot (step 6), with the mail's message
+   id as `reply_to` (never the address), so a message to the patient replies on that thread. A new patient: step 1.
+   Never open
    a patient's mail or files yourself; the sender's address is never written anywhere.
 
    Saving an attachment: `ReadEmailAttachment` writes it byte for byte under a hash name, with the original name

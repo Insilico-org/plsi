@@ -1,6 +1,6 @@
 ---
 name: l-llm
-description: Read before asking Longevity-LLM if you are a PLSI orchestrator or a PLSI bot that asks it (Nostradamus, Target Hunter) - Insilico's playground, run only by PLSI in its browser, topic asks only, the prompt layout, the run budget and how the answer is kept.
+description: Use when you are a PLSI orchestrator or a PLSI bot that asks Longevity-LLM (Nostradamus, Target Hunter), before asking it - Insilico's playground, run only by PLSI in its browser, topic asks only, the prompt layout, the run budget and how the answer is kept.
 ---
 
 # PLSI Longevity-LLM

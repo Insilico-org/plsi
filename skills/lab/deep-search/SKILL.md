@@ -1,6 +1,6 @@
 ---
 name: deep-search
-description: Use when searching for evidence in research and the obvious query is not enough - choosing between your own web search, the literature APIs and the relation counts, adapting a query per source, and telling a silent field from a failing instrument. Load it from the Gather move when a search comes back thin, junk or empty, and from Ask when a direction needs to be aimed before it is searched.
+description: Use as PLSI Research Orchestrator when searching for evidence in research and the obvious query is not enough - choosing between your own web search, the literature APIs and the relation counts, adapting a query per source, and telling a silent field from a failing instrument. Load it from the Gather move when a search comes back thin, junk or empty, and from Ask when a direction needs to be aimed before it is searched.
 ---
 
 # Finding what is actually there

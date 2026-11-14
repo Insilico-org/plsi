@@ -12,6 +12,7 @@ from collections import defaultdict
 from typing import Any
 
 from plsi.events import NewEvent
+from plsi.files import parse_input_json
 from plsi.errors import UsageError, ValidationError
 from plsi.life import importers
 from plsi.life.ingest import dedupe_key, read_source, to_observation
@@ -32,16 +33,23 @@ def _content(obs: Observation) -> tuple[str, Any, Any, Any]:
     return key, obs.ref_low, obs.ref_high, obs.flag
 
 
-def revise(instance: str, document: str, file: str | None = None, csv: str | None = None, dry_run: bool = False) -> dict[str, Any]:
-    """Apply the new version of `document` (ObservationInput JSON list or canonical CSV; exactly one).
+def revise(instance: str, document: str, file: str | None = None, csv: str | None = None, fhir: str | None = None,
+           dry_run: bool = False) -> dict[str, Any]:
+    """Apply the new version of `document` (ObservationInput JSON list, canonical CSV or FHIR Bundle; exactly one).
 
     Returns {document, counts: {unchanged, replaced, added, removed, rejected}, replaced: [{old, new}], added: [id],
              removed: [id], rejected: [{index, error}], dry_run} (dry_run writes nothing; new ids are then indexes).
     """
-    if (file is None) == (csv is None):
-        raise UsageError("give exactly one of --file, --csv")
-    text, sha = read_source(file or csv)  # type: ignore[arg-type]
-    imported = importers.from_json(text) if file is not None else importers.from_csv(text, sha)
+    sources = [x for x in (file, csv, fhir) if x is not None]
+    if len(sources) != 1:
+        raise UsageError("give exactly one of --file, --csv, --fhir")
+    text, sha = read_source(sources[0])
+    if file is not None:
+        imported = importers.from_json(text)
+    elif csv is not None:
+        imported = importers.from_csv(text, sha)
+    else:
+        imported = importers.from_fhir(parse_input_json(text), sha)  # Patient fields are left to plsi ingest --update
     if imported.rejected and not dry_run:  # a rejected row would otherwise read as dropped, and be retracted
         raise ValidationError(f"{len(imported.rejected)} row(s) of the new version are invalid; fix them first",
                               code="REVISE_REJECTED", hint="the dry run lists them under rejected")

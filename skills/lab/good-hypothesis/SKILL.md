@@ -1,6 +1,6 @@
 ---
 name: good-hypothesis
-description: Use when proposing or judging a candidate explanation in research - what makes one worth having, how to write a falsifier something can actually touch, when two candidates are really one, and when to kill or supersede. Load it from the Explain or Test move when the candidates feel thin.
+description: Use as PLSI Research Orchestrator when proposing or judging a candidate explanation in research - what makes one worth having, how to write a falsifier something can actually touch, when two candidates are really one, and when to kill or supersede. Load it from the Explain or Test move when the candidates feel thin.
 ---
 
 # What makes a hypothesis worth having

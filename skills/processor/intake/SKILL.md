@@ -257,7 +257,8 @@ echo '{"reason": "transcription error: wrong unit"}' > reason.json
 plsi retract --instance <instance> --event <evt_id> --file reason.json --replacement fixed.json
 ```
 
-Omit `--replacement` to withdraw without a replacement. Then step 5.
+Omit `--replacement` to withdraw without a replacement. Many events, one reason (a repeated import): one question
+and `--events-file ids.txt` (one id per line) instead of `--event`; one bad id writes nothing. Then step 5.
 
 **A new version of a document** (a lab re-issued a report, a clinic table was shared again: `revised: true` from the
 clinic sync, or the user says so): extract the **whole** new version as usual, then let `revise` compare it with
@@ -271,6 +272,8 @@ the lipid report changes triglycerides 1.5 -> 1.8 mmol/L and drops HDL. Apply?")
 plsi revise --instance <instance> --document <file id> --file obs.json --dry-run
 plsi revise --instance <instance> --document <file id> --file obs.json
 ```
+
+A FHIR Bundle: `--fhir bundle.json` instead of `--file`, its first ingest given `--document <file id>`.
 
 ## Rules
 

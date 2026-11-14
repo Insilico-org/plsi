@@ -36,7 +36,7 @@ chose to send the physician their data.
    | What the evidence says | Clinical Evidence `clinev/review` |
    | A plan option | Clinical Evidence `clinev/protocol` -> Nostradamus `nostradamus/plan` -> Challenger `challenger/challenge` -> the physician's card -> Nostradamus records and adopts |
    | Follow-up results on an adopted plan | Reviewer `reviewer/review` |
-   | A message to the patient, or a reply to theirs | Liaison `liaison/message` -> Data Controller `controller/egress` -> the cleared text on one card -> the card's From is the `from:` line of Liaison's `result` (`<user>+patients@mail.grokbot.com`); a draft from any other address is redrafted before the card is shown |
+   | A message to the patient, or a reply to theirs | Liaison `liaison/message` -> Data Controller `controller/egress` -> the cleared text on one card -> the card's From is the `from:` line of Liaison's `result` (`<user>+patients@mail.grokbot.com`); a draft from any other address is redrafted before the card is shown. The request names `reply_to` when the Clinic Orchestrator handed you the patient's last mail; never ask the physician for the pipe or the address first, and never post the text before the card |
    | A report for the patient | Visualizer `visualizer/dashboard` (scope "patient report") -> Data Controller `controller/egress` -> the cleared PDF on one card -> Panel `panel/clinic` step 5 |
    | Charts | Visualizer `visualizer/charts` |
    | Trials or a referral for the patient | Trial Scout or Navigator, when on the team (`shared/hub`, Team) |

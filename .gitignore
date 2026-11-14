@@ -33,6 +33,7 @@ tests/*
 !tests/test_hevy.py
 !tests/test_net.py
 !tests/test_note_email.py
+!tests/test_skill_lint.py
 !tests/fixtures/
 tests/fixtures/*
 !tests/fixtures/mh_caution/

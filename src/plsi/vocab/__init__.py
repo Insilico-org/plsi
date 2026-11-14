@@ -465,6 +465,16 @@ LITERATURE_SOURCE_KINDS = frozenset(
 # ---------------------------------------------------------------- Policy gates, due states, Mothership messages
 
 
+class SkillRule(StrEnum):
+    """`plsi skills lint`: the `rule` of a skill-page violation (plsi.skill_lint)."""
+
+    BOT_LISTED = "bot_listed"  # the roster, BotRole and skills/<bot>/ name the same bots
+    COMMAND_EXISTS = "command_exists"  # every `plsi ...` in the roster or a page is a real command
+    FRONTMATTER = "frontmatter"  # a page opens with --- name, description ---
+    NAME_MATCHES_FOLDER = "name_matches_folder"  # name: is the skill's folder name
+    DESCRIPTION_OPENING = "description_opening"  # "Use as <Bot> ..." (own page) or "Use when ..." (shared)
+
+
 class GateId(StrEnum):
     """Plan gates; the `rule` of a plan violation."""
 

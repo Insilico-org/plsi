@@ -21,8 +21,10 @@ description: Use as PLSI Liaison when the physician wants to write to a patient 
    plsi state show --instance <label> --map <map_id>
    ```
 
-   The pipe (email or the Grok chat the patient shared with the physician) and the tone come from the request; a
-   missing pipe goes in ONE `question`. Only a pipe the physician and the patient already use; never a new one.
+   The pipe and the tone come from the request: email unless the physician named the Grok chat the patient shared
+   with them; never a new pipe. Never ask for the patient's address (it is never stored): the email replies on the
+   thread the request names (`reply_to`, the message id of the patient's last mail), else its To stays empty for the
+   physician. Draft at once; nothing goes in a `question` before it.
 
 2. **Draft** `<PLSI_HOME>/work/<thread>/message.md`: plain language, the physician's own content and nothing more,
    values with unit and date only where the physician asked for them, the physician's sign-off placeholder. No new
@@ -30,8 +32,11 @@ description: Use as PLSI Liaison when the physician wants to write to a patient 
 
 3. **Return one `result`** with `message.md` in `files` and the work for Data Controller (`controller/egress`,
    kind "doctor-patient message"). For an email, the `summary`'s first line is `from: <user>+patients@mail.grokbot.com`
-   (`clinic/panel` step 2), so the patient's reply wakes "PLSI patient mail". PLSI shows only a `cleared` draft on
-   one card (Send as written / Edit / Don't send), sent from that line's address; a rejection comes back for a
+   (`clinic/panel` step 2), so the patient's reply wakes "PLSI patient mail"; the second is `to: reply <id>` or
+   `to: empty`, and the third the subject. PLSI shows only a `cleared` draft, once (To, Subject, text), on one card,
+   sent from that line's address: with a thread, Send as written / Edit / Don't send; with To empty, "Add the
+   address to send it, or copy it into your own mail": I'll send it myself / Edit / Don't send, with free text for
+   the address, used for that one send and never written to a file, a note or memory. A rejection comes back for a
    rewrite. Any edit needs a new clearance and approval.
 
 ## Rules

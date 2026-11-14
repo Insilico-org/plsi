@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import re
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +14,7 @@ from plsi.errors import NotFound, UsageError, ValidationError
 from plsi.events import NewEvent
 from plsi.files import canonical_json, decode_input, load_json, parse_input_json, read_input_bytes, sha256_file, sha256_hex
 from plsi.life import importers
-from plsi.life.models import Observation, ObservationInput, Retraction, RetractionInput
+from plsi.life.models import DOCUMENT_RE, Observation, ObservationInput, RetractionInput
 from plsi.life.normalize import normalize_unit, shipped_coordinates
 from plsi.life.store import EventStore
 from plsi.models import parse
@@ -112,6 +113,7 @@ def ingest(
     sample: str | None = None,
     effective_at: datetime | None = None,
     update: bool = False,
+    document: str | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Validate, normalize unit strings, assign ids and append observations (exactly one source; '-' = stdin).
@@ -120,13 +122,16 @@ def ingest(
              rejected: [{index, error}], conflicts: [{index, with, coordinate, month}],
              warnings: ["UNCODED: <index>", "CONFLICT: <index>", "FUTURE: <index>", ...], dropped_columns?,
              subject_updated?}
-    (dry_run writes nothing; accepted then holds indexes).
+    (dry_run writes nothing; accepted then holds indexes). document: stamped on every row's origin, so a later
+    `plsi revise --document` can take the next version of the same source.
     """
     sources = {k: v for k, v in {"file": file, "fhir": fhir, "csv": csv, "methylation": methylation, "ext": ext}.items() if v is not None}
     if len(sources) != 1:
         raise UsageError("give exactly one of --file, --fhir, --csv, --methylation, --ext")
     if (ext is None) != (input is None):
         raise UsageError("--ext and --input go together")
+    if document is not None and not re.match(DOCUMENT_RE, document):
+        raise ValidationError(f"invalid document id: {document!r}", hint="a stable id such as the Drive file id; never a file name")
     store = EventStore(instance)
     result: dict[str, Any] = {}
     if methylation is not None:
@@ -151,6 +156,9 @@ def ingest(
         _, changed = store.update_subject(**imported.subject, update=update)
         result["subject_updated"] = changed
 
+    if document is not None:
+        imported.rows = [(i, o.model_copy(update={"origin": o.origin.model_copy(update={"document": document})}))
+                         for i, o in imported.rows]
     rows = [(i, to_observation(o)) for i, o in imported.rows]
     now = clock.now()
     warnings = list(imported.warnings) + [f"UNCODED: {i}" for i, o in rows if o.code is None]
@@ -190,25 +198,33 @@ def ingest(
     }
 
 
-def retract(instance: str, event_id: str, file: str, replacement: str | None = None) -> dict[str, Any]:
-    """Append a Retraction of `event_id` (reason from RetractionInput in `file`).
+def retract(instance: str, file: str, event_id: str | None = None, events_file: str | None = None,
+            replacement: str | None = None) -> dict[str, Any]:
+    """Append a Retraction of `event_id`, or of every id in `events_file` (one per line; blank lines and # comments
+    skipped), with the reason from RetractionInput in `file`. One read of the log and one append under one lock,
+    however many ids: all are checked first, and one bad id writes nothing.
 
-    replacement: ONE ObservationInput JSON, appended first; its id goes into replacement_event_id.
-    Retraction events cannot be retracted; a retracted target raises ALREADY_RETRACTED. Retracting a plan event
-    makes Policy treat its unscored predictions as void. Events are never edited.
+    replacement: ONE ObservationInput JSON (with --event only), appended first; its id goes into
+    replacement_event_id. Retraction events cannot be retracted; a retracted target raises ALREADY_RETRACTED.
+    Retracting a plan event makes Policy treat its unscored predictions as void. Events are never edited.
     """
-    store = EventStore(instance)
+    if (event_id is None) == (events_file is None):
+        raise UsageError("give exactly one of --event, --events-file")
+    if replacement is not None and events_file is not None:
+        raise UsageError("--replacement goes with --event, not --events-file")
     reason = parse(RetractionInput, load_json(file), "retraction").reason
-    target = store.get(event_id)
-    if target.type == EventType.RETRACTION:
-        raise ValidationError("retraction events cannot be retracted", code="CANNOT_RETRACT_RETRACTION")
-    if event_id in store.retracted_ids():
-        raise ValidationError(f"event {event_id} is already retracted", code="ALREADY_RETRACTED")
-    out: dict[str, Any] = {"target_event_id": event_id}
-    payload: dict[str, Any] = {"target_event_id": event_id, "reason": reason}
+    if events_file is not None:
+        text, _ = read_source(events_file)
+        targets = [line.strip() for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+        if not targets:
+            raise UsageError(f"no event ids in {Path(events_file).name}")
+    else:
+        targets = [event_id]  # type: ignore[list-item]
+    new = None
     if replacement is not None:
         obs = to_observation(parse(ObservationInput, load_json(replacement), "replacement observation"))
-        new_id, _ = store.append(EventType.OBSERVATION, obs, dedupe_key=dedupe_key(obs))  # never deduped: may equal the target
-        out["replacement_event_id"] = payload["replacement_event_id"] = new_id
-    out["retraction_event_id"], _ = store.append(EventType.RETRACTION, Retraction.model_validate(payload))
-    return out
+        new = (obs, dedupe_key(obs))
+    done = EventStore(instance).retract(targets, reason, new)
+    if events_file is None:
+        return done[0]
+    return {"count": len(done), "retracted": done}

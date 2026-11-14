@@ -288,7 +288,8 @@ not on the team is skipped with the "Add <bot>?" line (a routine's run skips it 
   Challenger `challenger/challenge`, as in **Plan**.
 - **Doctor-patient message** (physician, on the patient's Ward bot; the known pipe only: the physician's own email
   or Grok chat with the patient): Liaison `liaison/message` drafts -> Data Controller `controller/egress` -> the Ward
-  bot shows the cleared text on one card -> sent only after the physician approves that exact text. Nothing
+  bot shows the cleared text once, on one card (To empty when no patient mail names the thread; the physician
+  may type the address there, used once and never stored) -> sent only after the physician approves that exact text. Nothing
   reaches a patient any other way, except a report the physician approved in the patient's shared Drive folder
   (**Clinic sync**).
 - **Research loop** (researcher, on the Research Orchestrator; each bot step a round in the project's room,

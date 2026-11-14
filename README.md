@@ -134,7 +134,7 @@ Not possible yet, plainly:
 | [`plsi.mothership`](src/plsi/mothership/README.md) | the Longevity Mothership: consent and enrollment, packages, notes, the egress gate, the relay, professional access |
 | [`plsi.clinic`](src/plsi/clinic/README.md) | the physician's clinic: patient Drive folders, sync, publishing, the panel dashboard |
 | `plsi.vocab` | every enum |
-| `plsi` (top-level modules) | the CLI and command table (`cli`, `commands`, `cmdspec`), the team and role, reports, export, feedback, references, keys, HTTP (`net`), extensions |
+| `plsi` (top-level modules) | the CLI and command table (`cli`, `commands`, `cmdspec`), the team and role, reports, export, feedback, references, keys, HTTP (`net`), extensions, the skill-page check (`skill_lint`, `plsi skills lint`) |
 
 Rules: `plsi.policy` never imports `plsi.life` and reads the world only through `plsi.map`; `plsi.life` never imports `plsi.map` or `plsi.policy`. The three layers keep a fully local deployment possible.
 

@@ -17,7 +17,7 @@ from plsi.errors import NotFound, ValidationError
 from plsi.files import append_jsonl_many, atomic_write_json, load_json, lock, read_jsonl
 from plsi.events import Event, NewEvent, PAYLOAD_TYPES
 from plsi.life.deid import deid_subject_fields
-from plsi.life.models import Subject
+from plsi.life.models import Retraction, Subject
 from plsi.paths import instance_dir, new_id, plsi_home, validate_id
 from plsi.vocab import Ethnicity, EventType, Relation, Sex
 
@@ -51,24 +51,60 @@ class EventStore:
 
     def append_many(self, items: Iterable[NewEvent]) -> list[tuple[str, bool]]:
         """Append events in order under ONE lock; ids and recorded_at are tool-set. Payloads are re-validated."""
+        with lock(self.dir):
+            return self._append_locked(self.events(active=False), items)
+
+    def retract(self, targets: list[str], reason: str, replacement: tuple[BaseModel, str] | None = None) -> list[dict[str, str]]:
+        """Retract every id in `targets` with one read of the log and one append, all under ONE lock (so two
+        processes cannot retract the same event twice). replacement: (Observation, dedupe_key) appended first, for
+        a single target; its id goes into replacement_event_id. Every id is checked before anything is written.
+        -> [{target_event_id, retraction_event_id, replacement_event_id?}] in the order given."""
+        if len(set(targets)) != len(targets):
+            raise ValidationError("an event id is listed twice", code="DUPLICATE_TARGET")
+        if replacement is not None and len(targets) != 1:
+            raise ValidationError("a replacement goes with exactly one retracted event", code="REPLACEMENT_NEEDS_ONE")
+        with lock(self.dir):
+            events = self.events(active=False)
+            by_id = {e.id: e for e in events}
+            gone = _retracted(events)
+            for event_id in targets:
+                target = by_id.get(event_id)
+                if target is None:
+                    raise NotFound(f"event {event_id!r} not found", code="EVENT_NOT_FOUND")
+                if target.type == EventType.RETRACTION:
+                    raise ValidationError(f"{event_id} is a retraction; retraction events cannot be retracted",
+                                          code="CANNOT_RETRACT_RETRACTION")
+                if event_id in gone:
+                    raise ValidationError(f"event {event_id} is already retracted", code="ALREADY_RETRACTED")
+            if replacement is not None:  # never deduped: it may equal the target
+                (new_id_, _), = self._append_locked(events, [NewEvent(EventType.OBSERVATION, replacement[0], dedupe_key=replacement[1])])
+                payload = Retraction(target_event_id=targets[0], reason=reason, replacement_event_id=new_id_)
+                (rid, _), = self._append_locked(events, [NewEvent(EventType.RETRACTION, payload)])
+                return [{"target_event_id": targets[0], "replacement_event_id": new_id_, "retraction_event_id": rid}]
+            written = self._append_locked(events, [NewEvent(EventType.RETRACTION, Retraction(target_event_id=t, reason=reason))
+                                                   for t in targets])
+        return [{"target_event_id": t, "retraction_event_id": rid} for t, (rid, _) in zip(targets, written, strict=True)]
+
+    def _append_locked(self, events: list[Event], items: Iterable[NewEvent]) -> list[tuple[str, bool]]:
+        """append_many's body; the caller holds the lock and passes the log it read under it (active=False)."""
         out: list[tuple[str, bool]] = []
         new: list[dict[str, Any]] = []
-        with lock(self.dir):
-            active_keys = {e.dedupe_key: e.id for e in self.events() if e.dedupe_key}
-            subject_id = self.subject.subject_id
-            for item in items:
-                if item.dedupe and item.dedupe_key in active_keys:
-                    out.append((active_keys[item.dedupe_key], False))
-                    continue
-                event_type = EventType(item.type)
-                payload = PAYLOAD_TYPES[event_type].model_validate(item.payload.model_dump(mode="json"))
-                event = Event(id=new_id("evt"), type=event_type, recorded_at=now(), subject_id=subject_id,
-                              dedupe_key=item.dedupe_key, payload=payload)
-                new.append(_dump(event))
-                if item.dedupe_key:
-                    active_keys[item.dedupe_key] = event.id
-                out.append((event.id, True))
-            append_jsonl_many(self.path, new)
+        gone = _retracted(events)
+        active_keys = {e.dedupe_key: e.id for e in events if e.dedupe_key and e.id not in gone}
+        subject_id = self.subject.subject_id
+        for item in items:
+            if item.dedupe and item.dedupe_key in active_keys:
+                out.append((active_keys[item.dedupe_key], False))
+                continue
+            event_type = EventType(item.type)
+            payload = PAYLOAD_TYPES[event_type].model_validate(item.payload.model_dump(mode="json"))
+            event = Event(id=new_id("evt"), type=event_type, recorded_at=now(), subject_id=subject_id,
+                          dedupe_key=item.dedupe_key, payload=payload)
+            new.append(_dump(event))
+            if item.dedupe_key:
+                active_keys[item.dedupe_key] = event.id
+            out.append((event.id, True))
+        append_jsonl_many(self.path, new)
         return out
 
     # -------------------------------------------------------------- reading

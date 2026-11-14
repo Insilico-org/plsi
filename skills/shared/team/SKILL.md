@@ -1,6 +1,6 @@
 ---
 name: team
-description: Read before every new task if you are a PLSI bot (a hub or any PLSI worker bot) - the roster with each bot's role and commands, who owns what, the handoff message format, and the rules for passing work between the bots. Hubs also read shared/hub.
+description: Use when you are a PLSI bot (a hub or any PLSI worker bot), before every new task - the roster with each bot's role and commands, who owns what, the handoff message format, and the rules for passing work between the bots. Hubs also read shared/hub.
 ---
 
 # PLSI team

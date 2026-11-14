@@ -30,12 +30,17 @@ _UNIT_ALIASES = {
     "mmhg": "mm[Hg]", "kg/m2": "kg/m2", "kg/m^2": "kg/m2", "bpm": "/min", "beats/min": "/min",
     "uiu/ml": "u[IU]/mL", "miu/l": "m[IU]/L", "miu/ml": "m[IU]/mL",
     "mg%": "mg/dL", "g%": "g/dL",  # per 100 mL, as older and some national reports print it
+    "%oftotalhgb": "%", "%oftotalhb": "%",  # HbA1c as US labs print it
+    # eGFR per 1.73 m2 of body surface, with or without the m2 printed
+    "ml/min/1.73": "mL/min/{1.73_m2}", "ml/min/1.73m2": "mL/min/{1.73_m2}", "ml/min/1.73sqm": "mL/min/{1.73_m2}",
+    "ml/min/{1.73_m2}": "mL/min/{1.73_m2}",
 }
 # whole spellings whose case carries the meaning: German G/l (giga, 10^9 per litre) and T/l (tera), never grams
 _CASE_ALIASES = {"G/l": "10*9/L", "G/L": "10*9/L", "T/l": "10*12/L", "T/L": "10*12/L",
                  "Gpt/l": "10*9/L", "Gpt/L": "10*9/L", "Tpt/l": "10*12/L", "Tpt/L": "10*12/L"}
-# a label printed with the unit that names the method, not the quantity: "% (NGSP)" is %
-_ANNOTATION_RE = re.compile(r"\((?:NGSP|DCCT)\)", re.I)
+# a label printed with the unit that names the method, not the quantity: "% (NGSP)" is %, "mg/dL (calc)" is mg/dL;
+# a trailing bracket of words only, so "U/L (37C)" keeps its temperature
+_ANNOTATION_RE = re.compile(r"\((?:NGSP|DCCT)\)|\s*\([A-Za-z][A-Za-z .-]*\)\s*$", re.I)
 # spelled-out words, before the spaces go: "per" is a slash, "cubic millimeter" is mm3, "cells"/"beats" name a count
 _PHRASES = ((re.compile(r"\s*\bper\b\s*", re.I), "/"), (re.compile(r"\bcubic\s+millimet(?:er|re)s?\b", re.I), "mm3"),
             (re.compile(r"\b(?:cells?|beats?)\b", re.I), ""))
@@ -86,7 +91,8 @@ def _token(t: str) -> str | None:
 def normalize_unit(unit: str | None) -> str | None:
     """UCUM spelling of a reported unit string (no network, no value change): whitespace, case, micro signs,
     superscripts and power-of-ten forms. "K/uL", "x10E3/uL", "×10³/µL" -> "10*3/uL"; "MG/DL" -> "mg/dL"; "mcg/mL" ->
-    "ug/mL"; "mEq/L" -> "meq/L"; "kg/m²" -> "kg/m2"; "Thousand per microliter" -> "10*3/uL". A string with no
+    "ug/mL"; "mEq/L" -> "meq/L"; "kg/m²" -> "kg/m2"; "Thousand per microliter" -> "10*3/uL"; "mg/dL (calc)" -> "mg/dL"; "% of total Hgb" -> "%"; "mL/min/1.73" ->
+    "mL/min/{1.73_m2}". A string with no
     token it knows is returned stripped and unchanged; None or blank -> None. The one normalizer: ingest and the maps' conversions both use it."""
     if unit is None or not unit.strip():
         return None
