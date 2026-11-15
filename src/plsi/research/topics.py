@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from plsi.errors import NotFound, UsageError, warn
-from plsi.research import ledger, projects, propose, store
+from plsi.research import ledger, projects, propose, runs, store
 from plsi.research.schema import check_depth
 from plsi.research.store import today
 from plsi.research.tuning import DEPTH_WORDS
@@ -52,7 +52,8 @@ def topics(new: str | None = None, question: str | None = None, switch: str | No
         _activate(graph)
         return {"created": graph.name, "question_in_chief": question, "source": source,
                 "depth": str(store.depth_of(graph)), "answer_must_reach": floor_words(store.depth_of(graph)),
-                "project": projects.card(named), "active": graph.name, "topics": store.summaries(directory)}
+                "project": projects.card(named), "active": graph.name, "topics": store.summaries(directory),
+                "kicked": _kick()}
     if switch:
         graph = store.load(switch)
         _activate(graph)
@@ -60,7 +61,7 @@ def topics(new: str | None = None, question: str | None = None, switch: str | No
         changed = _set_depth(graph.name, depth) if depth else {}
         return {"active": graph.name, "project": graph.topic.get("project"), "cursor": graph.topic.get("cursor"),
                 "depth": changed.get("depth") or str(store.depth_of(graph)),
-                "depth_was": changed.get("was"), "topics": _listing(graph.topic.get("project"))}
+                "depth_was": changed.get("was"), "topics": _listing(graph.topic.get("project")), "kicked": _kick()}
     if park:
         graph = store.load(park)
         graph.topic.update(status=str(ResearchStatus.PARKED), ended_reason=reason or "parked by the user")
@@ -142,15 +143,23 @@ def _activate(graph: store.Graph) -> None:
         projects.topic_asked(directory, None)  # a topic is active again: nothing is asked
 
 
+def _kick() -> dict[str, Any] | None:
+    """New work: ask the research chain for a run now, when a hook is configured and no run is open."""
+    from plsi.research import chain  # the chain imports the loop; nothing it imports comes back here
+
+    return chain.kick_if_idle()
+
+
 def set_budget(share: float | None = None, ceiling: float | None = None, meter_reset: bool = False,
                usage: float | None = None, reserve: int | None = None, release: bool = False,
-               project: str | None = None) -> dict[str, Any]:
-    """`research budget`: show or set the day's share and the week's ceiling (whichever binds first stops the run),
+               project: str | None = None, start_hour: int | None = None) -> dict[str, Any]:
+    """`research budget`: show or set the day's share, the week's ceiling and the UTC hour a research day starts,
     open a fresh week once the user confirmed a meter reset, or reserve and release one project session's runs."""
+    setting = share is not None or ceiling is not None or start_hour is not None
     if reserve is not None or release:
         if reserve is not None and release:
             raise UsageError("--reserve and --release exclude each other")
-        if not project or share is not None or ceiling is not None or meter_reset or usage is not None:
+        if not project or setting or meter_reset or usage is not None:
             raise UsageError("--reserve and --release go with --project only",
                              hint="plsi research budget --reserve <runs> --project '<project>'")
         named = projects.resolve(project)
@@ -158,7 +167,7 @@ def set_budget(share: float | None = None, ceiling: float | None = None, meter_r
     if project:
         raise UsageError("--project goes with --reserve or --release", hint="plsi research budget --help")
     if meter_reset:
-        if share is not None or ceiling is not None:
+        if setting:
             raise UsageError("--meter-reset goes on its own, with --usage",
                              hint="plsi research budget --meter-reset --usage <percent used, read now>")
         budget = ledger.meter_reset(ledger.reading(usage), today())
@@ -167,21 +176,27 @@ def set_budget(share: float | None = None, ceiling: float | None = None, meter_r
     elif usage is not None:
         raise UsageError("--usage goes only with --meter-reset",
                          hint="plsi research next --usage <U> reads the meter for a move")
-    elif share is None and ceiling is None:
+    elif not setting:
         budget = ledger.state()
-        note = "one allocation covers all research, not one per topic; --share sets the day and --ceiling the week"
+        note = ("one allocation covers all research, not one per topic: --share sets the day's target, shared by "
+                "the working projects, and --ceiling the week")
     else:
         was = ledger.state().get("share_of_day")
-        budget = ledger.set_share(share, today(), ceiling)
+        budget = ledger.set_share(share, today(), ceiling, start_hour)
         cap = ledger.ceiling(budget)
         if cap and float(budget.get("share_of_day") or 0.0) > cap:
             warn("SHARE_ABOVE_CEILING", f"a day may use {budget['share_of_day']}% but the week is capped at {cap}%, "
                                         "so the first day will use the whole week's allowance")
-        _log_everywhere({"event": str(ResearchLogEvent.BUDGET), "from": was, "to": budget.get("share_of_day"),
-                         "ceiling": cap})
-        note = (f"a day may use {budget.get('share_of_day')}% and the week {cap}%; "
-                "takes effect at the next move boundary, for every topic")
-    return {"budget": {**budget, "week_ceiling": ledger.ceiling(budget)}, "note": note}
+        if share is not None or ceiling is not None:
+            _log_everywhere({"event": str(ResearchLogEvent.BUDGET), "from": was, "to": budget.get("share_of_day"),
+                             "ceiling": cap})
+        note = (f"a day may use {budget.get('share_of_day')}% and the week {cap}%, starting at "
+                f"{budget['start_hour']:02d}:00 UTC; takes effect at the next move boundary, for every topic; "
+                "research spends the day's share, stopping only at the week's ceiling or the user's headroom")
+    return {"budget": {**budget, "week_ceiling": ledger.ceiling(budget)},
+            "starving": ledger.starving(runs.run_cost(runs.read())), "note": note,
+            # a reset meter or a new share can unblock a day whose chain already rested: ask for a run now
+            "kicked": _kick() if meter_reset or share is not None or ceiling is not None else None}
 
 
 def _log_everywhere(entry: dict[str, Any]) -> None:

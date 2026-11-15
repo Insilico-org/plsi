@@ -129,7 +129,8 @@ def finished(graph: store.Graph, budget: dict[str, Any], why: ResearchStop, beca
     graph.topic.update(status=str(ResearchStatus.DONE if done else ResearchStatus.PARKED),
                        ended_reason=f"{why}: {because}")
     store.write_topic(graph)
-    store.append_log(graph, {"event": str(ResearchLogEvent.STOP), "why": str(why), "unspent": budget["remaining"]})
+    store.append_log(graph, {"event": str(ResearchLogEvent.STOP), "why": str(why), "day": store.today(),
+                             "unspent": budget["remaining"]})
     projects.topic_asked(store.project_of(graph), store.today())  # the cards below ask for the project's next topic
     return {
         "topic": graph.name, "stop": str(why), "why": because, "budget": budget,

@@ -14,10 +14,13 @@ every project.
 
 ```
 <PLSI_HOME>/research/
-  day.json                 the day's allocation and the week's ceiling, shared by every project
+  day.json                 the day's target, the week's ceiling and the start hour, shared by every project
   reservations.json        each project's reservation
+  runs.jsonl               the research chain's log: every run start, end, kick and check, and a beat per next/save in a run
+  inbox.json               what the research inbox has told the user
   projects/<title> · <id8>/
-    project.md             title, aim, status, owner and members
+    project.md             title, aim, status, owner, members and the room's destination
+    findings.md            the findings doc, rebuilt by code at each run's end - never edited
     notes/<name>.md        research notes from asked sessions - never written by the loop
     data/                  the notes' data files
     topics/<topic>/
@@ -151,6 +154,9 @@ plsi research next --project <id> --usage <percent of this week's limit used>
 plsi research save --project <id> --file move.json
 ```
 
+Inside a research run (`plsi research run --start`, `lab/run`) both need no usage: the run is metered at its start
+and end.
+
 `next` hands over everything one move needs: the question in chief, the current question, the move due, the
 budget, the ranked frontier, and the findings and hypotheses for this question. Do not walk the folder. In it:
 
@@ -176,7 +182,8 @@ budget, the ranked frontier, and the findings and hypotheses for this question. 
 }
 ```
 
-- **`usage` is required**: the meter reading taken after the move. A save without it is refused. A reading
+- **`usage` is required outside a research run**: the meter reading taken after the move. A save without it is
+  refused there. A reading
   lower than the last one charges nothing and ends the run (the week reset, or the reading was wrong).
 - A link may name an existing node or a node created in the same save.
 - **Take the name to link by from the reply's `change.created`.** A title over 150 bytes is shortened at a word
@@ -203,7 +210,7 @@ There is no override, and none of these is about research judgment.
 | 6 | a link to, or an update of, a node that does not exist | graph corruption |
 | 7 | a `verdict`, or a verdict word used as a `status` | it is arithmetic |
 | — | a value outside a closed list (`CLOSED_VOCABULARY`), checked only on what your payload writes | code counts on it |
-| — | a save with no `usage` reading, or one that is not a percent from 0 to 100 | every move is charged to the meter |
+| — | outside a research run, a save with no `usage` reading; anywhere, one that is not a percent from 0 to 100 | every move is charged to the meter |
 | — | a save that no `next` started (`NEXT_REQUIRED`): research Off, the topic parked or done, no day open today, or two saves with no `next` between | `next` is where the day, the week and Off are checked |
 
 A refusal returns every violation at once and writes nothing: fix them together and save again.

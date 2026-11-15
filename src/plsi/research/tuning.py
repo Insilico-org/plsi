@@ -33,12 +33,25 @@ STAGNATION_NOVELTY = 0.2  # a gather whose new share of hits is below this is qu
 ADOPT_AFTER = 2  # a novel gap label used this many times is offered for adoption
 
 SEED_COST = 1.0  # a move's estimate until one has been observed
+SEED_RUN_COST = 0.25  # a research run's cost until runs have been measured (about 0.2-0.3 of the weekly meter)
 MOVES_PER_DIRECTION = 3.5  # typical moves to bring one direction to a verdict
 CEILING_MULTIPLE = 4.0  # the default weekly ceiling, in days' worth of the daily share
 HEADROOM = 10.0  # of the weekly meter, kept back for the user whatever the share is
 MAX_ATTEMPTS = 3  # unsaved attempts on one direction before it is closed as stuck
 UNPRODUCTIVE_STOP = 3  # moves in a row on one direction that changed nothing before it is closed
 CONTINUATIONS_MAX = 8  # continuations offered once the frontier empties
+
+# the research chain: one run at a time, each on one project, the next asked for at the end of the last
+RUN_MINUTES = 10  # a run's time box: `next` says `time_box` after it; it ends sooner when code says stop
+OPEN_RUN_STALE_MIN = 30  # a run with no start, `next` or save for this long counts as dead (one move takes minutes)
+RUN_CAP_MULTIPLE, RUN_CAP_MIN = 3, 6  # runs a day may take: this many times the runs the day's target expects
+KICK_STALE_MIN = 5  # a kicked run that has not started after this long is asked for again (runs start 5-9 s later)
+KICK_TIMEOUT_S = 15.0  # the webhook POST that asks for the next run
+START_HOUR = 6  # UTC hour a new research day may start, unless the user set another (`budget --start-hour`)
+# the research inbox (inbox.py) and its question form, within Grok's limits
+STALLED_DAYS = 14  # an active topic with no move for this long is stalled
+HELD_DAYS = 14  # a project on hold this long is raised again
+FORM_PAGES, FORM_OPTIONS = 8, 6  # a Grok form: 2-8 pages, one question each, up to 6 options per page
 
 # what one `next` or `save` reply carries; `research status` carries everything
 FRONTIER_IN_CONTEXT = 12  # open directions; `frontier_total` says how many were not sent

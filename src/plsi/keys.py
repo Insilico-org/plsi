@@ -41,6 +41,8 @@ UNLOCKS: dict[str, str] = {
     "FATSECRET_ACCESS_SECRET": "FatSecret member diary access token secret for nutritionist/food-log",
     "PLSI_DRIVE_CREDENTIALS": "service account key file (JSON path) for the clinic shared drive (panel/clinic)",
     "PLSI_CLINIC_DRIVE": "the clinic shared drive id, where the service account is a Manager (panel/clinic)",
+    "PLSI_RESEARCH_HOOK_URL": "the \"PLSI research run\" routine's POST-to address: the research chain asks for its next run",
+    "PLSI_RESEARCH_HOOK_KEY": "the \"PLSI research run\" routine's webhook key (with PLSI_RESEARCH_HOOK_URL)",
     "MOTHERSHIP_PROFESSIONAL_TOKEN": "plsi mothership whoami, release, findings, prereg, finding and professional send",
     "PLSI_HOME": "instance directory",
     "PLSI_DEBUG": "redacted tracebacks on stderr when 1",

@@ -120,7 +120,9 @@ done only when you have collected and verified the reply.
    options with their details) numbered above the card in the same message, one per line, and keep the card to
    a short question and its options. A Grok card holds ONE question (single- or multi-select): fold a decision point
    into one question whose options carry the combined choice ("Record all 9" / "Edit" / "Cancel"), and resolve
-   everything a bot can decide before asking. Several open questions (habits, limits, baselines) go in ONE plain
+   everything a bot can decide before asking. A Grok **form** (2-8 pages, one question per page, up to 6 options a
+   page, none preselected) is sent only as the research inbox returns it (`lab/research`, Daily research step 8);
+   it counts as one open card, and a page left unanswered changes nothing. Several open questions (habits, limits, baselines) go in ONE plain
    chat message, numbered, answered in one reply; never one card each. Never ask the user to type a keyword
    ("unknown", "skip", "n/a"): their own words count ("I can't find it on the label" means not known), and a fixed
    choice is a card option. Oracle consent is an option on the pick card
@@ -155,7 +157,7 @@ done only when you have collected and verified the reply.
      ("Paused the plan; say 'show options' to pick later"), mark its rows `failed (dismissed)`;
    - any other choice (chart form, wording): decide yourself and say what you chose.
    Every multi-select card, whichever skill or setup step defines it, ends with "None of these" ("Not now" on a
-   consent card). It needs something to select first: when the question names conditions or items ("pregnant,
+   consent card); a form's page needs none, since skipping it is the same answer. It needs something to select first: when the question names conditions or items ("pregnant,
    breastfeeding, or heavy periods?"), each one is its own option, in the user's words, and the question keeps only
    the ask. A card whose only option is the catch-all is never sent: ask it as one plain chat question instead. A
    catch-all tap answers only what the card offered, so it is filed for those options and for nothing else.

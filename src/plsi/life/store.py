@@ -6,7 +6,8 @@ import re
 import secrets
 import shutil
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import pydantic
@@ -49,10 +50,17 @@ class EventStore:
         """Append one event under the instance lock -> (event_id, created). created=False means a dedupe hit."""
         return self.append_many([NewEvent(type, payload, dedupe_key, dedupe)])[0]
 
+    @contextmanager
+    def locked(self) -> Iterator[list[Event]]:
+        """Hold the instance lock and read the whole log once under it (retracted events included): a command that
+        checks the log and then appends reads it only this once, and passes it to `append_locked`."""
+        with lock(self.dir):
+            yield self.events(active=False)
+
     def append_many(self, items: Iterable[NewEvent]) -> list[tuple[str, bool]]:
         """Append events in order under ONE lock; ids and recorded_at are tool-set. Payloads are re-validated."""
         with lock(self.dir):
-            return self._append_locked(self.events(active=False), items)
+            return self.append_locked(self.events(active=False), items)
 
     def retract(self, targets: list[str], reason: str, replacement: tuple[BaseModel, str] | None = None) -> list[dict[str, str]]:
         """Retract every id in `targets` with one read of the log and one append, all under ONE lock (so two
@@ -77,16 +85,16 @@ class EventStore:
                 if event_id in gone:
                     raise ValidationError(f"event {event_id} is already retracted", code="ALREADY_RETRACTED")
             if replacement is not None:  # never deduped: it may equal the target
-                (new_id_, _), = self._append_locked(events, [NewEvent(EventType.OBSERVATION, replacement[0], dedupe_key=replacement[1])])
+                (new_id_, _), = self.append_locked(events, [NewEvent(EventType.OBSERVATION, replacement[0], dedupe_key=replacement[1])])
                 payload = Retraction(target_event_id=targets[0], reason=reason, replacement_event_id=new_id_)
-                (rid, _), = self._append_locked(events, [NewEvent(EventType.RETRACTION, payload)])
+                (rid, _), = self.append_locked(events, [NewEvent(EventType.RETRACTION, payload)])
                 return [{"target_event_id": targets[0], "replacement_event_id": new_id_, "retraction_event_id": rid}]
-            written = self._append_locked(events, [NewEvent(EventType.RETRACTION, Retraction(target_event_id=t, reason=reason))
+            written = self.append_locked(events, [NewEvent(EventType.RETRACTION, Retraction(target_event_id=t, reason=reason))
                                                    for t in targets])
         return [{"target_event_id": t, "retraction_event_id": rid} for t, (rid, _) in zip(targets, written, strict=True)]
 
-    def _append_locked(self, events: list[Event], items: Iterable[NewEvent]) -> list[tuple[str, bool]]:
-        """append_many's body; the caller holds the lock and passes the log it read under it (active=False)."""
+    def append_locked(self, events: list[Event], items: Iterable[NewEvent]) -> list[tuple[str, bool]]:
+        """Append under a lock the caller holds (`locked`), deduping against the log it read under it."""
         out: list[tuple[str, bool]] = []
         new: list[dict[str, Any]] = []
         gone = _retracted(events)
@@ -135,9 +143,6 @@ class EventStore:
         """Every event in log order, retracted ones included, and the ids a retraction targets."""
         events = self.events(active=False)
         return events, _retracted(events)
-
-    def retracted_ids(self) -> set[str]:
-        return self.log()[1]
 
     def observations(self) -> list[Event]:
         return self.events(EventType.OBSERVATION)

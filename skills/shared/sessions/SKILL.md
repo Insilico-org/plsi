@@ -48,7 +48,8 @@ reach the user. With `skipped`, the room just stays in the side menu, and the fi
    room, named without a date ("Mothership sync"), checks before each run that it exists and creates it again when
    the user removed it, and a research project has one room, "<project title> · Project", for all its work,
    opened when the project starts (`lab/research` step 0) and kept while it is open: the project's id goes in the
-   room's first post, and you check that the room exists before creating it, never a second one. At most 6 bots including you: the workers the task needs, in the order
+   room's first post, its destination is saved with `plsi research project --room <destination> --project <id>`
+   (each research run posts its line there), and you check that the room exists before creating it, never a second one. At most 6 bots including you: the workers the task needs, in the order
    the flow uses them. A task that needs more keeps the rest hub and spoke. You cannot move or delete a room; the
    user removes old ones.
 2. **Creation fails** (no group chats in this Grok, or a post fails because the room no longer resolves): try once more; still failing, run the task hub and spoke and say nothing about the room.

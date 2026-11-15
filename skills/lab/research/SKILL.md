@@ -11,10 +11,14 @@ ledger), or the project's room (`shared/sessions`).
 
 **Where you are decides what you do.** You are one bot in every chat, and you see every chat's history, so mixing
 projects is the risk. In your own chat you are the global Research Orchestrator: you list, start, close and reopen
-projects, run "PLSI research check" and take requests from other hubs. In a project's room ("<project title> ·
-Project") you work that one project only: every command names it (`--project <id>`), you read its state from its
-files (`plsi research project --show <id>`), never from what you remember of another chat, and anything from another
-project or from the user's private chats stays out unless the user brings it in there.
+projects, put them on hold and resume them, give the research inbox's notices (`plsi research inbox`) and take
+requests from other hubs. Whenever you talk to the user there, first check that the routines "PLSI research run" and
+"PLSI research watchdog" exist, and recreate a missing one (Daily research step 1). In a project's room ("<project
+title> · Project") you work that one project only: every command names it (`--project <id>`), you read its state
+from its files (`plsi research project --show <id>`), never from what you remember of another chat, and anything
+from another project or from the user's private chats stays out unless the user brings it in there. The room is
+where each research run posts its one line, where its findings doc lives
+(`research/projects/<project>/findings.md`) and where the bots discuss it.
 
 **Every piece of research belongs to a project.** Its folder (`research/projects/<project>/`) holds its topics,
 notes and data, and its room is where the bots work on it; a note or a topic never sits outside one.
@@ -34,12 +38,12 @@ notes and data, and its room is where the bots work on it; a note or a topic nev
   take it up in your own chat with the user from step 1, and reply to the Health Orchestrator with one `result`
   when the note is shown (its title and path).
 - "Spend <n>% of my weekly usage on research every day", "research this by yourself", the "Daily research" extra
-  (`plsi.md` step 6.5), each run of a project's "PLSI research · <project>" routine and of the weekly "PLSI
-  research check": **Daily research** below.
+  (`plsi.md` step 6.5), each run of the routines "PLSI research run" and "PLSI research watchdog", and the user's
+  answer to a research inbox notice or its form: **Daily research** below.
 - "What is my research up to?", "how is my research going?": `plsi research project --show <id>` for each open
   project (in a project's room, that one), then the answer so far with its verdict in words, the budget and the top
   of the frontier (Daily research step 4).
-- Start, close or reopen a project, in any wording: step 0.
+- Start, close, reopen, put on hold or resume a project, in any wording: step 0.
 
 Not this skill: "is <drug> right for me?" or "what should I do?" (a hub-to-hub `request` to PLSI Health
 Orchestrator; you never plan); role researcher with Target Hunter on the team: a shortlist of targets goes to
@@ -53,11 +57,14 @@ PandaOmics key — say in one line that it will use the free sources and skip st
 
 0. **Project.** Before a question, a session, a daily topic or a target search starts, decide which project it
    serves, by what the user means, in any wording: a new line of inquiry ("I want to look into senolytics", "let's
-   research my sleep") is a new project unless an open one's aim covers it; "pick the mTOR work back up" reopens one.
+   research my sleep") is a new project unless an open one's aim covers it; "pick the mTOR work back up" reopens or
+   resumes one.
    `plsi research project` lists every project, open and closed, with its title and aim: compare the request with
    all of them by meaning, not by title ("Senolytic drugs" is "Senolytics review"), before offering a new one.
    - An open project fits: say in one line which ("Filing this under Senolytics review") and go on.
    - A closed project fits: ONE card "Pick <project> back up? It has <n> notes.": Reopen it / Start a new project.
+   - A project on hold fits: ONE card "Resume <project>?": Resume it (`plsi research project --resume <id>`) / Keep
+     it on hold.
    - None fits: ONE card "Start a project: <title>? <aim in one line>": Start it / Rename / Add to <the closest
      open project> (no third option when none is open). Then:
 
@@ -204,17 +211,21 @@ PandaOmics key — say in one line that it will use the free sources and skip st
 
 ## Daily research
 
-Research that runs by itself on usage the user would not spend, for every role. Each project with daily research
-has its own routine on you, "PLSI research · <project title>", which works that project's one active topic move by
-move (`lab/run`) and posts only in that project's room; one run never touches another project. The share is one
-allocation for all research, split each day across the projects that have an active topic.
+Research that runs by itself on usage the user would not spend, for every role. Two routines on you do it,
+whatever the number of projects: **"PLSI research run"**, started by code through its webhook, and **"PLSI research
+watchdog"**, every hour. Code picks the project of each run (`plsi research run --start`); the run works that one
+project's active topic move by move (`lab/run`), posts one line in that project's room and never touches another
+project, and its end asks for the next run. The share is one daily **target** for all research, split across the
+projects still working today: a project that stops for the day (its topic answered or out of directions, its first
+move stuck, its topic card waiting) hands its part on to the others, and a project on hold takes no part.
 
 **The loop and the notes stay apart.** The loop owns the topic folder, cursor, ledger, graph and renders and writes
-no notes; a session (`lab/session`) writes notes and never a node. When the loop reaches a direction worth writing
-up, that is a card for the user ("Write this up as a research note?").
+no notes; a session (`lab/session`) writes notes and never a node. Code rebuilds the project's findings doc
+(`research/projects/<project>/findings.md`) at the end of every run; it is not a note. When the loop reaches a
+direction worth writing up, that is the user's decision (step 3).
 
-1. **Turn it on.** **What to research** and **how much it may spend** are the user's, and a routine cannot ask,
-   so both are agreed here.
+1. **Turn it on.** **What to research** and **how much it may spend** are the user's, and an unattended run cannot
+   ask (its later questions reach the user through the inbox, step 8), so both are agreed here.
 
    - **The share** comes from the user's words ("5% a day") or ONE card "How much may research use each day?",
      which states what that comes to over a week:
@@ -226,10 +237,10 @@ up, that is a card for the user ("Write this up as a research note?").
      | 10% | up to 40% of your week |
      | Off | |
 
-     The weekly figure is the **ceiling**, four days' worth of the daily share, and code enforces it. Say in one
-     line under the card: "two limits, the daily one and the weekly ceiling, whichever comes first, and research
-     always leaves you at least 10% of the week. It uses only your plan's weekly allowance, never prepaid or
-     on-demand credits."
+     The daily share is a target research spends each day; the weekly figure is the **ceiling**, four days' worth
+     of the daily share, and code enforces it. Say in one line under the card: "research spends about this much
+     each day, stops at the weekly figure, and always leaves you at least 10% of the week. It uses only your
+     plan's weekly allowance, never prepaid or on-demand credits."
 
      Both numbers are free text; take whatever the user names ("1.5% a day", "15% a day but never more than 30%
      in a week", "as little as possible").
@@ -269,12 +280,12 @@ up, that is a card for the user ("Write this up as a research note?").
      sleep?", not "adverse effects of <compound class> on sleep continuity"). A typed answer is allowed.
      Dismissed, or left to you ("you decide"): take the top candidate, prefer a personal one when the record has
      anything to offer, and say in one line which you took and that it can be changed at any time. Never leave
-     the routine with no topic.
+     a project with no topic.
 
      The same card ends any discovery the user asks for ("plsi research discover", "find questions about
      <subject>"): run `propose` too, so one option is personal, and never answer with a list. With a topic active
      it is "Research one of these next?" with the three and "Keep <active topic>"; a pick switches as in step 7,
-     and the active topic keeps its cursor. A subject card before it ("What should I discover questions about?") offers three subjects, one from
+     and the active topic keeps its cursor. With the webhook set up, a new or switched topic starts a run at once (code asks for it). A subject card before it ("What should I discover questions about?") offers three subjects, one from
      `propose`; a card with a single real option is a plain chat question instead (`orchestrator/conduct`).
 
      ```bash
@@ -304,38 +315,68 @@ up, that is a card for the user ("Write this up as a research note?").
      plsi research topic --switch "<topic>" --depth standard   # lower the bar and carry on (within its project)
      ```
 
-   Then create (or update) the ENABLED daily routine **"PLSI research · <project title>"** on yourself, at an hour
-   the user named or early morning their time. Its instructions name the project's id and room: each run is step 2
-   for that project only, posting only in that room. Once, also create the ENABLED weekly routine **"PLSI research
-   check"** in your own chat: it lists the open projects (`plsi research project`), creates the routine of an open
-   project with an active topic that has none, deletes the routine of a closed project, and tells the user in one
-   line about a project whose last move is more than two weeks old; it does no research itself. A new share is
-   `plsi research budget --share <p>`: one number for all research, not one per topic or project, applied from the
-   next move. Tell the user in the same message that it will be quiet unless it has something to show.
+   Then the two routines, on yourself, each created (or updated) ENABLED, never twice (`plsi.md` step 15), each
+   with exactly these instructions (a routine keeps the text it was saved with):
 
-   **"Off" on the share card, and "Daily research off", are two actions**: `plsi research budget --share 0` *and*
-   disable every "PLSI research · <project>" routine. A project closed (`plsi research project --close <id>`) loses
-   its routine the same day.
+   - **"PLSI research run"**: a **webhook** trigger and no schedule. "Read this account's weekly usage `U`. Run
+     `plsi research run --start --usage <U> --kick '<this run's JSON body as it came, or nothing>'` and do what
+     its `then` says: a stop ends the run with nothing posted; otherwise work the project it names with `lab/run`,
+     then run `plsi research run --end --run <the run id --start gave> --usage <U>` (read again), post its
+     `room_line` in that project's room (`room`; with none, find the room "<project title> · Project", save it with
+     `plsi research project --room <destination> --project <id>` and post there) and its `inbox` notice, if any, in
+     your own chat (Daily research step 8)."
+   - **"PLSI research watchdog"**: every hour. "Read `U`. Run `plsi research watchdog --usage <U>` and do what its
+     `then` says. A reply with `in_place` is a run: do it as "PLSI research run" does after its `--start`."
 
-2. **Each run, quietly, for its one project:** first read where it stands (`plsi research project --show <id>`),
-   nothing from another project's chat. An open thread with the user waiting on a card (other than this project's
-   `no_topic` card or its finished topic's cards, `lab/run`), or the user active in the last hour: stop for today.
-   Otherwise run `lab/run` with `--project <id>` on thread `research-<project>-<date>`: it reads this account's usage,
-   works move by move and stops when the project's share of the day is spent. A `headroom` stop means the week, not the day, is nearly
-   gone (research always leaves the user a tenth of it); tell it in those words, with `lab/run`'s line that research
-   uses only the plan's weekly allowance, never prepaid or on-demand credits, so credits left do not keep it going.
+   Then ask ONCE, in one message, for the webhook of "PLSI research run": "So research can start its next run by
+   itself, please open the routine PLSI research run on your desktop, copy its "POST to" address and its "key",
+   and add them with the secret card as PLSI_RESEARCH_HOOK_URL and PLSI_RESEARCH_HOOK_KEY." Never in chat
+   (`shared/team`, Keys); `plsi keys status` shows both set once they are added. Until they are, nothing breaks:
+   each watchdog check does one run in place, so research still spends its share, one run an hour. A recreated
+   "PLSI research run" has a new "POST to" address and key, and so does one whose webhook refused (the inbox says
+   `needs you: the research webhook refused`): ask ONCE again, in the same words.
+
+   The day starts at the hour the user named, else early morning their time: code keeps it in UTC, so convert it
+   (06:00 in Warsaw in winter is 5 UTC). Each open project's room destination is saved, so its runs can post there
+   (`shared/sessions`, a research project's room):
+
+   ```bash
+   plsi research budget --start-hour <0-23, UTC>
+   plsi research project --room <the room's destination> --project <id>
+   ```
+
+   A new share is `plsi research budget --share <p>`: one number for all research, not one per topic or project,
+   applied from the next run. Tell the user in the same message that rooms get one line per run, and their own
+   chat with you only what needs them (step 8).
+
+   **"Off" on the share card, and "Daily research off", are one action**: `plsi research budget --share 0`. The
+   chain stops at the end of the run in progress; the watchdog stays and costs only its hourly check. A project
+   the user wants to pause is `plsi research project --hold <id>` (it keeps its room, topics and cursors, is never
+   worked and takes no part of the day) and `--resume <id>` starts it again; a project closed (`plsi research
+   project --close <id>`) is never worked. No routine changes for any of these.
+
+2. **Each run, for the project code picks:** `plsi research run --start` names the project, its room and the
+   first move. Read where that project stands (`plsi research project --show <id>`), nothing from another
+   project's chat. A stop instead (`busy`: another run is open; `stray`: a duplicate start; `rest`: the day's
+   target is spent, research is Off, the meter needs the user, or the day has not started; `idle`: nothing to work
+   on) ends the run with nothing posted. Otherwise run `lab/run` with `--project <id>` on thread
+   `research-<project>-<date>`: it works move by move for about the run's time box and **never stops before code
+   says stop**. A `headroom` stop means the week, not the day, is nearly gone (research always leaves the user a
+   tenth of it); tell it in those words when the user asks, with `lab/run`'s line that research uses only the
+   plan's weekly allowance, never prepaid or on-demand credits, so credits left do not keep it going.
 
    **A day that needs other bots** (a gene for Target Hunter, a field map for Cartographer, a contested answer for
    Challenger, a company for Biotech Analyst, a write-up for Science Writer) opens one session room for it
    (`shared/sessions`): the project's room, with only the bots that day needs; the moves stay yours.
 
-3. **After the run:** from what the moves did, what changed verdict, what is at the top of the frontier and what
-   went unspent (`lab/run`, When it stops), at most ONE short message in the project's room: what the research did
-   today in 1-2 plain lines and what is next. Nothing new, or the run stopped at the start: say nothing, except on
-   `no_topic` (`lab/run`).
+3. **After the run:** `plsi research run --end` charges the run, rebuilds the project's findings doc and returns
+   `room_line`: post it, as it is, in the project's room, its only message from the run besides a `no_topic`
+   card (`lab/run`). With an `inbox` notice,
+   post that in your own chat (step 8); nothing else goes to the user. Code then asks for the next run, or rests
+   the chain until the next day; that is not reported.
 
-   `stop: off` means research has no share: do not report it daily; check that the routine is disabled too.
-   `stop: stuck` means the first move never completed; nothing was closed, and it retries tomorrow.
+   The stops of `next` inside the run (`off`, `stuck` and the rest) are `lab/run` step 2's; `--end` answers only
+   with its `next`: a new run asked for, or `rest` / `idle` and why.
 
    **A direction that has become a question about a gene or a drug target** may go to Target Hunter, with the
    user's role researcher and Target Hunter on the team: one `request`, skill `targets/evaluate`, with the gene
@@ -345,16 +386,20 @@ up, that is a card for the user ("Write this up as a research note?").
    Target Hunter?"; never show a target result nothing can produce.
 
    **A message that reports a finding ends with a card, never an offer in prose** ("I can prepare a note"), here
-   and after any session or Dig deeper. A run that changed a verdict or reached an answer is ONE card "Write this
-   up as a research note for the Longevity Mothership?" (Yes / Not yet); with a note on the topic already
+   and after any session or Dig deeper. A run reports nothing but its room line: a finding from it reaches the user
+   as the inbox page's "Finish and write it up" (step 8). When you tell the user in conversation that research
+   changed a verdict or reached an answer, it is ONE card "Write this up as a research note for the Longevity
+   Mothership?" (Yes / Not yet); with a note on the topic already
    submitted or accepted (`plsi research notes --topic "<topic>"`), "Write a follow-up note on <what is new>?".
    Yes starts the session flow above with the topic, its question and the names and answers of the nodes it rests on
    (from `plsi research status --topic "<topic>"`); from there the note runs as in steps 4-5. `retire` notes go to
    Memory Hole (`memoryhole/prune`).
 
 4. **Showing progress.** "How is my research going?" at any time. "Did research run today?" reads, for each open project
-   (in a project's room, that one), both the loop (`plsi research status --project <id>`, today's moves) and today's
-   notes (`plsi research notes --project <id>`) and sessions; never one alone.
+   (in a project's room, that one), both the loop (`plsi research status --project <id>`, today's moves, and today's
+   lines of `<PLSI_HOME>/research/runs.jsonl`, one per run start, end, kick and check, plus a `beat` per `next` or
+   save inside a run, never counted as a run) and today's notes (`plsi research notes --project <id>`) and
+   sessions; never one alone.
 
    ```bash
    plsi research project --show <id>
@@ -370,7 +415,9 @@ up, that is a card for the user ("Write this up as a research note?").
    and what limits it. Then the budget as a fraction of today's allowance and the top of the frontier in plain
    words. Never a percentage of the research "done". Attach the dashboard.
 
-5. **When a topic finishes.** **`answered`**: the question in chief has an answer and nothing is open under it.
+5. **When a topic finishes.** In a run, the room line says so and the inbox raises the project (ready or stalled,
+   step 8); the cards below come when the user answers its page "Keep going", asks, or is in the project's room.
+   **`answered`**: the question in chief has an answer and nothing is open under it.
    **`exhausted`**: it ran out of directions first. Tell them apart in the first line ("we have an answer" against
    "we ran out of ways to find out").
 
@@ -388,12 +435,14 @@ up, that is a card for the user ("Write this up as a research note?").
    - **one from the user's own newer data**: run `plsi research propose --instance <name>` now, and a pick is
      `plsi research topic --new` with the kind, `--because`, `--rests-on` and `--project <id>`, as in step 1;
    - **"Research something else"** and **"Stop here"**; a typed answer is allowed. Stopping leaves the topic
-     `done` or `parked`, resumable with its cursor intact, and turns this project's daily research off (its
-     routine disabled; other projects keep theirs); when it was the project's last open topic, the same card asks
-     "Close <project>?" too (Close it / Keep it open), and a closed project can be reopened at any time.
+     `done` or `parked`, resumable with its cursor intact, and puts the project on hold (`plsi research project
+     --hold <id>`; other projects go on); when it was the project's last open topic, the same card asks "Close
+     <project>?" too (Close it / Keep it open), and a closed project can be reopened at any time.
 
-   **Never pick the continuation yourself** while the user can answer. Both cards still unanswered at the next
-   run: that run gets `no_topic` and takes the top candidate (`lab/run`); the Mothership card stays open.
+   **Never pick the continuation yourself** while the user can answer. While the cards are unanswered the project
+   stops for the day, its part goes to the other projects, and the inbox says it needs the user. Still unanswered
+   on a later day: that project's run gets `no_topic` and takes the top candidate (`lab/run`); the Mothership card
+   stays open.
 
 6. **Reframing, before switching.** When the research has learned that the question itself was wrong (a move
    says so in `open`, or the user does):
@@ -407,6 +456,30 @@ up, that is a card for the user ("Write this up as a research note?").
 
 7. **Switching topic.** `plsi research topic --switch "<name>"`, within the topic's project; the one it leaves keeps
    its cursor. Topics never link to each other; notes of one project do (`lab/session` step 5).
+
+8. **The inbox.** Unattended runs cannot ask, so what needs the user comes to your own chat as one notice, at most
+   once a day, batched across projects and each thing told once; nothing new, nothing is said. `run --end` and
+   the watchdog return it as `inbox`; `plsi research inbox --form` gives it too. It names, per project: **ready**
+   (a topic reached an answer at its depth), **almost ready** (a direction one move from a verdict), **needs you**
+   (a topic to pick; the meter read lower, did the week reset?; the research webhook refused: ask again for the
+   address and key, step 1), **stalled** (a topic out of directions with
+   nothing after it, or no move for two weeks), **on hold** for two weeks or more, and **starving** (too many
+   projects share the day for any to get a whole run).
+
+   Say its lines in plain words, then send its `form` (or its `card`, when only one page is due) as it comes: a
+   Grok form of 2-8 pages, one question per page, up to 6 options, none preselected (`orchestrator/conduct`). A
+   project's page is "<project>: <what is new>. What next?": Keep going / Finish and write it up / Put on hold /
+   Close, or, on hold, Resume / Keep on hold / Close. A starving notice opens the form with one multi-select page,
+   "Which projects should go on hold? Picking <n> lets the others make real progress.", listing the projects
+   furthest from an answer. A multi-select page that goes alone as a card already ends with "None of these".
+   Each option's `do` is what to run: a `plsi research project` command, nothing for
+   "no change", and for "Finish and write it up" a write-up session in the project's room (the session flow
+   above, with the topic, its answer and the nodes it rests on), then `--close`. A skipped page changes nothing.
+
+   "Change my projects", or "what about my research?" with several open: `plsi research inbox --all`. It is a
+   multi-select opening page "Which projects do you want to change?" (a page per 6 projects; with 5 or fewer it
+   ends with "All of the above", which picks every one); send it, then the
+   chosen projects' pages from `pages_by_project` as a second form, as its `then` says (one page alone is a card).
 
 ## Rules
 

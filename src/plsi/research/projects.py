@@ -3,7 +3,7 @@ project.md, topics/, notes/ and data/.
 
 The id is a uuid so a project can later be shared; `owner: self` and `members: []` hold its place until then. A
 project is found by its id or title in project.md, never by its folder name. Any number of projects are active
-at once: creating one never touches another, and only the user closes one or brings it back. No command guesses a
+at once: creating one never touches another, and only the user holds, closes or brings one back. No command guesses a
 project when more than one is active (`pick`). The `research project` command itself is in status.py, beside the
 project map it shows; `--adopt` is adopt.py.
 """
@@ -106,12 +106,26 @@ def create(title: str, aim: str | None = None) -> dict[str, Any]:
     return meta
 
 
-def set_status(ref: str, status: ProjectStatus) -> dict[str, Any]:
-    """Close a project or reopen it, with everything in it kept."""
+def set_status(ref: str, status: ProjectStatus, was: ProjectStatus | None = None) -> dict[str, Any]:
+    """Hold, resume, close or reopen a project, with everything in it kept; `was` is the status it must be in.
+    A held project records the day it was put on hold (`held_on`)."""
     meta = resolve(ref)
-    if meta.get("status") == status:
-        raise UsageError(f"project {meta['title']!r} is already {status.value}", hint="plsi research project")
+    if meta.get("status") == status or (was is not None and meta.get("status") != was):
+        raise UsageError(f"project {meta['title']!r} is {meta.get('status')}", hint="plsi research project")
     meta = {**meta, "status": str(status)}
+    meta.pop("held_on", None)
+    if status == ProjectStatus.ON_HOLD:
+        meta["held_on"] = store.today()
+    _write(meta, folder(meta["id"]))
+    return meta
+
+
+def set_room(ref: str | None, room: str) -> dict[str, Any]:
+    """Save the destination of the project's room (`<title> · Project`), where each research run posts its line."""
+    meta = resolve(ref) if ref else pick(None)
+    if not str(room).strip():
+        raise UsageError("a room destination is needed", hint="plsi research project --room '<destination>' --project '<p>'")
+    meta = {**meta, "room": str(room).strip()}
     _write(meta, folder(meta["id"]))
     return meta
 

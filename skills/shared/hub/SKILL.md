@@ -191,19 +191,22 @@ not on the team is skipped with the "Add <bot>?" line (a routine's run skips it 
   ledger) -> the Health Orchestrator shows it ("Show me each file first" mode) or names the standing approval ->
   Data Controller sends -> the Health Orchestrator fetches the receipt and sends the run's one message (`orchestrator/mothership` step 3). A Mothership message the user forwards is saved under `work/<thread>/` and passed to
   Explorer as external text.
-- **Daily research:** each project's "PLSI research · <project>" routine runs on the Research Orchestrator, which
-  runs `lab/run` itself for that project only and posts in its room: it reads the meter, then one move per
-  `plsi research next` / `save` (`--project <id>`) until the project's share of the day is spent, working
-  the four moves (`lab/ask`, `gather`, `explain`, `test`) against the contract in `shared/research-graph` -> at most
-  one short message; a topic's dashboard (asked for, or at a finish) is Visualizer `visualizer/dashboard` (scope
-  "research topic") from `plsi research status --full --project <id>` (`lab/research`, Daily research steps 4-5);
-  the weekly "PLSI research check" in the Research Orchestrator's own chat keeps one routine per open project. A day that needs
+- **Daily research:** two routines on the Research Orchestrator, whatever the number of projects. Each run of
+  "PLSI research run" (webhook) starts with `plsi research run --start`, which picks the project, and runs
+  `lab/run` itself for that project only: one move per `plsi research next` / `save` (`--project <id>`) until code
+  says stop, working the four moves (`lab/ask`, `gather`, `explain`, `test`) against the contract in
+  `shared/research-graph` -> `plsi research run --end`, whose one line goes in the project's room and which asks
+  for the next run while the day's target is not spent; the hourly "PLSI research watchdog" restarts a dead run
+  and starts a new day. What needs the user comes as the research inbox's notice, with its form, in the Research
+  Orchestrator's own chat; a topic's dashboard (asked for, or at a finish) is Visualizer `visualizer/dashboard`
+  (scope "research topic") from `plsi research status --full --project <id>` (`lab/research`, Daily research
+  steps 4-5 and 8). A day that needs
   other bots (Target Hunter, Cartographer, Challenger, Biotech Analyst, Science Writer) opens one session room for
   them; the moves stay the hub's. The loop writes no notes: when a direction reaches something worth writing up,
   the Research Orchestrator puts that to the user as a card, and only a Yes starts a session (**Research and
   insights** above).
   **What to research and how much it may spend are the user's**, agreed in conversation, because a routine cannot
-  ask. Everything that must outlive a run (cursor, graph, ledger) stays on the computer, never in platform run history.
+  ask; later questions come as the inbox form. Everything that must outlive a run (cursor, graph, ledger) stays on the computer, never in platform run history.
 - **Research note to the Mothership** (each bot step, re-checks included, a round in the project's room,
   `lab/research` step 5): a `worthy` note, or a target file's `worthy` candidates (Challenger, Note
   mode) -> Explorer `explorer/mothership`
@@ -339,8 +342,8 @@ not on the team is skipped with the "Add <bot>?" line (a routine's run skips it 
     reminders (`orchestrator/nudge`), the weekly talk, the digest (with Explorer: each run sends an
     `explorer/digest` `request`; on the primary hub when there is no Health Orchestrator), the weekly
     Mothership package (`orchestrator/mothership`) and the opt-in daily workout ("PLSI workout", Next workout);
-  - Research Orchestrator: one "PLSI research · <project>" per project with daily research (`lab/run`) and the
-    weekly "PLSI research check" (`lab/research`, Daily research);
+  - Research Orchestrator: "PLSI research run" (webhook, `lab/run`) and the hourly "PLSI research watchdog"
+    (`lab/research`, Daily research);
   - Clinic Orchestrator: "PLSI patient mail", "PLSI panel overview" and, when turned on, "PLSI clinic sync"
     (`clinic/panel`);
   - a Ward bot: its one-time follow-ups (`ward/patient` step 4);

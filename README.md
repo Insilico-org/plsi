@@ -17,7 +17,7 @@ This repo supplies:
 - usage reports for the PLSI team (`plsi feedback`), sent only on the user's approval from their own Grok email
 - autoresearch (`<PLSI_HOME>/research/`, `plsi research`): one folder per topic with questions, hypotheses and
   findings as linked Markdown (an Obsidian vault), research projects that group topics and notes, and an optional
-  daily run on the share of the weekly usage the user sets; code computes every verdict
+  chain of runs that spends the daily share of the weekly usage the user sets; code computes every verdict
 - target discovery for researchers (`<PLSI_HOME>/targets/<gene>/`, `plsi targets`): dossiers from free sources and
   an assessment refused unless every claim is sourced
 - local state storage (`instances/<name>/`)
@@ -232,9 +232,9 @@ src/plsi/                           the toolbelt (Packages above)
 team.json                           the team every hub shares (`plsi team`; under PLSI_HOME)
 instances/<name>/                   subject.json, events.jsonl, maps/user/, states/, reports/, exports/, artifacts/, mothership/
                                     (gitignored; under PLSI_HOME when set)
-research/projects/<id>/             one research project: project.md, notes/, data/ and topics/<topic>/ (topic.md,
-                                    log.jsonl, questions/ hypotheses/ findings/); day.json beside projects/
-                                    (under PLSI_HOME)
+research/projects/<id>/             one research project: project.md, findings.md, notes/, data/ and topics/<topic>/
+                                    (topic.md, log.jsonl, questions/ hypotheses/ findings/); day.json, runs.jsonl
+                                    and inbox.json beside projects/ (under PLSI_HOME)
 targets/<gene>/dossier.json         one target dossier: facts gathered from the free sources, and the bot's
                                     assessment once it passes the refusals (under PLSI_HOME)
 ```
