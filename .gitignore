@@ -22,6 +22,7 @@ build/
 
 # Local test suite: ignore the contents, not the directory, so the tracked tests below can be re-included
 tests/*
+!tests/test_snapshot_hash_compat.py
 # MH contract tests (tracked): durable caution packaging
 !tests/test_mh_caution_packaging.py
 # MH answer/Sleep routing

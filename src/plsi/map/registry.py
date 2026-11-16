@@ -189,14 +189,22 @@ def snapshot(instance: str, m: MapContract) -> Path:
 
 
 def load_snapshot(instance: str, map_id: str, map_hash: str) -> MapContract:
-    """The exact map a plan/state was made with (scoring resolves through it). Raises errors.NotFound."""
+    """The exact map a plan/state was made with (scoring resolves through it). Raises errors.NotFound.
+
+    Integrity is the hash of the persisted JSON object, taken before schema defaults are filled in.
+    A newer model may add fields (conversions.offset, derive.window_days); hashing the validated
+    dump would reject every snapshot written before those defaults existed.
+    """
     path = snapshot_path(instance, map_id, map_hash)
     if not path.is_file():
         raise NotFound(f"no snapshot of {map_id} {files.hash12(map_hash)}", code="SNAPSHOT_NOT_FOUND")
-    m = _parse(path.read_text(encoding="utf-8"), path.name)
-    if m.compute_hash() != map_hash:
+    try:
+        raw = files.loads_json(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise ValidationError(f"snapshot {path.name} is not valid JSON: {exc}", code="SNAPSHOT_CORRUPT") from None
+    if files.hash_json(raw) != map_hash:
         raise ValidationError(f"snapshot {path.name} does not match its hash", code="SNAPSHOT_CORRUPT")
-    return m
+    return parse(MapContract, raw, path.name, code="MAP_INVALID")
 
 
 def _validate(text: str, origin: str, user: bool, live: bool) -> dict[str, Any]:
