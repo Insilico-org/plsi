@@ -95,24 +95,44 @@ def project_map(ref: str) -> dict[str, Any]:
             "next_steps": [{"note": n["name"], "next_step": s} for n in live for s in n.get("next_steps") or []]}
 
 
+# what each flag does to a project: (reply key, the status it gets, the status it must have; None = any other)
+MOVES = {"hold": ("on_hold", ProjectStatus.ON_HOLD, ProjectStatus.ACTIVE),
+         "resume": ("resumed", ProjectStatus.ACTIVE, ProjectStatus.ON_HOLD),
+         "close": ("closed", ProjectStatus.CLOSED, None),
+         "reopen": ("reopened", ProjectStatus.ACTIVE, ProjectStatus.CLOSED)}
+
+
 def project(new: str | None = None, aim: str | None = None, close: str | None = None, reopen: str | None = None,
-            show: str | None = None, adopt: bool = False) -> dict[str, Any]:
-    """`research project`: list projects, or create, close, reopen, show or adopt. Nothing here changes a project
-    the command does not name."""
+            hold: str | None = None, resume: str | None = None, show: str | None = None,
+            adopt: bool = False, room: str | None = None, project: str | None = None) -> dict[str, Any]:
+    """`research project`: list projects, or create, hold, resume, close, reopen, show or adopt them, or save a
+    project's room destination. Nothing here changes a project the command does not name. Resuming or reopening
+    asks the research chain for a run at once (when a hook is configured)."""
     if aim and not new:
         raise UsageError("--aim goes with --new", hint="plsi research project --new '<title>' --aim '<one line>'")
+    if project and room is None:
+        raise UsageError("--project goes with --room", hint="plsi research project --room '<destination>' --project '<p>'")
+    if room is not None:
+        return {"room": room.strip(), "project": projects.card(projects.set_room(project, room))}
     if new:
         meta = projects.create(new, aim)
         return {"created": projects.card(meta), "aim": meta["aim"], "folder": str(projects.folder(meta["id"])),
                 "active": projects.active_cards()}
-    if close or reopen:
-        key, to = ("closed", ProjectStatus.CLOSED) if close else ("reopened", ProjectStatus.ACTIVE)
-        return {key: projects.card(projects.set_status(close or reopen, to)), "active": projects.active_cards()}
+    for flag, ref in (("hold", hold), ("resume", resume), ("close", close), ("reopen", reopen)):
+        if ref:
+            key, to, was = MOVES[flag]
+            out = {key: projects.card(projects.set_status(ref, to, was)), "active": projects.active_cards()}
+            if to == ProjectStatus.ACTIVE:
+                from plsi.research import chain  # the chain's findings doc imports this module
+
+                out["kicked"] = chain.kick_if_idle()
+            return out
     if show:
         return project_map(show)
     if adopt:
         return adoption.adopt()
     return {"root": str(store.root() / store.PROJECTS_FOLDER), "active": projects.active_cards(),
+            "on_hold": [projects.card(m) for m in projects.every() if m.get("status") == ProjectStatus.ON_HOLD],
             "projects": projects.every()}
 
 

@@ -17,12 +17,20 @@ COMMANDS: dict[str, Cmd] = {
                             (MX(A("--new", help="title of a new project; other projects are not touched"),
                                 A("--close", help="close this project (its id or title); everything in it stays"),
                                 A("--reopen", help="make this closed project active again (its id or title)"),
+                                A("--hold", help="put this active project on hold (its id or title): it keeps its "
+                                                 "topics and cursors, is never worked and takes no part of the day"),
+                                A("--resume", help="make this project on hold active again (its id or title)"),
                                 A("--show", help="the project map: topics, notes, links, what was sent, next steps"),
                                 A("--adopt", action="store_true",
                                   help="move research from before projects into project folders (Earlier research)"),
+                                A("--room", help="the destination of the project's room, where each research run "
+                                                 "posts its line (with --project)"),
                                 required=False),
-                             A("--aim", help="one line: what the project is for (with --new)")),
-                            "list research projects, or create, close, reopen, show or adopt them",
+                             A("--aim", help="one line: what the project is for (with --new)"),
+                             A("--project", help="the project of --room, its id or title (default: the only active "
+                                                 "project)")),
+                            "list research projects, or create, hold, resume, close, reopen, show or adopt them, or "
+                            "save a project's room",
                             ("plsi research project --show '<project>'",)),
     "research topic": Cmd("plsi.research.topics:topics",
                           (MX(A("--new", help="title of a new topic"), A("--switch", help="make this topic active"),
@@ -65,7 +73,12 @@ COMMANDS: dict[str, Cmd] = {
                              ("plsi research topic --new '<title>' --question '<q>' --kind open_question "
                               "--because '<why now>' --rests-on PMID:<id> --depth <how thorough>",)),
     "research budget": Cmd("plsi.research.topics:set_budget",
-                           (A("--share", type=float, help="percent of the weekly meter research may use per day"),
+                           (A("--share", type=float,
+                              help="percent of the weekly meter research spends per day: a target the working "
+                                   "projects share, not a ceiling"),
+                            A("--start-hour", dest="start_hour", type=int, choices=range(24), metavar="0-23",
+                              help="the UTC hour a new research day may start (default 6): convert the user's own "
+                                   "hour to UTC"),
                             A("--ceiling", type=float,
                               help="percent of the weekly meter research may use in a week; "
                                    "left alone it is four days' worth of --share"),
@@ -80,9 +93,34 @@ COMMANDS: dict[str, Cmd] = {
                            "show or change what research may spend, per day and per week, across every topic; "
                            "reserve a session's billed runs",
                            ("plsi research status",)),
+    "research run": Cmd("plsi.research.chain:run",
+                        (MX(A("--start", action="store_true",
+                              help="begin a research run: code picks the project, reads the meter and returns the "
+                                   "first move"),
+                            A("--end", action="store_true",
+                              help="end the open run: charge it, rebuild findings.md, give the room line and ask "
+                                   "for the next run")),
+                         A("--usage", type=float, required=True, help="percent of this week's limit used, read now"),
+                         A("--kick", help="the run's JSON body as it came (with --start); "
+                                          "nothing for a scheduled run"),
+                         A("--run", dest="rid", help="the id --start gave this run (with --end)")),
+                        "one run of the research chain, metered at its start and its end",
+                        ("plsi research run --end --run <id> --usage <percent used this week>",)),
+    "research watchdog": Cmd("plsi.research.watchdog:watchdog",
+                             (A("--usage", type=float, required=True, help="percent of this week's limit used, read now"),),
+                             "the hourly check of the research chain: restart a dead run, ask again for a run that "
+                             "never started, start a new day; without a hook, one run in place",
+                             ("plsi research inbox",)),
+    "research inbox": Cmd("plsi.research.inbox:inbox",
+                          (A("--form", action="store_true", help="also the question form for the projects raised"),
+                           A("--all", dest="every", action="store_true",
+                             help="a form over every open project, whatever is new")),
+                          "what research has to tell the user since the last notice, at most once a day",
+                          ("plsi research project --show '<project>'",)),
     "research next": Cmd("plsi.research.loop:next_move",
                          (A("--topic"), A("--usage", type=float, help="percent of this week's limit used, read now; "
-                                                                      "required to open a day and after an unsaved move"),
+                                                                      "outside a research run, required to open a "
+                                                                      "day and after an unsaved move"),
                           PROJECT),
                          "everything the next move needs, in one response",
                          ("plsi research save --topic '{topic}' --file move.json",)),

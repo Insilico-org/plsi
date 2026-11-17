@@ -327,9 +327,9 @@ secrets included), becomes a form of 2-8 pages of at most six options each, neve
 
    For each `unset` variable with a clearly matching `candidates` name (`GH_CLIENT_SECRET` for
    `GOOGLE_HEALTH_CLIENT_SECRET`), run `plsi keys map --name <VAR> --from <candidate>`; unsure matches go on ONE card
-   "Use these secrets you already have?" (multi-select, one option per pair, plus "None of these"). Names only:
-   never read, print or copy a value. A tool whose keys are all set is marked "(connected)" on the card and needs
-   no key message. For the remaining selected keys, send ONE message naming each variable to add with Grok's secure
+   "Use these secrets you already have?" (multi-select, one option per pair, plus "All of the above" and "None of
+   these"). Names only: never read, print or copy a value. A tool whose keys are all set is marked "(connected)" on
+   the card and needs no key message. For the remaining selected keys, send ONE message naming each variable to add with Grok's secure
    secret card, never in chat. Avoid the workspace `.env` (copy of `<repo>/.env.example`): every bot shares one
    computer and can read it. When the user says they are added:
 
@@ -517,8 +517,11 @@ show the user the digest part, stay quiet when Explorer reports "Nothing new", a
 If "Daily research" was chosen in step 6.5, the Research Orchestrator turns it on as `lab/research` (Daily
 research, step 1) describes: the share card and the topic card (what to research is the user's, and a routine cannot
 ask), then the project it serves (`lab/research` step 0), `plsi research topic --new --project <id>`, the ENABLED
-daily routine **"PLSI research · <project title>"** and the weekly **"PLSI research check"** on itself; each run
-runs `lab/run` itself for that project (thread `research-<project>-<date>`). When you are the Research Orchestrator, do it now. Otherwise send it ONE
+routines **"PLSI research run"** (webhook) and **"PLSI research watchdog"** (hourly) on itself, the start hour
+(`plsi research budget --start-hour`, in UTC), the room's destination (`plsi research project --room`), and ONE
+message asking the user to add the run routine's "POST to" and "key" with the secret card as
+`PLSI_RESEARCH_HOOK_URL` and `PLSI_RESEARCH_HOOK_KEY` (without them the watchdog runs research in place); code picks
+the project of each run, which runs `lab/run` itself for it (thread `research-<project>-<date>`). When you are the Research Orchestrator, do it now. Otherwise send it ONE
 hub-to-hub `request` (skill `lab/research`, thread `setup-research`, "Daily research on, as chosen at setup") and
 tell the user in one line to open PLSI · Research Orchestrator to pick what it works on.
 
@@ -568,7 +571,8 @@ offer of `orchestrator/feedback` as its own message and create its weekly routin
 ## 15. Routines
 
 Never pack routines into templates; packed routines arrive paused. Create them directly, ENABLED, as above; a
-routine that already exists under the same name is updated and enabled, never created twice. Every routine runs on the hub that owns it (`shared/hub`, Routines): yours on you; another hub's goes to it in ONE hub-to-hub `request` (skill `shared/team`, thread `setup-routines`) naming each routine and its step here and the user's standing answers it needs (the oracle answer of step 6.5, the
+routine that already exists under the same name is updated and enabled, never created twice. "PLSI research run" is
+the one routine with a webhook trigger and no schedule (`lab/research`, Daily research step 1). Every routine runs on the hub that owns it (`shared/hub`, Routines): yours on you; another hub's goes to it in ONE hub-to-hub `request` (skill `shared/team`, thread `setup-routines`) naming each routine and its step here and the user's standing answers it needs (the oracle answer of step 6.5, the
 Mothership send mode of step 6.7, every other standing approval), and that hub keeps them in its permanent memory,
 creates the routines on itself and replies with one `result`. A hub with no recorded answer asks the user before
 any oracle ask or Mothership send. A routine that needs a worker sends it a `request`, and exists only while that

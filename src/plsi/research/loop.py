@@ -10,9 +10,10 @@ from typing import Any
 
 from plsi.errors import ValidationError
 from plsi.research import cursor as cursors
-from plsi.research import frontier, ledger, projects, store
+from plsi.research import frontier, ledger, projects, runs, store
 from plsi.research.store import clip, today
-from plsi.research.tuning import DEPTH_LIMITS, HEADROOM, MAX_ATTEMPTS, TRIED_CHARS, TRIED_MOVES, UNPRODUCTIVE_STOP
+from plsi.research.tuning import (DEPTH_LIMITS, HEADROOM, MAX_ATTEMPTS, RUN_MINUTES, TRIED_CHARS, TRIED_MOVES,
+                                  UNPRODUCTIVE_STOP)
 from plsi.research.verdict import floor_words
 from plsi.research.working_set import working_set
 from plsi.vocab.research import ResearchLogEvent, ResearchMove, ResearchStatus, ResearchStop
@@ -36,14 +37,15 @@ def _read_meter(graph: store.Graph, usage: float | None) -> bool:
     """Open the day on the first reading, or charge a later reading's rise as work no save recorded.
 
     Returns whether a day was opened. After an unsaved attempt a reading is required, so retries cannot spend
-    outside the meter."""
+    outside the meter, unless a research run is open on this project: the run is metered at its end."""
     if ledger.open_day(usage, today()):
         store.write_topic(graph)
         store.append_log(graph, {"event": str(ResearchLogEvent.DAY), "day": today(), "opening_usage": usage,
                                  "allocated": ledger.state()["allocated"]})
         return True
     if usage is None:
-        if int((graph.topic.get("cursor") or {}).get("attempt") or 0) > 0:
+        unsaved = int((graph.topic.get("cursor") or {}).get("attempt") or 0) > 0
+        if unsaved and not runs.open_run(graph.topic.get("project")):
             raise ValidationError("the last move was not saved, so its cost is only on the meter",
                                   code="USAGE_REQUIRED",
                                   hint="plsi research next --usage <percent of this week's limit used, read now>")
@@ -86,8 +88,11 @@ def _no_topic(meta: dict[str, Any]) -> dict[str, Any]:
 def next_move(topic: str | None = None, usage: float | None = None, project: str | None = None) -> dict[str, Any]:
     """`research next`: the move due on the topic named, else on the active topic of the project named (or of the
     only active project), and everything it needs, or a stop. Writes only the cursor, the day's opening and meter
-    readings. The day's allocation is shared by the active projects, so a move must fit this project's part."""
+    readings. The day's allocation is shared by the projects still working, so a move must fit this project's part.
+    Inside a research run the project defaults to the run's and no reading is needed."""
     usage = None if usage is None else ledger.reading(usage)
+    if not topic and not project:
+        project = (runs.open_run() or {}).get("project")
     if not topic:
         meta = projects.pick(project)
         if store.active_name(projects.folder(meta["id"]), required=False) is None:
@@ -106,8 +111,15 @@ def next_move(topic: str | None = None, usage: float | None = None, project: str
     if ledger.is_off():
         return {**_orient(graph), "stop": str(ResearchStop.OFF), "why": "research has no share of the meter",
                 "turn_it_on": "plsi research budget --share <percent of the weekly meter per day>"}
+    run = runs.open_run(graph.topic.get("project"))
+    if run and runs.age_minutes(run) >= RUN_MINUTES:
+        return {**_orient(graph), "stop": str(ResearchStop.TIME_BOX), "run": run["run"],
+                "why": f"this run has had its {RUN_MINUTES} minutes; the next run carries on from this cursor",
+                "then": f"plsi research run --end --run {run['run']} --usage <percent of this week's limit used>"}
 
-    opened = _read_meter(graph, usage)
+    # a topic's first `next` of a day starts at the top of its queue, whichever command opened the day
+    fresh = not any(line.get("day") == today() for line in log)
+    opened = _read_meter(graph, usage) or fresh
     if stop := _meter_stop(graph):
         return stop
     room = ledger.headroom(usage)
@@ -169,10 +181,11 @@ def next_move(topic: str | None = None, usage: float | None = None, project: str
         _log_stop_once(graph, log, ResearchStop.BUDGET, budget["day"], unspent=budget["remaining"],
                        open=frontier.open_items(graph))
         return {**_orient(graph, cursor), "stop": str(ResearchStop.BUDGET),
-                "why": f"today's allocation is spent: {budget['remaining']} left and {cursor['move']} costs about "
-                       f"{budget['estimate']}",
+                "why": f"this project's part of today is spent: {budget['remaining']} left and {cursor['move']} "
+                       f"costs about {budget['estimate']}",
                 "unspent": budget["remaining"], **frontier.recently_closed(graph), "open": frontier.open_items(graph),
-                "budget": budget, "resumes": "the next run on a new day, from this cursor"}
+                "budget": budget,
+                "resumes": "from this cursor, when a project that stops today hands on its part, else on a new day"}
     if _unproductive_run(log, cursor.get("question")) >= UNPRODUCTIVE_STOP:
         # motion without progress ends the direction, not the day
         if cursor.get("question"):
@@ -186,6 +199,8 @@ def next_move(topic: str | None = None, usage: float | None = None, project: str
     cursor["attempt"] = int(cursor.get("attempt") or 0) + 1
     graph.topic["cursor"] = cursor
     store.write_topic(graph)
+    if run:
+        runs.beat(run)
     return _move_reply(graph, log, cursor, budget, gave_up, moved_on)
 
 

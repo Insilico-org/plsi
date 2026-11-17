@@ -11,7 +11,7 @@ from typing import Any
 
 from plsi import clock, extensions
 from plsi.errors import NotFound, UsageError, ValidationError
-from plsi.events import NewEvent
+from plsi.events import Event, NewEvent
 from plsi.files import canonical_json, decode_input, load_json, parse_input_json, read_input_bytes, sha256_file, sha256_hex
 from plsi.life import importers
 from plsi.life.models import DOCUMENT_RE, Observation, ObservationInput, RetractionInput
@@ -44,11 +44,11 @@ def _month(obs: ObservationInput, codes: dict[tuple[str, str], str]) -> tuple[st
     return (coordinate, obs.effective_at.strftime("%Y-%m")) if coordinate else None
 
 
-def _conflicts(store: EventStore, fresh: list[tuple[int, Observation, str]]) -> list[dict[str, str | int]]:
+def _conflicts(recorded: list[Event], fresh: list[tuple[int, Observation, str]]) -> list[dict[str, str | int]]:
     """New monthly means for a metric and month that already has a value (recorded or earlier in this input)."""
     codes = _monthly_codes()
     taken: dict[tuple[str, str], str] = {}
-    for e in store.observations():
+    for e in recorded:
         if (k := _month(e.payload, codes)) is not None:
             taken.setdefault(k, e.id)
     out = []
@@ -164,27 +164,37 @@ def ingest(
     warnings = list(imported.warnings) + [f"UNCODED: {i}" for i, o in rows if o.code is None]
     # a date without a time is stored at 12:00 UTC, so a value dated today stays out of the state until then
     warnings += [f"FUTURE: {i}" for i, o in rows if o.effective_at > now]
-    seen: dict[str, str | int] = {dedupe_key(e.payload): e.id for e in store.observations()}  # keys recomputed from stored payloads
-    fresh: list[tuple[int, Observation, str]] = []
-    dupes: list[str | int] = []  # an event id, or a position in fresh (same-file repeat)
-    for i, obs in rows:
-        key = dedupe_key(obs)
-        if not obs.repeat and key in seen:
-            dupes.append(seen[key])
-        else:
-            seen.setdefault(key, len(fresh))
-            fresh.append((i, obs, key))
-    conflicts = _conflicts(store, fresh)  # reported, never refused
-    warnings += [f"CONFLICT: {c['index']}" for c in conflicts]
+
+    def plan(events: list[Event]) -> tuple[list[tuple[int, Observation, str]], list[str | int], list[dict[str, Any]]]:
+        """(fresh rows, duplicates, conflicts) against the log `events`, read once."""
+        gone = {e.payload.target_event_id for e in events if e.type == EventType.RETRACTION}  # type: ignore[union-attr]
+        recorded = [e for e in events if e.type == EventType.OBSERVATION and e.id not in gone]
+        seen: dict[str, str | int] = {dedupe_key(e.payload): e.id for e in recorded}  # keys recomputed from stored payloads
+        fresh: list[tuple[int, Observation, str]] = []
+        dupes: list[str | int] = []  # an event id, or a position in fresh (same-file repeat)
+        for i, obs in rows:
+            key = dedupe_key(obs)
+            if not obs.repeat and key in seen:
+                dupes.append(seen[key])
+            else:
+                seen.setdefault(key, len(fresh))
+                fresh.append((i, obs, key))
+        return fresh, dupes, _conflicts(recorded, fresh)  # conflicts are reported, never refused
+
     if dry_run:
+        fresh, dupes, conflicts = plan(store.events(active=False))
         ids: list[str] = [f"index {i}" for i, _, _ in fresh]
         accepted: list[Any] = [i for i, _, _ in fresh]
-    else:  # append_many dedupes again under the lock, against concurrent ingests
-        written = store.append_many([NewEvent(EventType.OBSERVATION, obs, dedupe_key=key, dedupe=not obs.repeat) for _, obs, key in fresh]) if fresh else []
+    else:  # the log is read once, under the lock that the append holds too, so a concurrent ingest cannot slip in
+        with store.locked() as events:
+            fresh, dupes, conflicts = plan(events)
+            written = store.append_locked(events, [NewEvent(EventType.OBSERVATION, obs, dedupe_key=key, dedupe=not obs.repeat)
+                                                   for _, obs, key in fresh]) if fresh else []
         ids = [event_id for event_id, _ in written]
         accepted = [event_id for event_id, created in written if created]
-        dupes.sort(key=lambda d: isinstance(d, int))  # log duplicates first, then same-file and concurrent repeats
+        dupes.sort(key=lambda d: isinstance(d, int))  # log duplicates first, then same-file repeats
         dupes += [event_id for event_id, created in written if not created]
+    warnings += [f"CONFLICT: {c['index']}" for c in conflicts]
     duplicates = [ids[d] if isinstance(d, int) else d for d in dupes]
     return {
         "counts": {"accepted": len(accepted), "duplicate": len(duplicates), "rejected": len(imported.rejected)},

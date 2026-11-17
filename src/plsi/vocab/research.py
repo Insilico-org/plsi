@@ -153,6 +153,7 @@ class ResearchStop(StrEnum):
     BUDGET = "budget"  # today's allocation is spent
     ANSWERED = "answered"  # the question in chief is answered and nothing is open under it
     EXHAUSTED = "exhausted"  # the frontier emptied short of an answer at the topic's depth
+    TIME_BOX = "time_box"  # the research run has had its minutes: it ends here and the next run carries on
 
 
 class ResearchLogEvent(StrEnum):
@@ -168,6 +169,56 @@ class ResearchLogEvent(StrEnum):
     REFRAMED = "reframed"
     DEPTH = "depth"
     BUDGET = "budget"
+    RUN = "run"  # a run's meter rise, spread over the moves it saved here (or carried whole when it saved none)
+
+
+class RunEvent(StrEnum):
+    """A line in research/runs.jsonl, the run log: every research run and every check logs itself, because the bot
+    cannot see a routine's run history."""
+
+    START = "start"  # a run began on the project code picked
+    END = "end"  # a run ended and was charged
+    KICKED = "kicked"  # the next run was asked for
+    BUSY = "busy"  # a start while another run is open: it ends at once
+    STRAY = "stray"  # a chain kick that is not the one last asked for: it ends at once
+    IDLE = "idle"  # nothing is left to work on
+    REST = "rest"  # research waits: the day's target is reached, a hard stop holds, or research is Off
+    CHECK = "check"  # the watchdog looked and found nothing to do
+    RESTART = "restart"  # the watchdog found a run that never ended
+    BEAT = "beat"  # a run's `next` or save: it is still working, however long ago it started
+
+
+class RunRest(StrEnum):
+    """Why the chain rests (a `rest` line's `why`) instead of asking for another run."""
+
+    TARGET = "target"  # the day's target is spent
+    CAP = "cap"  # the day took as many runs as its target allows
+    NOTHING_SAVED = "nothing_saved"  # two runs in a row saved no move: the day ends
+    OFF = "off"  # the share is 0
+    HEADROOM = "headroom"  # the user's reserve of the weekly meter would be touched
+    CEILING = "ceiling"  # the week's ceiling is spent
+    METER = "meter"  # a reading went below the one before it; only the user can say it was a reset
+    EARLY = "early"  # a new day is due but the user's start hour has not come
+
+
+class KickSource(StrEnum):
+    """What started a run: the JSON body of its webhook call, or the routine's schedule when there is none."""
+
+    CHAIN = "chain"  # the run before it, at its end
+    WATCHDOG = "watchdog"
+    USER = "user"  # a command that created work
+    SCHEDULE = "schedule"
+
+
+class InboxKind(StrEnum):
+    """What the research inbox tells the user (`research inbox`), at most one notice a day."""
+
+    READY = "ready"  # a topic's question in chief has an answer at its depth bar
+    ALMOST = "almost"  # a top-level direction is one move from a verdict
+    NEEDS_YOU = "needs_you"  # a decision only the user makes: a project's next topic, a meter reset
+    STALLED = "stalled"  # exhausted with no follow-up, or no move for two weeks
+    ON_HOLD = "on_hold"  # on hold for two weeks or more
+    STARVING = "starving"  # too many projects for the share: none makes real progress
 
 
 class ResearchSpend(StrEnum):
@@ -226,7 +277,9 @@ class ResearchNoteStatus(StrEnum):
 
 
 class ProjectStatus(StrEnum):
-    """A research project in research/projects/: any number are active; `--reopen` brings a closed one back."""
+    """A research project in research/projects/: any number are active; `--resume` brings a held one back and
+    `--reopen` a closed one."""
 
     ACTIVE = "active"  # being worked on; a command names it with --project unless it is the only one
+    ON_HOLD = "on_hold"  # kept as it is (room, topics, cursors) and never worked: it takes no part of the day
     CLOSED = "closed"  # not being worked on; its topics and notes keep its id

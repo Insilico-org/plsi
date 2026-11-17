@@ -12,7 +12,7 @@ from typing import Any
 from plsi import files
 from plsi.errors import ValidationError
 from plsi.research import cursor as cursors
-from plsi.research import frontier, ledger, projects, refusals, store, write
+from plsi.research import frontier, ledger, projects, refusals, runs, store, write
 from plsi.research.schema import search_counts
 from plsi.research.store import today
 from plsi.research.tuning import MIN_ABSENCE_ROUNDS, STAGNATION_NOVELTY
@@ -53,9 +53,15 @@ def save(topic: str | None = None, file: str | None = None,  # noqa: A002 - CLI 
          project: str | None = None) -> dict[str, Any]:
     """Validate the payload, write its nodes and updates, charge the reading, log the move and move the cursor, on
     the topic named, else on the active topic of the project named (or of the only active project). Every refusal
-    is raised before the first write; a failed write removes what this save created."""
+    is raised before the first write; a failed write removes what this save created. Inside a research run the
+    project defaults to the run's and the reading may be left out: the run's end charges its moves."""
     payload, usage, chars_in, chars_out = _read_payload(file)
+    if not topic and not project:
+        project = (runs.open_run() or {}).get("project")
     graph = store.load(topic or projects.active_topic(project))
+    run = runs.open_run(graph.topic.get("project"))
+    if usage is None and not run:
+        ledger.reading(None)  # outside a run every save carries its reading
     log = store.read_log(graph)
     cursor = dict(graph.topic.get("cursor") or {})
     _started(graph, cursor)
@@ -116,16 +122,20 @@ def save(topic: str | None = None, file: str | None = None,  # noqa: A002 - CLI 
     }
     productive = _productive(change, updates)
 
-    cost = ledger.charge(usage, chars_in, chars_out)
+    cost = ledger.charge(usage, chars_in, chars_out) if usage is not None else \
+        {"delta": None, "chars": chars_in + chars_out, "reported": False}
     cursor = cursors.advance(graph, {**cursor, "question": worked}, move, bool(stops))
     graph.topic["cursor"] = cursor
     store.write_topic(graph)
     store.append_log(graph, {
-        "move": move, "day": today(), "recommended": recommended if chose_otherwise else None,
+        "move": move, "day": today(), "run": run["run"] if run else None,
+        "recommended": recommended if chose_otherwise else None,
         "question": worked, "suggested_question": suggested_q if worked != suggested_q else None,
         "cost": cost, "change": change, "productive": productive, "stops": stops, "signals": signals,
         "quiet": quiet, "sections": {k: payload.get(k) for k in SECTIONS if payload.get(k)},
     })
+    if run:
+        runs.beat(run)
 
     budget = ledger.affordable(graph, store.read_log(graph), cursor["move"])
     return {
@@ -140,16 +150,18 @@ def save(topic: str | None = None, file: str | None = None,  # noqa: A002 - CLI 
     }
 
 
-def _read_payload(file: str | None) -> tuple[dict[str, Any], float, int, int]:
-    """The payload, its meter reading and its character counts, each refused before the topic is read. A key the
-    save does not read is refused, so a misspelt one cannot be silently dropped."""
+def _read_payload(file: str | None) -> tuple[dict[str, Any], float | None, int, int]:
+    """The payload, its meter reading (None when left out, which only a run allows) and its character counts, each
+    refused before the topic is read. A key the save does not read is refused, so a misspelt one cannot be silently
+    dropped."""
     payload = files.load_json(file)
     if not isinstance(payload, dict):
         raise ValidationError("the save payload is a JSON object", hint="see skills/shared/research-graph")
     if unknown := sorted(set(payload) - PAYLOAD_KEYS):
         raise ValidationError(f"unknown save field {', '.join(map(repr, unknown))}", code="UNKNOWN_FIELD",
                               hint=f"a save carries: {', '.join(sorted(PAYLOAD_KEYS - {'stop'}))}. Nothing was written")
-    return payload, ledger.reading(payload.get("usage")), _chars(payload, "chars_in"), _chars(payload, "chars_out")
+    usage = None if payload.get("usage") is None else ledger.reading(payload["usage"])
+    return payload, usage, _chars(payload, "chars_in"), _chars(payload, "chars_out")
 
 
 def _productive(change: dict[str, Any], updates: list[dict[str, Any]]) -> bool:
