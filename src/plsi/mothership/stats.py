@@ -1,6 +1,6 @@
 """Analyses of a Mothership data release with the Mother's maths: cells pooled by n over the keys a group leaves
-open, Welch's t-test (compare_groups) or a weighted least-squares slope on age-band midpoints (age_trend); the
-Student t from the regularized incomplete beta. Results keep 6 significant digits."""
+open, Welch's t-test (compare_groups) or a weighted least-squares slope on age-band midpoints (age_trend). Results
+keep 6 significant digits."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import math
 from typing import Any
 
 from plsi import files
+from plsi.distributions import t_quantile, t_two_sided
 from plsi.errors import ValidationError
 from plsi.mothership.content import number
 from plsi.vocab import AnalysisOp, Ethnicity, Sex
@@ -20,51 +21,6 @@ WIRE_SEXES = (Sex.F.value, Sex.M.value)  # the wire's sexes (§5); X and unknown
 WIRE_ETHNICITIES = (*(e.value for e in Ethnicity), "unspecified")
 TREND_KEYS = ("sex", "ethnicity")  # what an age_trend may filter on; it pools each band over the rest
 CELL_KEYS = frozenset({"map_id", "coordinate", "age_band", "n", "mean", "sd"})
-
-
-def _betacf(a: float, b: float, x: float) -> float:
-    """Continued fraction of the incomplete beta (modified Lentz)."""
-    tiny, qab, qap, qam = 1e-300, a + b, a + 1.0, a - 1.0
-    c, d = 1.0, 1.0 - qab * x / qap
-    d = 1.0 / (d if abs(d) > tiny else tiny)
-    h = d
-    for m in range(1, 301):
-        m2 = 2 * m
-        for aa in (m * (b - m) * x / ((qam + m2) * (a + m2)), -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))):
-            d = 1.0 + aa * d
-            d = 1.0 / (d if abs(d) > tiny else tiny)
-            c = 1.0 + aa / c
-            c = c if abs(c) > tiny else tiny
-            h *= d * c
-        if abs(d * c - 1.0) < 3e-16:
-            break
-    return h
-
-
-def betainc(a: float, b: float, x: float) -> float:
-    """The regularized incomplete beta I_x(a, b)."""
-    if x <= 0.0 or x >= 1.0:
-        return 0.0 if x <= 0.0 else 1.0
-    front = math.exp(math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b) + a * math.log(x) + b * math.log1p(-x))
-    if x < (a + 1.0) / (a + b + 2.0):
-        return front * _betacf(a, b, x) / a
-    return 1.0 - front * _betacf(b, a, 1.0 - x) / b
-
-
-def t_two_sided(t: float, df: float) -> float:
-    """Two-sided p of Student's t with df degrees of freedom."""
-    return betainc(df / 2.0, 0.5, df / (df + t * t))
-
-
-def t_quantile(q: float, df: float) -> float:
-    """The t with P(T <= t) = q, for q > 0.5 (bisection on the two-sided p)."""
-    target, lo, hi = 2.0 * (1.0 - q), 0.0, 1.0
-    while t_two_sided(hi, df) > target:
-        hi *= 2.0
-    for _ in range(200):
-        mid = (lo + hi) / 2.0
-        lo, hi = (mid, hi) if t_two_sided(mid, df) > target else (lo, mid)
-    return (lo + hi) / 2.0
 
 
 def sig(x: float, digits: int = 6) -> float:

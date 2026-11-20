@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src '__PLSI_SCRIPT_HASH__'; style-src 'unsafe-inline'; img-src data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab journal</title>
+<style>
+__PLSI_STYLE__
+</style>
+</head>
+<body>
+<noscript><p style="padding:24px">This journal draws itself with a script: open the file in a web browser (download it first if a preview shows nothing).</p></noscript>
+<img id="logo" hidden alt="Insilico Medicine" width="30" height="31" src="__PLSI_LOGO__">
+<div class="app" id="app"></div>
+<script type="application/json" id="plsi-payload">__PLSI_PAYLOAD__</script>
+<script>
+(() => {
+  "use strict";
+__PLSI_SCRIPT__
+})();
+</script>
+</body>
+</html>

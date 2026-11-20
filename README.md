@@ -20,6 +20,12 @@ This repo supplies:
   chain of runs that spends the daily share of the weekly usage the user sets; code computes every verdict
 - target discovery for researchers (`<PLSI_HOME>/targets/<gene>/`, `plsi targets`): dossiers from free sources and
   an assessment refused unless every claim is sourced
+- a wet-lab journal for researchers (`<PLSI_HOME>/journal/`, `plsi journal`): one entry per experiment (PCR, gels,
+  RT-qPCR, westerns, xCELLigence, plate readers, microscopy, culture, sorting, animal studies, cloning), plasmid maps
+  from GenBank, bench calculators, and one HTML page that draws it all; signed entries never change
+- public-data analysis for researchers (`<PLSI_HOME>/analyses/`, `plsi bio`): a frozen plan and one gated step at a
+  time, each closed with its method, key numbers and a verdict code will not let a broken null or a post-hoc change
+  support
 - local state storage (`instances/<name>/`)
 
 ## Disclaimer
@@ -75,7 +81,7 @@ the flows are `skills/shared/hub` (the hubs only).
    |       Reviewer, Data Controller, Memory Hole, Visualizer           |
    | specialists (opt-in): Wearables, Nutritionist, Coach, Sleep,       |
    |       Biohacker, Explorer, Navigator, Trial Scout, Pharma Analyst, |
-   |       Engineer, Writer                                             |
+   |       Engineer, Writer, Bioinformatician                           |
    +--------------------------------------------------------------------+
    | PLSI Clinic (physician): Panel, Visit Prep, Clinical Evidence,     |
    |       Liaison                                                      |
@@ -131,15 +137,17 @@ Not possible yet, plainly:
 | [`plsi.policy`](src/plsi/policy/README.md) | Policy layer: evidence search and verification, blocking screening, plan gates, scoring and calibration, oracles |
 | [`plsi.research`](src/plsi/research/README.md) | autoresearch: topics, projects, the move loop, verdicts, frontier, budget ledger, research notes |
 | [`plsi.targets`](src/plsi/targets/README.md) | target discovery: dossiers from free sources, assessments, hallmarks, trials, briefs |
+| [`plsi.bio`](src/plsi/bio/README.md) | public-data analysis checks: protocol freeze, per-step gate, eligibility, pooling, replication, enrichment, signature nulls, survival, disproportionality, single-cell checks |
 | [`plsi.mothership`](src/plsi/mothership/README.md) | the Longevity Mothership: consent and enrollment, packages, notes, the egress gate, the relay, professional access |
 | [`plsi.clinic`](src/plsi/clinic/README.md) | the physician's clinic: patient Drive folders, sync, publishing, the panel dashboard |
+| [`plsi.journal`](src/plsi/journal/README.md) | the wet-lab journal: entries, derived results, plasmids, bench calculators, the journal page |
 | `plsi.vocab` | every enum |
-| `plsi` (top-level modules) | the CLI and command table (`cli`, `commands`, `cmdspec`), the team and role, reports, export, feedback, references, keys, HTTP (`net`), extensions, the skill-page check (`skill_lint`, `plsi skills lint`) |
+| `plsi` (top-level modules) | the CLI and command table (`cli`, `commands`, `cmdspec`), the team and role, reports, export, feedback, references, keys, HTTP (`net`), distributions (`distributions`), extensions, the skill-page check (`skill_lint`, `plsi skills lint`) |
 
 Rules: `plsi.policy` never imports `plsi.life` and reads the world only through `plsi.map`; `plsi.life` never imports `plsi.map` or `plsi.policy`. The three layers keep a fully local deployment possible.
 
 Commands: `plsi --help` and `plsi <command> --help`; the table is `src/plsi/commands.py` plus the `commands.py`
-of `research/`, `targets/` and `mothership/`.
+of `research/`, `targets/`, `mothership/`, `bio/` and `journal/`.
 
 ## Extending PLSI
 
@@ -235,8 +243,12 @@ instances/<name>/                   subject.json, events.jsonl, maps/user/, stat
 research/projects/<id>/             one research project: project.md, findings.md, notes/, data/ and topics/<topic>/
                                     (topic.md, log.jsonl, questions/ hypotheses/ findings/); day.json, runs.jsonl
                                     and inbox.json beside projects/ (under PLSI_HOME)
+analyses/<project>/<slug>/          one public-data analysis: protocol/ (frozen, MANIFEST.sha256), scripts/, data/,
+                                    results/ (steps/ pages, steps.jsonl), figures/ (under PLSI_HOME; no personal data)
 targets/<gene>/dossier.json         one target dossier: facts gathered from the free sources, and the bot's
                                     assessment once it passes the refusals (under PLSI_HOME)
+journal/entries/<id>/              one experiment: entry.json, history.jsonl, files/; plasmids/<name>.json and
+                                    journal.html beside entries/ (under PLSI_HOME)
 ```
 
 Contributor and agent rules: [AGENTS.md](AGENTS.md).

@@ -7,7 +7,6 @@ version no longer has are retracted. Writes only through EventStore; events.json
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from typing import Any
 
@@ -15,8 +14,8 @@ from plsi.events import NewEvent
 from plsi.files import parse_input_json
 from plsi.errors import UsageError, ValidationError
 from plsi.life import importers
-from plsi.life.ingest import dedupe_key, read_source, to_observation
-from plsi.life.models import DOCUMENT_RE, Observation, Origin, Retraction
+from plsi.life.ingest import check_document, dedupe_key, read_source, to_observation
+from plsi.life.models import Observation, Origin, Retraction
 from plsi.life.store import EventStore
 from plsi.vocab import EventType
 
@@ -53,8 +52,7 @@ def revise(instance: str, document: str, file: str | None = None, csv: str | Non
     if imported.rejected and not dry_run:  # a rejected row would otherwise read as dropped, and be retracted
         raise ValidationError(f"{len(imported.rejected)} row(s) of the new version are invalid; fix them first",
                               code="REVISE_REJECTED", hint="the dry run lists them under rejected")
-    if not re.match(DOCUMENT_RE, document):
-        raise ValidationError(f"invalid document id: {document!r}", hint="a stable id such as the Drive file id; never a file name")
+    check_document(document)
     rows = [(i, to_observation(o.model_copy(update={"origin": o.origin.model_copy(update={"document": document})})))
             for i, o in imported.rows]
 

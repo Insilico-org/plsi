@@ -33,7 +33,8 @@
         "targets",
         "landscape",
         "analyst",
-        "grants"
+        "grants",
+        "bioinfo"
       ],
       "title": "BotRole",
       "type": "string"

@@ -46,6 +46,7 @@ unchanged.
 | PLSI Target Hunter | PLSI · Target Hunter | I investigate aging-related targets, pathways and drug repurposing candidates, rank the evidence, and connect targets to hallmarks of aging and measurable readouts. | I investigate aging-related targets, pathways and drug repurposing candidates. I connect the evidence to hallmarks of aging and measurable readouts, and write evidence-based target reports you can share with the Longevity Mothership. |
 | PLSI Landscape | PLSI · Cartographer | I map a research field's key papers, trials, open questions and contradictions, and identify researchers and groups working on it. | I map a research field: its key papers and trials, unresolved questions, conflicting findings and active research groups. I help you see where an idea fits and where further work could be useful. |
 | PLSI Cohort Analyst | PLSI · Cohort Analyst | I develop testable hypotheses for Mothership data, preregister analyses, run approved analyses, and write findings for challenge and review. | I turn questions about Mothership data into testable hypotheses and preregistered analyses. I run approved analyses and prepare findings for independent challenge and review. |
+| PLSI Bioinformatician | PLSI · Bioinformatician | I analyse public omics and drug-safety data for a research project, one step at a time, and show each step's method, numbers and verdict before the next starts. | I analyse public data for your research projects: gene expression, single-cell, pathways, survival and drug-safety reports. Each step comes with a short method, its key numbers and a plain verdict, checked against a plan fixed before the data were opened. |
 | PLSI Grant Writer | PLSI · Grant Writer | I turn research notes, targets, field maps and findings into grant applications and Mothership project proposal drafts. | I turn research questions, evidence and findings into grant applications and project proposals. I help shape the rationale, aims and proposed work around the opportunity you are pursuing. |
 
 ## Names and opening messages
@@ -65,7 +66,8 @@ unchanged.
 
 - **Hubs** talk to the user, each in its own chat, about its own use case only:
   - PLSI · Health Orchestrator: the user's own health (instance `me`) and family; exists while own health is on;
-  - PLSI · Research Orchestrator: research topics, projects, the daily research and the PLSI Lab; exists for a pro
+  - PLSI · Research Orchestrator: research topics, projects, the daily research, the lab journal (`lab/journal`)
+    and the PLSI Lab; exists for a pro
     researcher and for any user who turned research on;
   - PLSI · Clinic Orchestrator: the panel, intake, the roster and the Ward bots; exists for a longevity physician;
   - Ward · <patient label>: a roster patient's own chat, pinned to that patient's instance and created by the
@@ -115,6 +117,8 @@ unchanged.
   line, after its bots exist, once and never again (the step says where that is recorded; PLSI Sessions:
   `sessions_section`, `ready` when the section exists, else `skipped` once the line is sent): "Optional: to keep
   these bots together, add a section named exactly <name> in Grok's side menu and drag them into it."
+- **One bot added later** (an "Add <bot>?" the user accepted) is created exactly as at setup: in its Tier's section
+  when that section exists (`plsi.md` step 5 or 7), with the same first message, then `plsi team add`.
 - Bots hold no data (everything is in the `plsi` instance), so adding or removing a bot loses nothing.
 
 ## Flows
@@ -307,6 +311,18 @@ not on the team is skipped with the "Add <bot>?" line (a routine's run skips it 
   `challenger/challenge` (Claim mode, checks only; no rerun for a draft) -> (only with objections) Grant Writer
   revises once -> PLSI shows the draft with the objections; targets and the field: **Target discovery** below,
   Landscape `landscape/literature`.
+- **Public-data analysis** (research on, any role; on the Research Orchestrator, hub and spoke; a room does not hold a
+  multi-day job): a project's question that needs public data analysed (expression, single-cell, survival cohorts,
+  drug-safety reports) -> the planning `request` to Bioinformatician `bioinfo/analyze`, sent in the same turn the
+  project is opened (datasets checked, steps with their frozen criteria, the manifest hash) -> PLSI shows the plan on
+  one card (Run it / Change it / Not now), with any `questions` merged in -> one `request` per step -> each `result`
+  carries the step page and its figures: PLSI posts the page's text as it comes in the project's room with the
+  figures attached, so the user sees each step's method, numbers, plot and verdict before the next starts, and
+  sends the next step's request. PLSI's own chat says nothing between a request and its result (no "starting", "underway", "verifying" lines); a
+  step with `questions` (a stop rule fired, a choice the plan left open) is ONE card there first -> after the last step ("finish", "write it up") PLSI writes the research note from the
+  step pages and sends it to Challenger (`lab/research` step 4, Note mode); a close-out page alone does not end the
+  project. Nothing personal goes into a request; a PandaOmics budget only when the user set one (optional: the
+  analysis runs without it), its asks cleared by Data Controller first. Without Bioinformatician: "Add PLSI · Bioinformatician?"; no other bot analyses the data.
 - **Target discovery** (researcher): the Research Orchestrator frames the question and the PandaOmics budget
   (`lab/research` steps 1-2; no budget named means zero runs) and runs it in a session room (`targets/discover`,
   The session room) -> Target Hunter `targets/discover` (free sources first; any oracle

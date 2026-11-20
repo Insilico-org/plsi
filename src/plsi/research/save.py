@@ -102,8 +102,9 @@ def save(topic: str | None = None, file: str | None = None,  # noqa: A002 - CLI 
         write.rollback(undo)
         raise
 
-    quiet = _quiet(graph, move, worked)
-    signals = _signals(graph, log, move, worked, quiet)
+    this_round = _this_round(nodes, updates, names, worked)
+    quiet = _quiet(move, this_round)
+    signals = _signals(graph, log, move, worked, quiet, this_round)
     close_why = str(payload.get("close_direction") or "")
     closed_now = cursors.close(graph, worked, close_why) if close_why and worked else None
     stops = [close_why] if closed_now else []
@@ -176,14 +177,22 @@ def _productive(change: dict[str, Any], updates: list[dict[str, Any]]) -> bool:
     return any(int((u.get("last_search") or {}).get("hits") or 0) for u in bookkeeping)
 
 
-def _quiet(graph: store.Graph, move: str, question: str | None) -> bool:
-    """Whether this move was a gather whose new share of the hits is below STAGNATION_NOVELTY."""
-    search = search_counts(graph.nodes.get(question or ""))
-    return move == ResearchMove.GATHER and bool(search["hits"]) and search["new"] / search["hits"] < STAGNATION_NOVELTY
+def _this_round(nodes: list[dict[str, Any]], updates: list[dict[str, Any]], names: dict[int, str],
+                question: str | None) -> dict[str, int]:
+    """This save's own `last_search` on the worked question: this round's hits and new, never the question's
+    totals (the stored `hits` adds up every round, while `new` is this round's only)."""
+    given = [u for u in updates if u.get("name") == question] + [n for i, n in enumerate(nodes) if names.get(i) == question]
+    return search_counts(next((g for g in given if isinstance(g.get("last_search"), dict)), None))
+
+
+def _quiet(move: str, this_round: dict[str, int]) -> bool:
+    """Whether this move was a gather whose new share of this round's hits is below STAGNATION_NOVELTY."""
+    hits = this_round["hits"]
+    return move == ResearchMove.GATHER and bool(hits) and this_round["new"] / hits < STAGNATION_NOVELTY
 
 
 def _signals(graph: store.Graph, log: list[dict[str, Any]], move: str, question: str | None,
-             quiet: bool) -> list[str]:
+             quiet: bool, this_round: dict[str, int]) -> list[str]:
     """Observations about this direction for the bot to weigh; never actions."""
     if not question or question not in graph.nodes:
         return []
@@ -191,8 +200,8 @@ def _signals(graph: store.Graph, log: list[dict[str, Any]], move: str, question:
     search = search_counts(graph.nodes[question])
     hits, rounds = search["hits"], search["rounds"]
     if quiet:
-        out.append(f"{search['new']} of {hits} retrieved sources were new. Either the topic is "
-                   "worked out or the query is; close the direction with close_direction if you judge it the first")
+        out.append(f"{this_round['new']} of {this_round['hits']} sources this gather retrieved were new. Either the "
+                   "topic is worked out or the query is; close the direction with close_direction if you judge it the first")
     if move == ResearchMove.GATHER and not hits and rounds >= MIN_ABSENCE_ROUNDS:
         out.append(f"{rounds} rounds, nothing retrieved. A recorded absence is a result; close the direction if "
                    "you have earned the claim")

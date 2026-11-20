@@ -16,7 +16,7 @@ from plsi.files import canonical_json, decode_input, load_json, parse_input_json
 from plsi.life import importers
 from plsi.life.models import DOCUMENT_RE, Observation, ObservationInput, RetractionInput
 from plsi.life.normalize import normalize_unit, shipped_coordinates
-from plsi.life.store import EventStore
+from plsi.life.store import EventStore, _retracted
 from plsi.models import parse
 from plsi.vocab import EventType, OriginKind
 
@@ -62,6 +62,12 @@ def _conflicts(recorded: list[Event], fresh: list[tuple[int, Observation, str]])
     return out
 
 
+def check_document(document: str) -> None:
+    """Refuse a document id that is not a stable id (such as the Drive file id), never a file name."""
+    if not re.match(DOCUMENT_RE, document):
+        raise ValidationError(f"invalid document id: {document!r}", hint="a stable id such as the Drive file id; never a file name")
+
+
 def dedupe_key(obs: ObservationInput) -> str:
     """sha256 hex of canonical_json({kind, code or lower(original_text), effective_at, value fields, normalized unit,
     specimen, fasting, origin.file_sha256, origin.record_id, clinical_status, effective_end}); ingest recomputes it
@@ -102,6 +108,24 @@ def _from_extension(ext_id: str, path: str) -> importers.Imported:
     return importers.Imported.from_items([{**item, "origin": item.get("origin") or origin} if isinstance(item, dict) else item for item in items])
 
 
+def _plan(rows: list[tuple[int, Observation]], events: list[Event],
+          ) -> tuple[list[tuple[int, Observation, str]], list[str | int], list[dict[str, Any]]]:
+    """(fresh rows, duplicates, conflicts) against the log `events`, read once."""
+    gone = _retracted(events)
+    recorded = [e for e in events if e.type == EventType.OBSERVATION and e.id not in gone]
+    seen: dict[str, str | int] = {dedupe_key(e.payload): e.id for e in recorded}  # keys recomputed from stored payloads
+    fresh: list[tuple[int, Observation, str]] = []
+    dupes: list[str | int] = []  # an event id, or a position in fresh (same-file repeat)
+    for i, obs in rows:
+        key = dedupe_key(obs)
+        if not obs.repeat and key in seen:
+            dupes.append(seen[key])
+        else:
+            seen.setdefault(key, len(fresh))
+            fresh.append((i, obs, key))
+    return fresh, dupes, _conflicts(recorded, fresh)  # conflicts are reported, never refused
+
+
 def ingest(
     instance: str,
     file: str | None = None,
@@ -130,8 +154,8 @@ def ingest(
         raise UsageError("give exactly one of --file, --fhir, --csv, --methylation, --ext")
     if (ext is None) != (input is None):
         raise UsageError("--ext and --input go together")
-    if document is not None and not re.match(DOCUMENT_RE, document):
-        raise ValidationError(f"invalid document id: {document!r}", hint="a stable id such as the Drive file id; never a file name")
+    if document is not None:
+        check_document(document)
     store = EventStore(instance)
     result: dict[str, Any] = {}
     if methylation is not None:
@@ -165,29 +189,13 @@ def ingest(
     # a date without a time is stored at 12:00 UTC, so a value dated today stays out of the state until then
     warnings += [f"FUTURE: {i}" for i, o in rows if o.effective_at > now]
 
-    def plan(events: list[Event]) -> tuple[list[tuple[int, Observation, str]], list[str | int], list[dict[str, Any]]]:
-        """(fresh rows, duplicates, conflicts) against the log `events`, read once."""
-        gone = {e.payload.target_event_id for e in events if e.type == EventType.RETRACTION}  # type: ignore[union-attr]
-        recorded = [e for e in events if e.type == EventType.OBSERVATION and e.id not in gone]
-        seen: dict[str, str | int] = {dedupe_key(e.payload): e.id for e in recorded}  # keys recomputed from stored payloads
-        fresh: list[tuple[int, Observation, str]] = []
-        dupes: list[str | int] = []  # an event id, or a position in fresh (same-file repeat)
-        for i, obs in rows:
-            key = dedupe_key(obs)
-            if not obs.repeat and key in seen:
-                dupes.append(seen[key])
-            else:
-                seen.setdefault(key, len(fresh))
-                fresh.append((i, obs, key))
-        return fresh, dupes, _conflicts(recorded, fresh)  # conflicts are reported, never refused
-
     if dry_run:
-        fresh, dupes, conflicts = plan(store.events(active=False))
+        fresh, dupes, conflicts = _plan(rows, store.events(active=False))
         ids: list[str] = [f"index {i}" for i, _, _ in fresh]
         accepted: list[Any] = [i for i, _, _ in fresh]
     else:  # the log is read once, under the lock that the append holds too, so a concurrent ingest cannot slip in
         with store.locked() as events:
-            fresh, dupes, conflicts = plan(events)
+            fresh, dupes, conflicts = _plan(rows, events)
             written = store.append_locked(events, [NewEvent(EventType.OBSERVATION, obs, dedupe_key=key, dedupe=not obs.repeat)
                                                    for _, obs, key in fresh]) if fresh else []
         ids = [event_id for event_id, _ in written]

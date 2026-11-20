@@ -16,7 +16,7 @@ REPO_DATA = ("maps", "mothership/consent.md", "mothership/references")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _WINDOWS_RESERVED = {"con", "prn", "aux", "nul"} | {f"{p}{i}" for p in ("com", "lpt") for i in range(1, 10)}
 # <PLSI_HOME> folders that are not instances: never an instance name
-HOME_DIRS = frozenset({"egress", "extensions", "feedback", "inbox", "mothership", "research", "targets", "work"})
+HOME_DIRS = frozenset({"egress", "extensions", "feedback", "inbox", "journal", "mothership", "research", "targets", "work"})
 
 
 def is_reserved(name: str) -> bool:

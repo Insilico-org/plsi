@@ -9,14 +9,15 @@ from typing import Any
 
 from plsi import files, mesh, paths
 from plsi.errors import GateFailed, UsageError, ValidationError
-from plsi.mothership import attach, gate, note as note_rules, scan
+from plsi.mothership import attach, gate, hints, mine, note as note_rules, scan
 from plsi.mothership.attach import REPORT_FILE
 from plsi.mothership.enroll import outbox
 from plsi.mothership.relay import RESEARCH_REFERENCE, header, mail_address
-from plsi.vocab import MothershipMessage
+from plsi.vocab import MothershipMessage, ProjectAction
 
 MAX_SUBJECT = 80
-NOTE_INLINE_MAX = 30_000  # bytes of the note's JSON: a note longer than this sends its report as a data file instead
+PROJECT_SUBJECT = "PLSI project invite:"  # the Mother routes BOTH invite and revoke by this subject prefix — keep it for both
+NOTE_INLINE_MAX = 30_000  # bytes of the note's JSON: a longer note sends its report as a data file, and still longer is refused
 # the kinds an Explorer contribution.json may have, named as on the wire
 KINDS = (MothershipMessage.RESEARCH_NOTE, MothershipMessage.REGISTRY_UPDATE)
 
@@ -28,17 +29,32 @@ def _size(doc: dict[str, Any]) -> int:
 def _report_as_file(doc: dict[str, Any], mail: dict[str, bytes],
                     instances: set[str]) -> tuple[dict[str, Any], dict[str, bytes]]:
     """A note too long to attach keeps its items and method and sends its report as the data file report.md, checked
-    as every data file is; the note itself stays a separate .json attachment, never inside the zip."""
+    as every data file is (the caller has gated it inline first: its lines and its length); the note itself stays a
+    separate .json attachment, never inside the zip."""
     entries = doc.get("files") or []
     if len(entries) >= note_rules.MAX_FILES:
         raise ValidationError(f"a long note sends its report as a data file: at most {note_rules.MAX_FILES - 1} other files",
                               code="BAD_CONTRIBUTION")
     data = doc["report"].encode("utf-8")
-    if found := attach.check(REPORT_FILE, data, instances):
-        raise GateFailed([scan.flag("report", r) for r in sorted(found)], "the research note's report is not safe to send")
+    if found := [scan.flag("report", r) for r in sorted(attach.check(REPORT_FILE, data, instances))]:
+        raise GateFailed(found, "the research note's report is not safe to send", hints.hint(found))
     rest = {k: v for k, v in doc.items() if k != "report"}
     rest["files"] = [*entries, {"name": REPORT_FILE, "sha256": files.sha256_hex(data)}]
     return rest, {**mail, REPORT_FILE: data}
+
+
+def _within_inbox_limit(doc: dict[str, Any], mail: dict[str, bytes], instance: str, instances: set[str],
+                        what: str) -> tuple[dict[str, Any], dict[str, bytes]]:
+    """A research note too large to attach inline moves its report to report.md (re-gated as a data file); one still
+    over the inbox limit without its report is refused — the inbox would cut it off (WIRE §7)."""
+    if doc.get("report") and _size(doc) > NOTE_INLINE_MAX:
+        doc, mail = _report_as_file(doc, mail, instances)
+        gate.require(doc, instance, what=what)
+    if _size(doc) > NOTE_INLINE_MAX:
+        raise ValidationError(f"the research note is over {NOTE_INLINE_MAX // 1000} KB even without its report",
+                              code="NOTE_TOO_LONG",
+                              hint="fewer items or shorter support, against and risks lines, or split it into two notes")
+    return doc, mail
 
 
 def note(instance: str, file: str) -> dict[str, Any]:
@@ -59,19 +75,52 @@ def note(instance: str, file: str) -> dict[str, Any]:
         if kind != MothershipMessage.RESEARCH_NOTE:
             raise ValidationError("only a research note carries files", code="BAD_CONTRIBUTION")
         doc["files"], mail = attach.prepare(given["files"], instances)
-    if kind == MothershipMessage.RESEARCH_NOTE and doc.get("report") and _size(doc) > NOTE_INLINE_MAX:
-        doc, mail = _report_as_file(doc, mail, instances)
     doc, removed = scan.strip_pictures(doc)  # the author's own draft: a hidden picture goes, the text stays
     label = kind.value.removeprefix("plsi_")
-    gate.require(doc, instance, what=label.replace("_", " "))
+    gate.require(doc, instance, what=label.replace("_", " "))  # a report still inline: a refusal names its line
+    if kind == MothershipMessage.RESEARCH_NOTE:
+        doc, mail = _within_inbox_limit(doc, mail, instance, instances, label.replace("_", " "))
     path = outbox(instance, label.replace("_", "-"))
     bundle = attach.zip_bytes(mail) if mail else None  # too large raises before anything is written
     if bundle is not None:
         files.atomic_write_bytes(path.with_suffix(".zip"), bundle)  # the zip first: a note never sits without it
     files.atomic_write_json(path, doc)
+    package_hash = files.hash_json(doc)
+    if kind == MothershipMessage.RESEARCH_NOTE and isinstance(doc.get("project"), dict):  # a draft for `mothership mine`
+        mine.note_drafted(instance, doc["project"]["id"], doc["project"].get("title"), package_hash)
     out = {"file": str(path), "kind": kind.value, "items": len(doc.get("items") or []), "pictures_removed": removed,
-           "files": len(doc.get("files") or []), "package_hash": files.hash_json(doc)}
+           "files": len(doc.get("files") or []), "package_hash": package_hash}
     return out | ({"bundle": str(path.with_suffix(".zip"))} if mail else {})
+
+
+def _project_access(project: str, emails: list[str], action: ProjectAction, instance: str | None) -> dict[str, Any]:
+    """The email the project owner sends the Mother to grant (invite) or withdraw (revoke) collaborators' Drive
+    writer on projects/<project>/. The body is the JSON the Mother's PROJECT_INVITE gate reads — the wire header plus
+    {project_id, emails, action}; nothing is sent, and only the owner's own address (DMARC pass) can act, so the
+    Mother verifies the sender."""
+    if not (isinstance(project, str) and scan.UUID_LOWER.fullmatch(project)):  # as a note's project.id (bad_project)
+        raise ValidationError(f"not a project id: {project!r}", code="BAD_PROJECT",
+                              hint="the project's id from plsi research project")
+    clean = mine.clean_emails(emails)
+    message = header(MothershipMessage.PROJECT_INVITE) | {"project_id": project, "emails": clean, "action": action.value}
+    out = {"to": mail_address(RESEARCH_REFERENCE, "research address", "NO_RESEARCH_ADDRESS"), "subject": PROJECT_SUBJECT, "body": json.dumps(message, ensure_ascii=False, indent=1),
+           "project_id": project, "emails": len(clean)}
+    if instance:  # remembered for `mothership mine`; it counts once `mothership sent --draft <draft>` records it went
+        out["draft"] = mine.access_drafted(instance, project, clean, action.value)
+    return out
+
+
+def project_invite(project: str, emails: list[str], instance: str | None = None) -> dict[str, Any]:
+    """`mothership project invite`: draft the owner's email that grants collaborators Drive writer on
+    projects/<project>/ (action "invite"). With `--instance`, the draft is remembered locally for `mothership mine`."""
+    return _project_access(project, emails, ProjectAction.INVITE, instance)
+
+
+def project_revoke(project: str, emails: list[str], instance: str | None = None) -> dict[str, Any]:
+    """`mothership project revoke`: draft the owner's email that removes collaborators' Drive writer on
+    projects/<project>/ and drops them from the registry invitees[] (action "revoke"). The symmetric inverse of
+    project_invite — same owner gate, same validation, same body shape. With `--instance`, remembered for `mine`."""
+    return _project_access(project, emails, ProjectAction.REVOKE, instance)
 
 
 def _item(item: dict[str, Any]) -> str:

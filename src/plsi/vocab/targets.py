@@ -6,7 +6,8 @@ from collections.abc import Iterable
 from enum import StrEnum
 from typing import Any
 
-from plsi.vocab import fold
+from plsi.vocab.fold import fold
+from plsi.vocab.ranked import RankedEnum, nonmember
 
 
 class TargetBand(StrEnum):
@@ -18,9 +19,12 @@ class TargetBand(StrEnum):
     NOVEL = "novel"  # the association rests on expression, pathways or text alone
 
 
-class ClinicalStage(StrEnum):
+class ClinicalStage(RankedEnum):
     """How far the most advanced drug against a target has gone, parsed from the source's own words because a
     source writes `PHASE_2_3` where another writes `PHASE2/PHASE3`. Member order is significant: furthest first."""
+
+    _strongest_first = nonmember(True)
+    _empty = nonmember("none")
 
     APPROVED = "approved"
     PHASE_4 = "phase-4"  # post-marketing; approval is per indication and a phase-4 study is not one
@@ -29,16 +33,6 @@ class ClinicalStage(StrEnum):
     PHASE_1 = "phase-1"
     PRECLINICAL = "preclinical"
     NONE = "none"
-
-    @property
-    def rank(self) -> int:
-        members = list(ClinicalStage)
-        return len(members) - 1 - members.index(self)
-
-    @classmethod
-    def top(cls, values: Iterable[ClinicalStage]) -> ClinicalStage:
-        """The furthest of values (none when there are none)."""
-        return max(values, key=lambda s: s.rank, default=cls.NONE)
 
     @classmethod
     def parse(cls, label: Any) -> ClinicalStage | None:

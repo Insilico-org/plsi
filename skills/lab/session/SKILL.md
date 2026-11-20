@@ -129,7 +129,9 @@ user and what comes after are `lab/research` steps 4-5; this page is the work in
    about a different question is left out. Grade per persona.md: an oracle-only claim is `model_derived`;
    reasoning with no direct data is `hypothesis_only`; `evidence_backed` needs verified human or animal data that
    states the claim. In the body, cite as PMID, NCT or DOI (a `doi.org` link at most), with no other links, no
-   exact dates, no oracle links or run counts.
+   exact dates, no oracle links or run counts. Author names, years and journals come from `plsi evidence verify`,
+   never from memory, and the Report follows the `writer/prose` Accuracy list (sources as they say it, datasets
+   with their papers and cohorts, numbers as in the results file, no "not medical advice" line).
 
    **Your `grade` is yours and the graph's `verdict` is arithmetic**: a note with a `topic` names the nodes it
    rests on and never restates their verdict in its own scale. Anything the session settled that belongs in the

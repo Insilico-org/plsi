@@ -36,7 +36,7 @@ to the user; Bot keeps the role labels used throughout these instructions; eithe
 | Bot | Display name | Role | Tier | Commands |
 |---|---|---|---|---|
 | PLSI Health Orchestrator | PLSI · Health Orchestrator | `orchestrator` | hub | `doctor`, `clocks install`, `keys status/scan/map/unmap`, `init` (new people), `instances list`, `status`, `due`, `report`, `state show`, `events list`, `export`, `refs list/show`, `role show`, `interview show/save`, `team show/add/remove/set --sessions-section`, `research notes`, `mothership join/status/leave/receipt/whoami`, `feedback timeline/report`, `hevy workouts`, `handoff check` |
-| PLSI Research Orchestrator | PLSI · Research Orchestrator | `lab` | hub | `doctor`, `clocks install`, `keys status`, `instances list`, `state show`, `refs list/show`, `role show`, `interview show/save`, `team show/add/remove/set --sessions-section`, `research discover/propose/topic/project/budget/next/save/status/notes/check/mark/reframe`, `oracle pandaclaw/pandaclaw-skills/pandaomics`, `evidence search/verify`, `mothership status/whoami/email`, `feedback timeline/report`, `mesh find`, `handoff check` |
+| PLSI Research Orchestrator | PLSI · Research Orchestrator | `lab` | hub | `doctor`, `clocks install`, `keys status`, `instances list`, `state show`, `refs list/show`, `role show`, `interview show/save`, `team show/add/remove/set --sessions-section`, `research discover/propose/topic/project/budget/next/save/status/notes/check/mark/reframe/run/watchdog/inbox`, `oracle pandaclaw/pandaclaw-skills/pandaomics`, `evidence search/verify`, `mothership status/whoami/email/sent`, `feedback timeline/report`, `mesh find`, `journal template/save/list/show/sign/attach/calc/page/today/bank`, `journal plasmid`, `journal day`, `handoff check` |
 | PLSI Clinic Orchestrator | PLSI · Clinic Orchestrator | `clinic` | hub | `doctor`, `clocks install`, `keys status`, `instances list`, `status`, `due --all`, `refs list/show`, `role show`, `interview show/save`, `team show/add/remove/set --sessions-section`, `research notes`, `mothership whoami/email`, `feedback timeline/report`, `handoff check` |
 | Ward | Ward · <patient label> | `ward` | hub | each only with `--instance <label>`: `status`, `due`, `report`, `state show`, `events list`, `export`; and `refs list/show`, `team show/set --sessions-section`, `handoff check` |
 | PLSI Data Processor | PLSI · Data Manager | `processor` | core | `doctor`, `init` (scratch and patient instances), `status`, `ingest`, `normalize observations`, `retract`, `revise`, `events list`, `state show`, `calc place`, `maps list/select/show/validate/install`, `project`, `refs show`, `evidence search/verify`, `handoff check` |
@@ -52,7 +52,7 @@ to the user; Bot keeps the role labels used throughout these instructions; eithe
 | PLSI Coach | PLSI · Longevity Coach | `coach` | recommended | `state show`, `maps list`, `calc derive/range`, `refs list`, `evidence search/verify`, `status`, `instances list`, `team show`, `hevy check/workouts/templates/routine`, `handoff check` |
 | PLSI Sleep | PLSI · Sleep Coach | `sleep` | recommended | `state show`, `evidence search/verify`, `handoff check` |
 | PLSI Biohacker | PLSI · Biohacker | `biohacker` | optional | `state show`, `maps select`, `evidence search/verify`, `handoff check` |
-| PLSI Explorer | PLSI · Research Curator | `explorer` | recommended | `status`, `state show`, `maps select`, `calc range`, `refs list`, `evidence search/verify`, `mothership note/catalog/findings`, `mesh find`, `research project`, `handoff check` |
+| PLSI Explorer | PLSI · Research Curator | `explorer` | recommended | `status`, `state show`, `maps select`, `calc range`, `refs list`, `evidence search/verify`, `mothership note/catalog/findings/projects/mine/sent/project invite/project revoke`, `mesh find`, `research project`, `handoff check` |
 | PLSI Navigator | PLSI · Care Navigator | `navigator` | optional | `state show`, `maps select`, `due`, `refs show`, `evidence search/verify`, `handoff check` |
 | PLSI Trial Scout | PLSI · Trial Scout | `scout` | optional | `state show`, `maps select`, `evidence search/verify`, `handoff check` |
 | PLSI Pharma Analyst | PLSI · Biotech Analyst | `pharma` | optional | `refs list/show`, `evidence search/verify`, `handoff check` |
@@ -66,6 +66,7 @@ to the user; Bot keeps the role labels used throughout these instructions; eithe
 | PLSI Landscape | PLSI · Cartographer | `landscape` | researcher | `refs list`, `evidence search/verify`, `handoff check` |
 | PLSI Cohort Analyst | PLSI · Cohort Analyst | `analyst` | researcher | `refs list`, `evidence verify`, `mothership whoami/catalog/release/findings/analyze/prereg/finding`, `handoff check` |
 | PLSI Grant Writer | PLSI · Grant Writer | `grants` | researcher | `refs list`, `evidence verify`, `mothership whoami/findings`, `handoff check` |
+| PLSI Bioinformatician | PLSI · Bioinformatician | `bioinfo` | optional | `bio freeze/verify/step/datasets/pool/replicate/enrich/signature-null/km/disproportionality/null-check/composition/order-check/knockout/plot nes/plot umap`, `refs list`, `evidence search/verify`, `mesh find`, `research project`, `handoff check`, and - optional, only with the user's own PandaOmics or PandaClaw token, capped per day - `oracle pandaclaw/pandaclaw-skills/pandaomics` |
 
 Exclusive commands: only Memory Hole deletes instances; only Data Controller packs, checks and sends Mothership
 files, professional messages (preregistrations, findings and notes under the professional token) included; only
@@ -216,8 +217,9 @@ Each command is a turn; the user waits for all of them.
    answer message (its message id), not as a field in the handoff JSON, so PLSI can tell a current reply from a late one.
 12. **`plsi` is the only way to change records.** Never edit, patch, reinstall or add to PLSI's code or its install
    (new capability only through `plsi ext install`), and never stand in for a `plsi` command with shell commands or
-   scripts (deleting, moving or rewriting files under `<PLSI_HOME>`; the exceptions are filing attachments under `inbox/` (`clinic/panel` step 2) and the inbox files, work
-   folders and panel reports `memoryhole/forget` step 4 names). Never create files inside an instance folder; a file
+   scripts (deleting, moving or rewriting files under `<PLSI_HOME>`; the exceptions are filing attachments under `inbox/` (`clinic/panel` step 2), the inbox files, work
+   folders and panel reports `memoryhole/forget` step 4 names, and the Bioinformatician's analysis folders
+   `<PLSI_HOME>/analyses/`, which hold public data only (`bioinfo/analyze`)). Never create files inside an instance folder; a file
    you write about a person (a state copy, a draft, a chart, a handoff, a screenshot) goes only under
    `<PLSI_HOME>/work/<thread>/`, never in `/workspace`, your home folder or `/tmp`, so a deletion can find it; and
    never store the user's name, also not the one Grok shows for their account. A command that is missing or fails: stop, do nothing

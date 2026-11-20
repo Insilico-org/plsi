@@ -7,6 +7,7 @@ import re
 from functools import partial
 from typing import Any
 
+from plsi.mesh import MAX_TAGS, MESH
 from plsi.mothership.scan import HEX64, UUID_LOWER, flag
 from plsi.vocab import EvidenceClass, SourceKind
 from plsi.vocab.targets import AgingHallmark
@@ -30,9 +31,6 @@ MAX_LIST = 10
 FINDINGS = ("support", "against", "risks")
 FIELDS = frozenset({"question", "tags", "hallmarks", *FINDINGS, "limits", "model_output"})
 NAMES = frozenset({"source", "finding", "model", "name", "sha256", "drive_id", "title", "mesh", "label", "tree"})
-# an item's tags: 1-MAX_TAGS MeSH descriptors {mesh, label, tree}, resolved against NLM by `mothership note`
-MAX_TAGS = 5
-MESH = re.compile(r"D\d{6}(?:\d{3})?")  # a descriptor id: D016922, D000091385
 TREE = re.compile(r"[A-Z]\d{2}(?:\.\d{3})*")  # a tree number: G07.345.124.130; its letter is the MeSH branch
 TAG_PATHS = frozenset({"items[].tags[].mesh", "items[].tags[].tree[]"})
 SOURCE_PATHS = frozenset(f"items[].{k}[].source.id" for k in FINDINGS)

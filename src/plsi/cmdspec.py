@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import Any
 
 from plsi import clock
+from plsi.vocab import LivePage
 
 
 def iso_datetime(value: str) -> datetime:
@@ -52,13 +53,13 @@ HASH = A("--hash", dest="expected", required=True, help="package_hash of the che
 @dataclass(frozen=True)
 class Cmd:
     """`target` "module:function" is called with the parsed arguments; `next` are suggested follow-up commands;
-    `refresh`: the command changes records, plans or the roster, so it rebuilds an existing clinic dashboard."""
+    `refresh`: the page the command changes, rebuilt after it when it exists (plsi.cli, LIVE_PAGES)."""
 
     target: str
     args: tuple = ()
     help: str = ""
     next: tuple[str, ...] = ()
-    refresh: bool = False
+    refresh: LivePage | None = None
 
 
 def merge(*tables: dict[str, Cmd]) -> dict[str, Cmd]:

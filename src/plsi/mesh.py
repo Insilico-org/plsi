@@ -3,14 +3,17 @@ and tree numbers come from NLM, never from the bot. Base URL from plsi.reference
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from plsi import net, references
 from plsi.errors import NetworkError, UsageError, ValidationError
-from plsi.mothership.note import MAX_TAGS, MESH
 
 REF = "nlm_mesh"
 MAX_FIND = 20
+# an item's tags: 1-MAX_TAGS MeSH descriptors {mesh, label, tree}, resolved against NLM by `mothership note`
+MAX_TAGS = 5
+MESH = re.compile(r"D\d{6}(?:\d{3})?")  # a descriptor id: D016922, D000091385
 
 
 def _id(resource: str) -> str:
