@@ -35,8 +35,8 @@ class GateFailed(PlsiError):
 
     code = "GATE_FAILED"
 
-    def __init__(self, violations: list[dict[str, str]], message: str = "gate check failed") -> None:
-        super().__init__(f"{message} ({len(violations)} violation(s))", violations=violations)
+    def __init__(self, violations: list[dict[str, str]], message: str = "gate check failed", hint: str | None = None) -> None:
+        super().__init__(f"{message} ({len(violations)} violation(s))", violations=violations, hint=hint)
 
 
 class NotFound(PlsiError):

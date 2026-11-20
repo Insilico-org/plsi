@@ -89,8 +89,9 @@ the claim lines, the full text (it goes as the note's `report`) and every data f
 reviews what arrives, so pass only what a careful reviewer would accept. No person's data is involved.
 
 1. **Sources.** Verify every identifier in the claim lines and the full text (`plsi evidence verify --kind
-   <pmid|doi|nct|model> --id <id>`); one that does not resolve is `blocking`. Read what each one is cited for: a
-   source that does not say it is `major`.
+   <pmid|doi|nct|model> --id <id>`); one that does not resolve is `blocking`. An author name, year or journal in the
+   text that differs from the verify output's `authors`, `year` or `journal` is `major`. Read what each one is cited
+   for: a source that does not say it is `major`.
 2. **Check**, in this order:
    - **Grade:** fits the evidence class (persona.md); animal or model output is never above Low.
    - **Against:** contradicting work was searched for (the queries are listed); a claim with no search against is
@@ -103,6 +104,12 @@ reviews what arrives, so pass only what a careful reviewer would accept. No pers
      and a note that reads as settled on a `thin` claim is `major`. A target file's candidate is no further along
      than the band and furthest stage its shortlist row and Verdict line carry (code computed both; only Target
      Hunter reads the dossier); a claim of the field ("first in class", "nobody has tried") is `major`. A note with no `topic` is graded on its sources alone.
+   - **Accuracy:** the `writer/prose` Accuracy list, against the note's own results and data files: each cited
+     source as it says it (species, intervention, which comparison was significant); each dataset with its own
+     paper or preprint and its cohort as the paper and supplements give it (age group, treatment, phase, tissue
+     handling); every number as in the results file; "all reported" only when it is; one reason per left-out step;
+     no "not medical advice" lines. A wrong number, a missing dataset paper, an unreported fitted result or a cohort
+     fact the paper contradicts is `major`; wording is `minor`.
    - **Links:** a `supersedes` names a note of this project that it really replaces, and a `contradicts` names one
      whose opposite finding the note weighs in its Against or text; a link that does not hold is `major`.
    - **Worth:** it adds something: not a restatement of one paper's abstract or of a sibling note in this project

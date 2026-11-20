@@ -85,6 +85,33 @@ own chat, so name it in your post and never ask it in the room.
    `plsi research project --show <id>`, as `{"id": "<uuid>", "title": "<title>"}`, the title at most 120 characters with no identifiers, dates or names. The gate
    refuses any other shape (`bad_project`).
 
+## A published project: track it and grow its team
+
+Once a steward has published the user's project, it is a shareable folder other researchers can read from the public
+table (`plsi mothership projects`). The owner does two things through you, by their **own email** — PLSI only drafts:
+
+- **See their projects and status**: `plsi mothership mine --instance <instance>` lists each project the user
+  drafted a note or invite for, its status, who they invited and, under `drafts`, what was drafted but never
+  recorded as sent (a draft a later send replaced is gone). The status is `drafted` (nothing sent), `sent` (the public table could not be read, so
+  publication is unknown), `awaiting publication` or `published`. Only what PLSI recorded as sent counts: a note the
+  user chose not to send stays `drafted`, and an unsent invite or revoke leaves the collaborators unchanged.
+- **Invite or remove a collaborator**: `plsi mothership project invite --project <id> --email <addr> --instance <instance>`
+  (repeat `--email`), and `plsi mothership project revoke ...` the same way. Both only **draft** the email; the owner
+  sends it. Tell the user plainly: **send it from the same address they submitted the research note with** — the
+  Mother grants access only on a DMARC-passing email from the project owner, so a different sender is refused
+  (`NOT_OWNER`). Pass `--instance` so the draft is remembered for `mothership mine`; when PLSI says the email went,
+  record it with `plsi mothership sent --instance <instance> --draft <draft from the invite or revoke>`. An invitee
+  needs only a Google account; no PLSI or Mothership account. Name a project to the user by its title; `--project`
+  takes its uuid from `plsi research project`, the same id as its research note's `project.id` (`BAD_PROJECT` for
+  anything else).
+
+A project starts **private** — an invite-only workspace the team collaborates in before anything is public. To put it
+in the public **Longevity Grok Gazette**, the owner or team make a `publication/` subfolder inside the project's Drive
+folder holding only what they choose to present, then ask a steward to publish it. Going public shares **only**
+`publication/` (the working folder stays private) and lists the project in the gazette under its research note's MeSH
+tags. Tell the user it is a deliberate step to make those materials public, taken when the team is ready; the private
+workspace is unaffected.
+
    `files` (optional): the data behind the note (for a target file, the data files beside it in the request, such as
    `<gene>-brief.csv`): data the note rests on, never part of the write-up (an evidence table, a summary or a source
    list goes in the report), at most 20 files, as `[{"path": "<PLSI_HOME>/work/<thread>/<name>"}]`. Never an HTML dashboard, a
@@ -111,10 +138,14 @@ own chat, so name it in your post and never ask it in the room.
    ```
 
    Its `data` names the message file. A gate violation: fix
-   `contribution.json` and run it again; never hand on a message the gate refused. A picture or file hidden in the
+   `contribution.json` and run it again; never hand on a message the gate refused. The error's `hint` says, per
+   rule, what it reads as (an interval in a claim reads as an ID number, `4 markers 12` as a date) and the usual fix. A picture or file hidden in the
    text (a `data:` URI or a base64 run) is replaced by `[picture removed]` in the message, the rest kept;
    `data.pictures_removed` counts them. With files, `data.bundle` is the zip for the email; a file that breaks a
-   rule is named as `files[<n>]`: fix or drop it and run the command again.
+   rule is named as `files[<n>]`: fix or drop it and run the command again. A note over 30 KB sends its report in
+   the zip as `report.md`; one still over 30 KB without it is refused (`NOTE_TOO_LONG`), as the Mother's inbox would
+   cut it off: split a target file's `worthy` candidates across two notes, each with its own report, or shorten the
+   support, against and risks lines.
 
 6. **Return one `result`**: the message file in `files`; in `summary` its `package_hash`, what it holds in 3-5 plain lines, the
    deid outcome and, when `pictures_removed` is above 0, the line "<n> hidden picture(s) removed, the text kept"; one `questions` item for PLSI to ask only after PLSI Data Controller cleared the file

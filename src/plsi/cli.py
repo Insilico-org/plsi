@@ -26,6 +26,7 @@ from plsi import __version__, errors, keys, paths
 from plsi.cmdspec import Cmd, Exclusive
 from plsi.commands import COMMANDS
 from plsi.models import Model, validation_error
+from plsi.vocab import LivePage
 
 # ---------------------------------------------------------------- parser
 
@@ -62,6 +63,8 @@ def _resolve(target: str) -> Callable[..., Any]:
     module, func = target.split(":")
     return getattr(importlib.import_module(module), func)
 
+
+LIVE_PAGES = {LivePage.CLINIC: "plsi.clinic.dashboard:refresh_after", LivePage.JOURNAL: "plsi.journal.page:refresh_after"}
 
 def _call(cmd: Cmd, ns: argparse.Namespace) -> Any:
     func = _resolve(cmd.target)
@@ -142,10 +145,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         cmd = COMMANDS[command]
         paths.require_repo_data()
         data = _call(cmd, ns)
-        if cmd.refresh:
-            from plsi.clinic.dashboard import refresh_after  # the clinic loads only for a command that changes records
-
-            refresh_after(dry_run=bool(getattr(ns, "dry_run", False)))
+        if cmd.refresh:  # the page's package loads only for a command that changes what it shows
+            _resolve(LIVE_PAGES[cmd.refresh])(dry_run=bool(getattr(ns, "dry_run", False)))
         warnings = [{**w, "message": keys.redact(w["message"])} for w in errors.drain_warnings()]
         envelope = {"ok": True, "command": command, "data": data, "warnings": warnings, "next": _next(cmd, ns)}
         out, code = _dumps(envelope), 0  # serialised before writing: unserializable data fails here, not mid-write

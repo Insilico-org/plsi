@@ -10,13 +10,23 @@ from functools import partial
 from typing import Any
 
 from plsi import codes
+from plsi.life.deid import AGE_GROUP_90
 from plsi.mothership.scan import HEX64, ID, MAX_NUMBER, MONTH, flag, keyed, listed
 from plsi.vocab import ClinicalStatus, Comparator, ContributionKind, Ethnicity, Sex, ValueStatus
 
 CONSENT_VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 MAP_VERSION = re.compile(r"[0-9A-Za-z.+-]{1,32}")
 UNIT = re.compile(r"[A-Za-z0-9%/.*^()\[\]{}'_-]{1,32}")  # UCUM-like, no whitespace
-AGE_BANDS = frozenset({*(f"{lo}-{lo + 4}" for lo in range(0, 116, 5)), "90+"})
+OLDEST_BAND = int(AGE_GROUP_90.rstrip("+"))  # the age ceiling, from deid's token (plsi.life.deid): one band from here
+
+
+def age_band(age: int) -> str:
+    """The five-year band `age` (in years) falls in; one band, AGE_GROUP_90, from the ceiling on, as deid keeps it."""
+    low = age // 5 * 5
+    return AGE_GROUP_90 if low >= OLDEST_BAND else f"{low}-{low + 4}"
+
+
+AGE_BANDS = frozenset(age_band(age) for age in range(0, OLDEST_BAND + 1, 5))
 YEARS = range(1900, 2101)
 SCORE_KEYS = frozenset({"n_scored", "n_missed", "within_interval_rate", "nominal_level", "mean_abs_error",
                         "beat_persistence_rate", "direction_accuracy"})
@@ -141,7 +151,8 @@ def violations(doc: dict[str, Any]) -> list[dict[str, str]]:
     """Everything wrong with a contribution's own fields and sections beyond the string rules (plsi.mothership.scan)."""
     out = []
     kinds = doc.get("kinds")
-    if not isinstance(kinds, list) or not all(isinstance(k, str) and k in tuple(ContributionKind) for k in kinds):
+    known = tuple(ContributionKind)
+    if not isinstance(kinds, list) or not all(isinstance(k, str) and k in known for k in kinds):
         out.append(flag("kinds", "unknown_kind"))
     else:
         out += [flag(s, "not_in_kinds") for s in ContributionKind if s in doc and s not in kinds]

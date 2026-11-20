@@ -12,7 +12,7 @@ from typing import Any
 
 from plsi import files, paths
 from plsi.errors import GateFailed, ValidationError
-from plsi.mothership import note, scan
+from plsi.mothership import hints, note, scan
 from plsi.mothership.relay import DRIVE_REFERENCE, mail_address
 from plsi.mothership.scan import flag
 
@@ -115,7 +115,7 @@ def prepare(given: Any, instances: set[str]) -> tuple[list[dict[str, str]], dict
             mail[path.name] = data
         entries.append(entry)
     if found:
-        raise GateFailed(found, "the research note's files are not safe to send")
+        raise GateFailed(found, "the research note's files are not safe to send", hints.hint(found))
     return entries, mail
 
 

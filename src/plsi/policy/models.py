@@ -251,6 +251,9 @@ class Verification(Model):
     id: str
     ok: bool
     title: ExternalText | None = None
+    authors: ExternalText | None = None  # first authors as the record lists them, for citing by name
+    journal: ExternalText | None = None
+    year: str | None = None
     canonical_url: str | None = None
     checked_at: UtcTime
 

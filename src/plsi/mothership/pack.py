@@ -20,7 +20,7 @@ from plsi.map import derive, mapper, registry
 from plsi.map.models import CoordinateValue
 from plsi.models import Code
 from plsi.mothership import gate, omitted
-from plsi.mothership.content import SCORE_KEYS
+from plsi.mothership.content import SCORE_KEYS, age_band
 from plsi.mothership.enroll import active, outbox
 from plsi.mothership.relay import address, header
 from plsi.policy.score import calibration
@@ -52,6 +52,7 @@ class _Wire:
     def __init__(self, instance: str) -> None:
         self.declared = registry.declared_codes(instance)
         self.units = registry.canonical_units(instance)
+        self.uncoded = 0  # life events of a shareable kind dropped for want of a shareable code
 
     def code(self, code: Code | None) -> dict[str, str] | None:
         """{system, code} of a code that may leave (plsi.codes.shareable); the display never leaves."""
@@ -101,7 +102,11 @@ class _Wire:
         out = []
         for e in store.events(EventType.OBSERVATION):
             o = e.payload
-            if o.kind in LIFE_KINDS and (code := self.code(o.code)):
+            if o.kind not in LIFE_KINDS:
+                continue
+            if not (code := self.code(o.code)):
+                self.uncoded += 1  # a shareable kind with no shareable code cannot leave; count it so it is not silent
+            else:
                 measured = o.value_quantity is not None and self.unit(o.unit)
                 item = {"kind": o.kind.value, "year": o.effective_at.year,
                         "until": o.effective_end.year if o.effective_end else None, "basis": o.effective_basis.value,
@@ -125,10 +130,7 @@ def _scores(store: EventStore) -> dict[str, Any]:
 def _age_band(birth_year: int | None, age_group: str | None) -> str | None:
     if age_group:
         return age_group
-    if birth_year is None:
-        return None
-    low = (now().year - birth_year) // 5 * 5
-    return f"{low}-{low + 4}"
+    return age_band(now().year - birth_year) if birth_year is not None else None
 
 
 def pack(instance: str, out: str | None = None, omit: list[str] | None = None) -> dict[str, Any]:
@@ -159,4 +161,6 @@ def pack(instance: str, out: str | None = None, omit: list[str] | None = None) -
     files.atomic_write_json(path, doc)
     counts = {"states": len(doc.get("states", [])), "life_events": len(doc.get("life_events", [])),
               "scored_predictions": doc.get("scores", {}).get("overall", {}).get("n_scored", 0)}
+    if wire.uncoded:  # events that could not be shared for want of a shareable code, so the drop is not silent
+        counts["not_shared_no_code"] = wire.uncoded
     return {"file": str(path), "to": address(), "package_hash": files.hash_json(doc), "counts": counts, "left_out": left}

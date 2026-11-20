@@ -48,7 +48,8 @@ notes and data, and its room is where the bots work on it; a note or a topic nev
 Not this skill: "is <drug> right for me?" or "what should I do?" (a hub-to-hub `request` to PLSI Health
 Orchestrator; you never plan); role researcher with Target Hunter on the team: a shortlist of targets goes to
 `targets/discover`, one named target to `targets/evaluate`, a hallmark framing to `targets/hallmarks` (`shared/hub`,
-**Target discovery**; with Cartographer, Challenger or Biotech Analyst joining, in a session room), with steps 1-2
+**Target discovery**; a question that needs public data analysed, with Bioinformatician on the team, `shared/hub`
+**Public-data analysis**; with Cartographer, Challenger or Biotech Analyst joining, in a session room), with steps 1-2
 here for the topic and budget. Those run on free sources and need no budget card at all when the user has no
 PandaOmics key — say in one line that it will use the free sources and skip step 2. Their result ends with steps
 4-5 here like a note.
@@ -198,7 +199,13 @@ PandaOmics key — say in one line that it will use the free sources and skip st
      `report_<topic>_<YYYYMMDD>.md`, `bundle` as `research-files_<topic>_<YYYYMMDD>.zip` (a long note's report
      is `report.md` inside the bundle; the note is always its own attachment). Then email `to`, `subject` and `body`
      exactly as drafted, with those files attached, from the user's Grok email (agent inbox); tell the user it
-     went; with the Drive folder shared, upload the files that went, unchanged, into "PLSI Mothership/<project
+     went; record it for `mothership mine` (only after the email went; until then the note reads `drafted`):
+
+     ```bash
+     plsi mothership sent --instance <instance> --draft <package_hash>
+     ```
+
+     With the Drive folder shared, upload the files that went, unchanged, into "PLSI Mothership/<project
      title>" (the note, its report and its data files, Vega-Lite charts included; only what Data Controller cleared,
      never a draft); for a research note set it `submitted` (`lab/session` step 8), and for a target file, which has no status,
      keep "Sent target file <file name>: <subject>" in your permanent memory. Right after the send, the routine

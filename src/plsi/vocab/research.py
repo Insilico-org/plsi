@@ -5,7 +5,8 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-from plsi.vocab import fold
+from plsi.vocab.fold import fold
+from plsi.vocab.ranked import RankedEnum
 
 
 class ResearchNodeKind(StrEnum):
@@ -61,7 +62,7 @@ class ResearchMove(StrEnum):
     TEST = "test"  # which evidence separates them -> statuses, boundaries, the answer
 
 
-class ResearchVerdict(StrEnum):
+class ResearchVerdict(RankedEnum):
     """Computed from the counts, never written by a bot and never stored. `supported` is the ceiling."""
 
     # member order is significant: weakest first (rank 0 .. 4)
@@ -70,10 +71,6 @@ class ResearchVerdict(StrEnum):
     CONTESTED = "contested"  # support and contradiction both survive the context question
     THIN = "thin"  # one independent line
     SUPPORTED = "supported"  # two or more independent lines, no live contradiction
-
-    @property
-    def rank(self) -> int:
-        return list(ResearchVerdict).index(self)
 
 
 class ResearchRoute(StrEnum):

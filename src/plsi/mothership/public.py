@@ -45,3 +45,9 @@ def release(version: str, out: str | None = None) -> dict[str, Any]:
 def findings() -> dict[str, Any]:
     """`mothership findings`: the findings ledger, with the professional token when one is set."""
     return {"findings": _external(get("/public/findings", professional.token()), "mothership:findings")}
+
+
+def projects() -> dict[str, Any]:
+    """`mothership projects`: the public table of published research projects ({built, projects:[{project_id, title,
+    link, owner, published}]}), with the professional token when one is set."""
+    return {"projects": _external(get("/public/projects", professional.token()), "mothership:projects")}

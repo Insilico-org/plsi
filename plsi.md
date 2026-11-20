@@ -169,11 +169,12 @@ remove --display-name "<name>"`). Keep each bot's last introduction in your perm
 > You are <name> in the PLSI team. Remember these rules permanently: (1) before every new task, read
 > `<repo>/skills/shared/team/SKILL.md`; (2) adopt `<repo>/persona.md` as your persona and remember its version (the `plsi-persona` marker), which you name when asked; (3) your skills are the ones in
 > `<repo>/skills/<role>/` (<role> = your Role slug in the `shared/team` roster, e.g. `processor`); read them from there when needed and use no others; (4) you work only on handoffs from the PLSI hubs (the orchestrators and the Ward bots; "PLSI" in every skill is the hub that sent you the request) and reply only
-> in handoffs to that hub: never message the user, never show question cards or forms, never create user-facing routines or
+> in handoffs to that hub: never message the user (your own chat shows only the lines above: no greeting, no reply
+> there), never show question cards or forms, never create user-facing routines or
 > notifications; put all questions for a step in ONE `question` handoff and wait for the `answer`; answer every
 > request with a `result` or `question`, also when it failed; check every handoff with `plsi handoff check`; (5) `plsi` is installed on this computer;
 > each person has their own instance (the user's has relation `self`, usually `me`) and every handoff names the one to work on; (6) set your
-> name to <name> and avatar now with `UpdateProfile`: colour `gray`, shape `<shape>`. When you have saved these rules, reply with a `result` handoff (thread `setup`, skill
+> name to <name> and avatar now with `UpdateProfile`: colour `gray`, shape `<shape>` (this setup is the user's request). When you have saved these rules, reply with a `result` handoff (thread `setup`, skill
 > `shared/team`).
 
 Do not block on the replies; continue with step 6, and before step 14 check that every created bot's `result`
@@ -268,20 +269,22 @@ secrets included), becomes a form of 2-8 pages of at most six options each, neve
    - **Body and daily life:** PLSI · Device Technician, PLSI · Nutritionist, PLSI · Longevity Coach, PLSI · Sleep Coach.
    - **Care, experiments and tools:** PLSI · Care Navigator, PLSI · Trial Scout, PLSI · Biohacker, PLSI · Systems
      Engineer.
-   - **Research and writing:** PLSI · Research Curator, PLSI · Biotech Analyst, PLSI · Science Writer and, unless you
-     are the Research Orchestrator, PLSI · Research Orchestrator (never recommended): picking it turns research on,
-     so it is created as a hub of its own in step 7.
+   - **Research and writing:** PLSI · Research Curator, PLSI · Biotech Analyst, PLSI · Bioinformatician, PLSI ·
+     Science Writer and, unless you are the Research Orchestrator, PLSI · Research Orchestrator (never recommended):
+     picking it turns research on, so it is created as a hub of its own in step 7.
 
    Marked "(recommended)" and first on their page: the roster rows with Tier `recommended`, a specialist found in
    step 2, the ones the interview points to (`orchestrator/talk`, Onboarding interview), and these by role (step
-   6.3): Longevity physician: PLSI · Care Navigator, PLSI · Trial Scout; Pro researcher: PLSI · Biotech Analyst.
+   6.3): Longevity physician: PLSI · Care Navigator, PLSI · Trial Scout; Pro researcher: PLSI · Biotech Analyst, PLSI ·
+   Bioinformatician.
    Choosing PLSI · Research Curator turns the digest on (step 11); the user can later say "digest monthly". **Own
    health off** (step 6.3): offer only the specialists that work without the user's own record, so never PLSI ·
    Device Technician, PLSI · Nutritionist, PLSI · Longevity Coach, PLSI · Sleep Coach, PLSI · Biohacker, PLSI · Care
    Navigator or PLSI · Trial Scout; the empty page is dropped, and a page with one option has no "All of the
-   above". Pro researcher: PLSI · Biotech Analyst and PLSI · Research Curator (research notes to the Mothership)
-   recommended, PLSI · Systems Engineer and PLSI · Science Writer not. Longevity physician: none recommended (PLSI
-   Clinic covers the patients); PLSI · Research Curator, PLSI · Biotech Analyst, PLSI · Research Orchestrator, PLSI ·
+   above". Pro researcher: PLSI · Biotech Analyst, PLSI · Bioinformatician and PLSI · Research Curator (research notes to
+   the Mothership) recommended, PLSI · Systems Engineer and PLSI · Science Writer not. Longevity physician: none recommended (PLSI
+   Clinic covers the patients); PLSI · Research Curator, PLSI · Biotech Analyst, PLSI · Bioinformatician, PLSI ·
+   Research Orchestrator, PLSI ·
    Systems Engineer and PLSI · Science Writer offered. Then save the picks: `plsi interview save --topic specialists
    --answer "<the picks>"`.
 5. **Recommended extras.** Card "Which extras should I turn on?" (multi-select; nothing is preselected, the user

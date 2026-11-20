@@ -13,8 +13,8 @@ from typing import Any
 
 from plsi import codes, files, paths
 from plsi.errors import GateFailed, ValidationError
-from plsi.map import registry
-from plsi.mothership import content, enroll, note, scan, stats
+from plsi.map import derive, registry
+from plsi.mothership import content, enroll, hints, note, scan, stats
 from plsi.mothership.relay import SCHEMA_VERSION
 from plsi.mothership.scan import HEX64, UUID_ANY, flag, keyed, listed
 from plsi.vocab import (CodeSystem, ContributionKind, FeedbackSeverity, FeedbackStage, HypothesisDirection, MothershipMessage as M,
@@ -189,7 +189,8 @@ def _shape(doc: dict[str, Any], kind: M) -> list[dict[str, str]]:
 
 def _declared(doc: dict[str, Any], instance: str) -> list[dict[str, str]]:
     """PLSI's own names leave only as a shipped or installed map declares them: a free or cpg code that a map accepts,
-    a known map_id and map_version, coordinate keys and gaps of that map (`bad_code`, `bad_id`, `bad_format`)."""
+    a known map_id and map_version, coordinate keys and gaps of that map (`bad_code`, `bad_id`, `bad_format`); and no
+    value of a coordinate the map keeps on this computer, an age or a genetic marker (`kept_local`, as pack)."""
     declared, maps = registry.declared_codes(instance), registry.load_all(instance)
     out = [flag(at, "bad_code") for at, code in content.code_objects(doc).items()
            if code[0] in tuple(codes.LOCAL) and not (isinstance(code[1], str) and code in declared)]
@@ -204,9 +205,9 @@ def _declared(doc: dict[str, Any], instance: str) -> list[dict[str, str]]:
             continue
         if state.get("map_version", m.map_version) != m.map_version:
             out.append(flag(f"states[{n}].map_version", "bad_format"))
-        ids = {c.id for c in m.coordinates}
-        out += [flag(f"states[{n}].coordinates.#key[{c}]", "bad_id")
-                for c, k in enumerate(keyed(state.get("coordinates"))) if k not in ids]
+        ids, kept = {c.id for c in m.coordinates}, derive.kept_local(m.coordinates)
+        out += [flag(f"states[{n}].coordinates.#key[{c}]", "bad_id" if k not in ids else "kept_local")
+                for c, k in enumerate(keyed(state.get("coordinates"))) if k not in ids or k in kept]
         out += [flag(f"states[{n}].gaps[{g}]", "bad_id")
                 for g, k in enumerate(listed(state.get("gaps"))) if not (isinstance(k, str) and k in ids)]
     keys = keyed(keyed(doc.get("scores")).get("by_coordinate"))
@@ -278,4 +279,4 @@ def require(doc: Any, instance: str | None = None, pid: str | None = None, what:
     """Raise GateFailed listing every reason `doc` may not leave the computer."""
     record = (enroll.enrollment(instance) or {}) if instance else None
     if found := violations(doc, instance, record, enroll.current_consent(), pid):
-        raise GateFailed(found, f"the {what} is not safe to send")
+        raise GateFailed(found, f"the {what} is not safe to send", hints.hint(found))

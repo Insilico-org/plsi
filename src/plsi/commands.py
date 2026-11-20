@@ -5,11 +5,13 @@ plsi.cli parses and dispatches it."""
 
 from __future__ import annotations
 
+from plsi.bio.commands import COMMANDS as BIO
 from plsi.cmdspec import FILE, INSTANCE, MAP, MAP_OPT, MX, PLAN, A, Cmd, V, iso_date, iso_datetime, merge
+from plsi.journal.commands import COMMANDS as JOURNAL
 from plsi.mothership.commands import COMMANDS as MOTHERSHIP
 from plsi.research.commands import COMMANDS as RESEARCH
 from plsi.targets.commands import COMMANDS as TARGETS
-from plsi.vocab import (HUBS, PRIMARY_HUBS, BotRole, ClinicFolder, Ethnicity, EventType, ExportFormat, FeedbackMark,
+from plsi.vocab import (HUBS, PRIMARY_HUBS, BotRole, ClinicFolder, Ethnicity, EventType, ExportFormat, FeedbackMark, LivePage,
                         FeedbackStage, InterviewTopic, ObservationKind, PandaclawCatalog, ReferenceKind, Relation,
                         ReportFormat, SearchSource, Sex, SourceKind, UserRole)
 
@@ -61,12 +63,12 @@ CORE: dict[str, Cmd] = {
                  A("--country", help="ISO 3166 alpha-3 country of residence (life tables, base rates)"),
                  A("--ethnicity", choices=V(Ethnicity)), A("--update", action="store_true")),
                 "create an instance (existing -> created false)", ("plsi ingest --instance {instance} --file obs.json --dry-run",),
-                refresh=True),
+                refresh=LivePage.CLINIC),
     "status": Cmd("plsi.export:status", (INSTANCE,), "instance overview"),
     "instances list": Cmd("plsi.life.store:list_instances", (), "every instance (one per person) with its relation"),
     "instances delete": Cmd("plsi.life.store:delete_instance",
                             (INSTANCE, A("--confirm", required=True, help="repeat the instance name to confirm")),
-                            "delete one person's instance for good (export first)", ("plsi instances list",), refresh=True),
+                            "delete one person's instance for good (export first)", ("plsi instances list",), refresh=LivePage.CLINIC),
     "events list": Cmd("plsi.life.store:list_events",
                        (INSTANCE, A("--type", choices=V(EventType)),
                         A("--kind", choices=V(ObservationKind)), A("--limit", type=int)),
@@ -80,7 +82,7 @@ CORE: dict[str, Cmd] = {
                    A("--update", action="store_true", help="let FHIR Patient fields change subject.json"),
                    A("--document", help="the source document's stable id (e.g. its Drive file id), so plsi revise can take its next version"),
                    A("--dry-run", action="store_true")),
-                  "ingest observations", ("plsi maps select --instance {instance}",), refresh=True),
+                  "ingest observations", ("plsi maps select --instance {instance}",), refresh=LivePage.CLINIC),
     "apple export": Cmd("plsi.life.apple:export",
                         (A("--file", required=True, help="Apple Health export.zip (any size; streamed)"), A("--out", required=True, help="daily.csv path")),
                         "daily rows (date,metric,value,unit,source) from an Apple Health export, for wearables/import step 3"),
@@ -91,39 +93,39 @@ CORE: dict[str, Cmd] = {
     "retract": Cmd("plsi.life.ingest:retract",
                    (INSTANCE, MX(A("--event", dest="event_id"), A("--events-file", help="event ids, one per line: many at once, one write")),
                     FILE, A("--replacement", help="ObservationInput JSON (with --event)")),
-                   "retract an event, or many (events.jsonl is never edited)", refresh=True),
+                   "retract an event, or many (events.jsonl is never edited)", refresh=LivePage.CLINIC),
     "revise": Cmd("plsi.life.revise:revise",
                   (INSTANCE, A("--document", required=True, help="the source document's stable id (e.g. its Drive file id)"),
                    MX(A("--file", help="ObservationInput JSON list: the whole new version"), A("--csv", help="canonical long CSV"),
                       A("--fhir", help="FHIR Bundle JSON")),
                    A("--dry-run", action="store_true")),
                   "apply a new version of one document: skip unchanged rows, retract and replace changed or dropped ones",
-                  refresh=True),
+                  refresh=LivePage.CLINIC),
     "clinic check": Cmd("plsi.clinic.roster:check", (A("--drive", action="store_true", help="also ask Drive who can open each folder (network)"),),
                         "patients' Drive folders, the sharing each needs, files waiting for intake, roster problems"),
     "clinic setup": Cmd("plsi.clinic.publish:setup", (A("--patient", required=True, help="roster label"),),
                         "create a patient's inbox and shared folder on the clinic shared drive, shared with nobody yet (network)",
-                        ("plsi clinic share --patient <label> --email <address>",), refresh=True),
+                        ("plsi clinic share --patient <label> --email <address>",), refresh=LivePage.CLINIC),
     "clinic share": Cmd("plsi.clinic.publish:share", (A("--patient", required=True, help="roster label"),
                                                     A("--email", required=True, help="the patient's Google account (used for the share only, never kept)")),
                         "invite the patient to their two folders and check nobody else can open them (network)",
-                        ("plsi clinic check --drive",), refresh=True),
+                        ("plsi clinic check --drive",), refresh=LivePage.CLINIC),
     "clinic link": Cmd("plsi.clinic.roster:link", (A("--patient", required=True, help="roster label"),
                                             A("--inbox", help="the inbox folder id"), A("--shared", help="the shared folder id"),
                                             A("--patient-id", help="the Drive permission id of the person the folders were shared with"),
                                             A("--reviewed", help="YYYY-MM-DD, as-of date of the last report the patient received")),
-                       "write a patient's folders into the roster (connector or by hand); refuses another patient's folder", refresh=True),
+                       "write a patient's folders into the roster (connector or by hand); refuses another patient's folder", refresh=LivePage.CLINIC),
     "clinic sharing": Cmd("plsi.clinic.roster:sharing", (A("--patient", required=True, help="roster label"),
                                                   A("--folder", required=True, choices=V(ClinicFolder)),
                                                   A("--file", help="Drive's permissions list as the connector returned it ('-' = stdin, the default)")),
                           "check one folder's permissions against the patient's row (connector); keeps nothing"),
     "clinic sync": Cmd("plsi.clinic.roster:sync", (A("--file", help="[{folder, file, path, size?}] files the agent downloaded (size: Drive's, checked); omit to pull with the service account"),),
-                       "route patients' uploads into <PLSI_HOME>/inbox/<label>/ (skips duplicates)", refresh=True),
+                       "route patients' uploads into <PLSI_HOME>/inbox/<label>/ (skips duplicates)", refresh=LivePage.CLINIC),
     "clinic dashboard": Cmd("plsi.clinic.dashboard:dashboard", (),
                             "rewrite the physician's clinic dashboard (a panel tab and a tab per patient) in place"),
     "clinic publish": Cmd("plsi.clinic.publish:publish", (A("--patient", required=True), A("--file", required=True, help="the approved PDF in the patient's reports folder"),
                                                         A("--as-of", required=True, help="YYYY-MM-DD, the report's as-of date (becomes the row's reviewed)")),
-                          "put a report the physician approved into the patient's shared folder (network)", refresh=True),
+                          "put a report the physician approved into the patient's shared folder (network)", refresh=LivePage.CLINIC),
     # hevy
     "hevy check": Cmd("plsi.hevy:check", (), "the Hevy key works: workout count, whether the PLSI folder exists (network)"),
     "hevy workouts": Cmd("plsi.hevy:workouts", (A("--since", type=iso_date), A("--limit", type=int, default=20)),
@@ -182,15 +184,15 @@ CORE: dict[str, Cmd] = {
     "plan check": Cmd("plsi.policy.gates:check", (INSTANCE, FILE), "run all gates, write nothing",
                       ("plsi plan record --instance {instance} --file {file}",)),
     "plan record": Cmd("plsi.policy.plan:record", (INSTANCE, FILE), "gate and record a plan",
-                       ("plsi plan adopt --instance {instance} --plan <plan_id>",), refresh=True),
+                       ("plsi plan adopt --instance {instance} --plan <plan_id>",), refresh=LivePage.CLINIC),
     "plan adopt": Cmd("plsi.policy.plan:adopt", (INSTANCE, PLAN, A("--start-on", type=iso_date)), "adopt a recorded plan",
-                      ("plsi due --instance {instance}",), refresh=True),
-    "plan review": Cmd("plsi.policy.plan:review", (INSTANCE, PLAN, FILE), "continue | modify | stop | complete a plan", refresh=True),
+                      ("plsi due --instance {instance}",), refresh=LivePage.CLINIC),
+    "plan review": Cmd("plsi.policy.plan:review", (INSTANCE, PLAN, FILE), "continue | modify | stop | complete a plan", refresh=LivePage.CLINIC),
     "plan list": Cmd("plsi.policy.plan:list_plans", (INSTANCE,), "plans and their states"),
     "due": Cmd("plsi.policy.score:due", (MX(A("--instance"), A("--all", dest="all_instances", action="store_true")),),
                "predictions due for measurement", ("plsi score --instance {instance}",)),
     "score": Cmd("plsi.policy.score:score", (INSTANCE,), "score due predictions; calibration",
-                 ("plsi report --instance {instance}",), refresh=True),
+                 ("plsi report --instance {instance}",), refresh=LivePage.CLINIC),
     "oracle pandaclaw": Cmd("plsi.policy.oracles:pandaclaw",
                             (MX(A("--file", help="OracleInput JSON (asks once)"),
                                 A("--session", dest="session_id", help="resume a session without asking again")),
@@ -224,4 +226,4 @@ CORE: dict[str, Cmd] = {
     "feedback check": Cmd("plsi.feedback:check", (FILE,), "gate-check a written usage report and draft its email (not sent)"),
 }
 
-COMMANDS: dict[str, Cmd] = merge(CORE, RESEARCH, TARGETS, MOTHERSHIP)
+COMMANDS: dict[str, Cmd] = merge(CORE, RESEARCH, TARGETS, MOTHERSHIP, JOURNAL, BIO)

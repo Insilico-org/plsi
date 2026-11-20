@@ -10,6 +10,7 @@ relay it is sent through. Commands are listed in `commands.py` (`plsi mothership
 | `content` | the coded fields a contribution may carry (field tables, codes, bounded numbers) |
 | `note` | the optional parts of a research note: item context, report masks, files, project |
 | `gate` | the whole gate per message kind: fields, formats, exemptions, consent, identity; `require` raises `GateFailed` |
+| `hints` | the hint a gate refusal carries: what each rule it names reads as and the usual way past it, from rules and paths only |
 | `enroll` | consent (a wording-only change of the text needs one Accept), the install token and contributor secret, the outbox, the sent log and its receipts |
 | `pack` | the deidentified contribution from published states, life events and scores |
 | `omitted` | the items the user left out of every package (`pack --omit`), remembered by what they are |
@@ -17,6 +18,7 @@ relay it is sent through. Commands are listed in `commands.py` (`plsi mothership
 | `attach` | a research note's data files: checked as the Mother checks them, zipped for the email |
 | `send` | `check`, `send` and `receipt` against the relay, with the instance's or the professional's token |
 | `professional` | the professional token, preregistrations and findings |
+| `mine` | the owner's `mothership mine`/`sent` view: local draft bookkeeping of notes, invites and revokes, settled when their email is recorded sent |
 | `stats` | the Mother's analyses of a data release (compare_groups, age_trend) |
 | `public` | the published catalog, data releases and findings ledger |
 

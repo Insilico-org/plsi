@@ -73,15 +73,12 @@ class DashboardPayload(Model):
 
 PAYLOAD_PLACEHOLDER = "__PLSI_PAYLOAD__"
 HASH_PLACEHOLDER = "__PLSI_SCRIPT_HASH__"
+LOGO_PLACEHOLDER = "__PLSI_LOGO__"
 _SCRIPT_RE = re.compile(r"<script>(.*?)</script>", re.S)
 _ESCAPES = {"<": "\\u003c", ">": "\\u003e", "&": "\\u0026", "\u2028": "\\u2028", "\u2029": "\\u2029"}
 
 
 # ---------------------------------------------------------------- render
-
-def _template() -> str:
-    return resources.files("plsi").joinpath("report.html").read_text(encoding="utf-8")
-
 
 def _script_hash(script: str) -> str:
     """CSP source expression for an inline script."""
@@ -93,14 +90,27 @@ def _embed_json(obj: Any) -> str:
     return re.sub("[<>&\u2028\u2029]", lambda m: _ESCAPES[m.group()], canonical_json(obj))
 
 
-def render(payload: DashboardPayload) -> str:
-    template = _template()
+def _logo() -> str:
+    return "data:image/png;base64," + base64.b64encode(resources.files("plsi").joinpath("logo.png").read_bytes()).decode("ascii")
+
+
+def render_template(template_name: str, payload: dict[str, Any], parts: dict[str, str] | None = None) -> str:
+    """A package template (one inline script, one payload and one hash placeholder) with its `parts` (placeholder ->
+    text), the logo and the payload filled in."""
+    template = resources.files("plsi").joinpath(template_name).read_text(encoding="utf-8")
+    for placeholder, text in (parts or {}).items():
+        template = template.replace(placeholder, text)
+    template = template.replace(LOGO_PLACEHOLDER, _logo())
     script = _SCRIPT_RE.search(template)
     head, sep, tail = template.partition(PAYLOAD_PLACEHOLDER)
     if script is None or not sep or PAYLOAD_PLACEHOLDER in tail or head.count(HASH_PLACEHOLDER) != 1:
-        raise RuntimeError("report.html must hold one inline script, one payload and one hash placeholder")
+        raise RuntimeError(f"{template_name} must hold one inline script, one payload and one hash placeholder")
     head = head.replace(HASH_PLACEHOLDER, _script_hash(script.group(1)))
-    return head + _embed_json(payload.dump()) + tail
+    return head + _embed_json(payload) + tail
+
+
+def render(payload: DashboardPayload) -> str:
+    return render_template("report.html", payload.dump())
 
 
 # ---------------------------------------------------------------- payload
