@@ -50,7 +50,9 @@ Ask nothing in it; continue with step 1 at once.
 
 ## 1. Install
 
-Clone the repo from `<PLSI_REPO_URL>` (or use an existing local checkout), then:
+Clone the repo from `<PLSI_REPO_URL>` (or use an existing local checkout) — it is a public repository, so `git
+clone` and `git fetch` need no GitHub account and no editor GitHub integration; run `git` directly on the user's
+computer. Then:
 
 ```bash
 python -m pip install -e <repo>
@@ -495,6 +497,8 @@ plsi --version
   `git -C <repo> stash pop`: applied and `status --porcelain` lists no changed file, the edits were already in the
   release (say so); applied with changes left, name the files kept; a conflict, `git -C <repo> reset --hard -q`
   (the release as shipped; git keeps the stash) and name the files and the saved patch, for the user to redo or drop.
+  The `fetch` and `checkout` run against the public repository on the user's computer: no GitHub account and no
+  editor GitHub integration are needed, and none should be asked for.
   Then `python -m pip install -e <repo>` with the Python of step 1, in
   the foreground, and check that `plsi --version` says the new version. Apply the migration sections between the
   two versions as step 2 describes, then the Terms check (step 1) and the persona check (step 4). Record the new
