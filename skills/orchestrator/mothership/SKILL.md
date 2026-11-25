@@ -20,9 +20,12 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
 
 ## Steps
 
-1. **Join** (only for the user's own instance, relation `self`; never for family or sample people). Show the consent
-   on one card, with `mothership/consent.md` attached to the same message as the full text. Copy the title and the
-   intro below unchanged: no other title, no paraphrase, one bullet per line, never merged into a paragraph.
+1. **Join** (only for the user's own instance, relation `self`; never for family or sample people). Everything the
+   user answers to join is ONE form of up to three pages, sent once, with `mothership/consent.md` attached to the same
+   message as the full text. On a first join (`plsi mothership status` shows no `has_install_token`) the same message
+   first gives the join page as a link on its own line: "Open <join_page from status>, press Get enrollment code and
+   keep the code for the last page. It works once and lasts 24 hours." Copy the title and the intro below unchanged
+   on page 1: no other title, no paraphrase, one bullet per line, never merged into a paragraph.
 
    Title: **What should PLSI share with the Longevity Mothership?**
 
@@ -39,23 +42,21 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    Under the bullets, one line: "Feedback on PLSI" means usage reports for the developers, with no health data. It
    isn't Mothership data and needs no join.
 
-   Multi-select, none preselected: Health states / Life story / Prediction scores / Feedback on PLSI (no health
-   data) / Not now. "Feedback on PLSI": remember "Feedback offers: on" (`orchestrator/feedback`); picked alone, say in
-   one line that PLSI will offer usage reports and stop. No data kind picked, or "Not now": say "You can join later"
-   and stop. Then one single-select card "How should I send it?": Show me each file first / Send each week without
-   asking. Never put the send mode on the kinds card. On a re-consent
-   (`CONSENT_OUTDATED`: what is shared changed) keep the send mode already chosen and show only the kinds card. A
-   wording-only change (`CONSENT_REWORDED`) never gets the kinds card: step 3.
+   - **Page 1, the kinds:** multi-select, none preselected: Health states / Life story / Prediction scores /
+     Feedback on PLSI (no health data) / Not now.
+   - **Page 2, "How should I send it?":** single-select: Show me each file first / Send each week without asking.
+   - **Page 3, "Your enrollment code"** (first join only): a text field for the code, and the option "Skip: join
+     later".
 
-2. **Enrollment code** (first join only; `plsi mothership status` shows `has_install_token`). Right after the
-   send-mode card, never later and never folded into another card: one message with the join page as a link on its own
-   line ("Open <join_page from status>, press Get enrollment code, then paste the code below. It works once and
-   expires in about 15 minutes.") and ONE card "Your enrollment code (paste it within 15 minutes of getting it)" with
-   a text field for the code and the option "Skip: join later". Wait for it: do not go on until the user pastes a
-   code or picks Skip. Skip: say "You can join any time: say 'join the Mothership'" and stop. A code that comes back
-   when the card has sat over 15 minutes is likely expired: try it anyway (below), and on `ENROLL_FAILED` offer a
-   fresh code once. The code may be pasted in chat too; the permanent install
-   token never appears anywhere. Then, at once:
+   Read the answers in that order. "Feedback on PLSI": remember "Feedback offers: on" (`orchestrator/feedback`);
+   picked alone, say in one line that PLSI will offer usage reports and stop, whatever pages 2 and 3 say. No data
+   kind picked, or "Not now": say "You can join later" and stop. On a re-consent (`CONSENT_OUTDATED`: what is shared
+   changed) the form is page 1 only, and the send mode already chosen stays. A wording-only change
+   (`CONSENT_REWORDED`) never gets the form: step 3.
+
+2. **Enrollment code** (first join only). The code comes on page 3 of the join form; wait for the form, and do not
+   go on until it is answered. Skip: say "You can join any time: say 'join the Mothership'" and stop. The code may
+   be pasted in chat too; the permanent install token never appears anywhere. Then, at once:
 
    ```bash
    plsi mothership join --instance <instance> --kind states --kind life_events --kind scores --consent-version <marker> --code <code>
@@ -64,8 +65,8 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    with one `--kind` per picked item (Health states `states`, Life story `life_events`, Prediction scores `scores`)
    and the version from the `<!-- plsi-mothership-consent: X.Y.Z -->` marker of the
    text you showed; omit `--code` when the install already has a token. `ENROLL_FAILED` (used or expired code): once,
-   one message "That code has expired or was used (codes last about 15 minutes). Open <join_page> for a fresh one and
-   paste it here." with the same code card. Failing again: say "You can join any time: say 'join the Mothership'"
+   one message "That code has expired or was used (codes last 24 hours). Open <join_page> for a fresh one and
+   paste it here." with ONE card "Your enrollment code": a text field for the code and "Skip: join later". Failing again: say "You can join any time: say 'join the Mothership'"
    and stop. Remember the send mode; with "Send each week without asking", the user's join is the
    standing approval to send each week. Create an ENABLED weekly routine **"PLSI Mothership"** (step 3). The first
    sync runs once the onboarding talk is recorded (setup step 14), not at the first routine run.

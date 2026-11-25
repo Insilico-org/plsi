@@ -117,7 +117,7 @@ def _enroll(instance: str, code: str) -> dict[str, str]:
             raise ValidationError("the Longevity Mothership is not open for new contributors yet", code="ENROLLMENT_CLOSED",
                                   hint="nothing was recorded; try joining again later") from None
         raise ValidationError(f"the relay refused the enrollment code: {reason}", code="ENROLL_FAILED",
-                              hint=f"get a new code at {address()}/join (codes are one-time and expire in ~15 minutes)") from None
+                              hint=f"get a new code at {address()}/join (codes are one-time and expire in 24 hours)") from None
     if not (reply.get("ok") and reply.get("install_id") and reply.get("token")):
         raise ValidationError("the relay did not return an install id and token", code="ENROLL_FAILED")
     minted = {"install_id": str(reply["install_id"]), "token": str(reply["token"]), "enrolled_at": now().isoformat()}

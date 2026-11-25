@@ -346,13 +346,12 @@ secrets included), becomes a form of 2-8 pages of at most six options each, neve
    its capability, so continue setup. Oracle keys are offered even when oracles are "Never"; that answer controls
    sending data, not having the key.
 
-7. **Longevity Mothership** (only for the user's own instance; never skipped silently). The join card of
-   `orchestrator/mothership` step 1: its title and intro copied unchanged, `<repo>/mothership/consent.md` attached,
-   and its multi-select; never fold it into another card. Any data kind picked: the send-mode card of step 1,
-   then at once the enrollment code
-   card of `orchestrator/mothership` step 2 (the join page link, a field for the code, or "Skip: join later"),
-   waiting for one of them, then `plsi mothership join`. "Not now" or Skip: one line that they can join any time.
-   "Feedback on PLSI" alone needs no send mode, no code and no join: remember "Feedback offers: on".
+7. **Longevity Mothership** (only for the user's own instance; never skipped silently). The join form of
+   `orchestrator/mothership` step 1, sent once: the join page link, `<repo>/mothership/consent.md` attached, page 1
+   with its title and intro copied unchanged and its multi-select, page 2 the send mode and page 3 the enrollment
+   code (or "Skip: join later"); never fold it into another card. Wait for the form, then `plsi mothership join`
+   (step 2 there). "Not now" or Skip: one line that they can join any time. "Feedback on PLSI" alone needs no send
+   mode, no code and no join: remember "Feedback offers: on".
 
 ## 7. Create the specialists, the role section and the other hubs
 

@@ -215,7 +215,8 @@ not on the team is skipped with the "Add <bot>?" line (a routine's run skips it 
   `lab/research` step 5): a `worthy` note, or a target file's `worthy` candidates (Challenger, Note
   mode) -> Explorer `explorer/mothership`
   (`plsi mothership note` writes the wire message) -> Data Controller `controller/egress` (`plsi mothership email`
-  is the gate) -> the Research Orchestrator shows one card ("It goes from your Grok email") -> it emails the draft
+  is the gate) -> the Research Orchestrator shows one card ("It goes from your Grok email"; none when the user chose
+  "send without asking", `lab/research` step 5) -> it emails the draft
   from the user's Grok email, the note attached as JSON and its data files as one zip (a file too large for email by
   the user's Google Drive, `lab/research` step 5) -> the Mothership replies there (receipt, then the decision;
   **Mothership replies**) -> the Research Orchestrator sets the note's status from a decision that quotes its kept

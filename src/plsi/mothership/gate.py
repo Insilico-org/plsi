@@ -23,7 +23,7 @@ from plsi.vocab import (CodeSystem, ContributionKind, FeedbackSeverity, Feedback
 FIELDS: dict[M, tuple[set[str], set[str]]] = {  # kind -> (required, optional) fields beyond kind and schema_version
     M.CONTRIBUTION: ({"contributor_id", "consent_version", "packed", "kinds", "subject"}, set(ContributionKind)),
     M.WITHDRAWAL: ({"contributor_id", "request"}, {"proof"}),
-    M.RESEARCH_NOTE: ({"items", "method"}, {"report", "files", "project"}),
+    M.RESEARCH_NOTE: ({"items", "method"}, {"report", "files", "project", "credit"}),
     M.REGISTRY_UPDATE: ({"items"}, set()),
     M.PREREGISTRATION: ({"professional_id", "preregistration_id", "hypothesis", "release", "analysis", "outcome", "alpha",
                          "direction", "parents"}, set()),
@@ -175,7 +175,7 @@ def _shape(doc: dict[str, Any], kind: M) -> list[dict[str, str]]:
             out += [flag(f"items[{n}].kind", "unknown_kind")
                     for n, item in enumerate(items) if item.get("kind") not in tuple(RegistryItemKind)]
         if kind == M.RESEARCH_NOTE:
-            out += note.check(items, doc.get("report")) + note.files(doc) + note.project(doc)
+            out += note.check(items, doc.get("report")) + note.files(doc) + note.project(doc) + note.credit(doc)
     separated = "professional_id" if kind in CONTRIBUTOR else "contributor_id" if kind in PROFESSIONAL else None
     keys = {k for k, _ in scan.pairs(doc)}
     if separated and separated in keys:

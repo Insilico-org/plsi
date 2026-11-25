@@ -1,5 +1,5 @@
 """The optional parts of a research note (WIRE §3): item context, the forms its `report` masks, its `files` and the
-`project` it serves."""
+`project` it serves, and its `credit`: the contributor's own consent to the public Gazette and the name to show."""
 
 from __future__ import annotations
 
@@ -30,7 +30,8 @@ REPORT_MASKS = {"exact_date": CITATION, "id_number": re.compile(f"{CITATION.patt
 MAX_LIST = 10
 FINDINGS = ("support", "against", "risks")
 FIELDS = frozenset({"question", "tags", "hallmarks", *FINDINGS, "limits", "model_output"})
-NAMES = frozenset({"source", "finding", "model", "name", "sha256", "drive_id", "title", "mesh", "label", "tree"})
+CREDIT = frozenset({"publish", "contributor"})  # publish: the contributor's yes to the Gazette; contributor: the name shown
+NAMES = frozenset({"source", "finding", "model", "name", "sha256", "drive_id", "title", "mesh", "label", "tree", *CREDIT})
 TREE = re.compile(r"[A-Z]\d{2}(?:\.\d{3})*")  # a tree number: G07.345.124.130; its letter is the MeSH branch
 TAG_PATHS = frozenset({"items[].tags[].mesh", "items[].tags[].tree[]"})
 SOURCE_PATHS = frozenset(f"items[].{k}[].source.id" for k in FINDINGS)
@@ -52,6 +53,18 @@ def project(doc: dict[str, Any]) -> list[dict[str, str]]:
     ok = isinstance(given, dict) and set(given) == {"id", "title"} and isinstance(given["id"], str) \
         and bool(UUID_LOWER.fullmatch(given["id"])) and isinstance(given["title"], str) and 0 < len(given["title"].strip()) <= MAX_TITLE
     return [] if ok else [flag("project", "bad_project")]
+
+
+def credit(doc: dict[str, Any]) -> list[dict[str, str]]:
+    """`bad_credit` for a `credit` that is not {publish[, contributor]}: `publish` true or false (the contributor's own
+    yes to showing the project in the public Gazette) and `contributor` the name shown there, 1-MAX_TITLE characters;
+    no contributor, the Gazette shows no name."""
+    if "credit" not in doc:
+        return []
+    given = doc["credit"]
+    name = given.get("contributor", "x") if isinstance(given, dict) else None
+    ok = isinstance(given, dict) and "publish" in given and set(given) <= CREDIT and isinstance(given["publish"], bool)         and isinstance(name, str) and 0 < len(name.strip()) <= MAX_TITLE
+    return [] if ok else [flag("credit", "bad_credit")]
 
 
 def _file(e: Any, seen: list[Any]) -> bool:

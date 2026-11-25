@@ -85,32 +85,16 @@ own chat, so name it in your post and never ask it in the room.
    `plsi research project --show <id>`, as `{"id": "<uuid>", "title": "<title>"}`, the title at most 120 characters with no identifiers, dates or names. The gate
    refuses any other shape (`bad_project`).
 
-## A published project: track it and grow its team
-
-Once a steward has published the user's project, it is a shareable folder other researchers can read from the public
-table (`plsi mothership projects`). The owner does two things through you, by their **own email** — PLSI only drafts:
-
-- **See their projects and status**: `plsi mothership mine --instance <instance>` lists each project the user
-  drafted a note or invite for, its status, who they invited and, under `drafts`, what was drafted but never
-  recorded as sent (a draft a later send replaced is gone). The status is `drafted` (nothing sent), `sent` (the public table could not be read, so
-  publication is unknown), `awaiting publication` or `published`. Only what PLSI recorded as sent counts: a note the
-  user chose not to send stays `drafted`, and an unsent invite or revoke leaves the collaborators unchanged.
-- **Invite or remove a collaborator**: `plsi mothership project invite --project <id> --email <addr> --instance <instance>`
-  (repeat `--email`), and `plsi mothership project revoke ...` the same way. Both only **draft** the email; the owner
-  sends it. Tell the user plainly: **send it from the same address they submitted the research note with** — the
-  Mother grants access only on a DMARC-passing email from the project owner, so a different sender is refused
-  (`NOT_OWNER`). Pass `--instance` so the draft is remembered for `mothership mine`; when PLSI says the email went,
-  record it with `plsi mothership sent --instance <instance> --draft <draft from the invite or revoke>`. An invitee
-  needs only a Google account; no PLSI or Mothership account. Name a project to the user by its title; `--project`
-  takes its uuid from `plsi research project`, the same id as its research note's `project.id` (`BAD_PROJECT` for
-  anything else).
-
-A project starts **private** — an invite-only workspace the team collaborates in before anything is public. To put it
-in the public **Longevity Grok Gazette**, the owner or team make a `publication/` subfolder inside the project's Drive
-folder holding only what they choose to present, then ask a steward to publish it. Going public shares **only**
-`publication/` (the working folder stays private) and lists the project in the gazette under its research note's MeSH
-tags. Tell the user it is a deliberate step to make those materials public, taken when the team is ready; the private
-workspace is unaffected.
+   `credit` (a research note with a `project` only): the Gazette answer the brief gives (PLSI asks the user; you do
+   not): `{"publish": true, "contributor": "<the name they gave>"}`, `{"publish": true}` or `{"publish": false}`; with
+   no answer in the brief, write no `credit` and say so in the result. Never fill in a name the user did not give. The
+   name is shown in public beside the project, 1-120 characters (`bad_credit` otherwise); a name equal to one of the
+   instance names is refused (`instance_name`): say so in the result, so PLSI asks the user for the name as they want
+   it shown. Without `publish: true` a steward cannot take the project public (`NO_CONSENT`); to change the answer,
+   send a new note of the project with the new `credit` and ask the steward to publish from it. To take a project
+   already in the Gazette back down, send a new note of the project with `{"publish": false}` and say in its email
+   that they withdraw the listing (or the user writes to privacy@insilico.com); a steward unlists it and ends its
+   public share within 30 days, and the private workspace stays.
 
    `files` (optional): the data behind the note (for a target file, the data files beside it in the request, such as
    `<gene>-brief.csv`): data the note rests on, never part of the write-up (an evidence table, a summary or a source
@@ -153,6 +137,33 @@ workspace is unaffected.
    note is sent by PLSI from the user's Grok email (PLSI drafts the email); Data Controller sends an approved
    registry update and PLSI tells the user the receipt. A rejection comes back through PLSI:
    rewrite the file as it says and return it again.
+
+## A published project: track it and grow its team
+
+Once a steward has published the user's project, it is a shareable folder other researchers can read from the public
+table (`plsi mothership projects`). The owner does two things through you, by their **own email** — PLSI only drafts:
+
+- **See their projects and status**: `plsi mothership mine --instance <instance>` lists each project the user
+  drafted a note or invite for, its status, who they invited and, under `drafts`, what was drafted but never
+  recorded as sent (a draft a later send replaced is gone). The status is `drafted` (nothing sent), `sent` (the public table could not be read, so
+  publication is unknown), `awaiting publication` or `published`. Only what PLSI recorded as sent counts: a note the
+  user chose not to send stays `drafted`, and an unsent invite or revoke leaves the collaborators unchanged.
+- **Invite or remove a collaborator**: `plsi mothership project invite --project <id> --email <addr> --instance <instance>`
+  (repeat `--email`), and `plsi mothership project revoke ...` the same way. Both only **draft** the email; the owner
+  sends it. Tell the user plainly: **send it from the same address they submitted the research note with** — the
+  Mother grants access only on a DMARC-passing email from the project owner, so a different sender is refused
+  (`NOT_OWNER`). Pass `--instance` so the draft is remembered for `mothership mine`; when PLSI says the email went,
+  record it with `plsi mothership sent --instance <instance> --draft <draft from the invite or revoke>`. An invitee
+  needs only a Google account; no PLSI or Mothership account. Name a project to the user by its title; `--project`
+  takes its uuid from `plsi research project`, the same id as its research note's `project.id` (`BAD_PROJECT` for
+  anything else).
+
+A project starts **private** — an invite-only workspace the team collaborates in before anything is public. To put it
+in the public **Longevity Grok Gazette**, the owner or team make a `publication/` subfolder inside the project's Drive
+folder holding only what they choose to present, then ask a steward to publish it. Going public shares **only**
+`publication/` (the working folder stays private) and lists the project in the gazette under its research note's MeSH
+tags, with the contributor's name when their note's `credit` gave one; it needs that note's `publish: true`. Tell the user it is a deliberate step to make those materials public, taken when the team is ready; the private
+workspace is unaffected.
 
 ## Steps: Receive
 
