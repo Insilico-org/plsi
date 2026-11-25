@@ -1,8 +1,8 @@
 # Longevity Grok Privacy Policy
 
-<!-- plsi-legal: 2026-11-07 -->
+<!-- plsi-legal: 2026-11-25 -->
 
-Effective November 7, 2026
+Effective November 25, 2026
 
 ## 1. Who Is Responsible and What This Policy Covers
 
@@ -32,11 +32,17 @@ Coded contributions are pseudonymous, not anonymous. They do not include your na
 
 If you send research notes or other messages to us by email, including from an email address provided with your Grok account, we receive your email address, the message and any attachments. Email submissions are not anonymous, even when their attachments contain coded information.
 
+### 2.4 Research Projects and the Gazette
+
+A research note may name a research project. If we publish the project as a shared workspace, we keep the email address that submitted the note as the project owner's, and the email addresses the owner asks us to add as collaborators, so that Google Drive can give those people access to the project folder. The workspace is private to its owner and collaborators.
+
+Only if the project's contributor says yes in their research note, and the team then asks for it, we list the project in the public Longevity Grok Gazette. The listing shows the project title, the MeSH subject tags of its research notes, the date it was published, the materials the team placed in the project's publication folder, and the contributor name they chose, or no name if they chose none. Everyone can see a Gazette listing. Email addresses, the collaborator list and the rest of the workspace are never public.
+
 ## 3. How We Use Information
 
 ### 3.1 Purposes
 
-We use website and contact information to operate the Site, respond to you, review program applications, secure and troubleshoot the Service, prevent misuse and meet legal obligations. When you separately consent to research participation, we use your contributions to evaluate and conduct longevity research and to produce the findings described in the consent notice, including aggregate results published monthly as averages by age band and sex with no group smaller than ten people. We use research notes you email to us for the research purposes you send them for and to reply to you.
+We use website and contact information to operate the Site, respond to you, review program applications, secure and troubleshoot the Service, prevent misuse and meet legal obligations. When you separately consent to research participation, we use your contributions to evaluate and conduct longevity research and to produce the findings described in the consent notice, including aggregate results published monthly as averages by age band and sex with no group smaller than ten people. We use research notes you email to us for the research purposes you send them for and to reply to you, and the project information in section 2.4 to run project workspaces and, with the contributor's yes, the Gazette.
 
 ### 3.2 No Training and No Advertising
 
@@ -50,11 +56,11 @@ Using the Service or accepting its Terms is not consent to research sharing. Whe
 
 ### 4.1 Service Providers
 
-We disclose the information needed for each purpose to providers that host the Site and the Hub, deliver email and support our operations, under contracts that limit their use of information to our instructions. Cloudflare provides hosting, the research relay and website security. No other Insilico Medicine group company receives personal information from the Service or the research program.
+We disclose the information needed for each purpose to providers that host the Site and the Hub, deliver email and support our operations, under contracts that limit their use of information to our instructions. Cloudflare provides hosting, the research relay, website security and the Gazette pages. Google provides the Drive where research notes and project workspaces are stored and shared. No other Insilico Medicine group company receives personal information from the Service or the research program.
 
 ### 4.2 Research Recipients
 
-Individual coded contributions are accessible only to the recipients named in the consent notice you accept when you opt in, which may include Insilico research staff and verified physicians and researchers admitted to the Clinic or Lab programs, under agreements that limit use to the stated research purposes and prohibit attempts to identify contributors. This policy does not itself authorize that sharing. Everyone else, including the public, receives only aggregate findings that meet applicable deidentification requirements before release.
+Individual coded contributions are accessible only to the recipients named in the consent notice you accept when you opt in, which may include Insilico research staff and verified physicians and researchers admitted to the Clinic or Lab programs, under agreements that limit use to the stated research purposes and prohibit attempts to identify contributors. This policy does not itself authorize that sharing. Everyone else, including the public, receives only aggregate findings that meet applicable deidentification requirements before release, and the Gazette listings that contributors agreed to (section 2.4).
 
 ### 4.3 Legal Disclosures
 
@@ -76,13 +82,17 @@ You may request deletion of the contributions associated with your contributor c
 
 The deletion secret authenticates requests concerning coded contributions. If it is unavailable, contact privacy@insilico.com so we can assess whether other information is sufficient to locate the records and authenticate your request. We may decline a request we cannot authenticate after commercially reasonable efforts. Losing the secret does not affect requests concerning identifiable emails or application records. Do not send your account password or deletion secret by ordinary email.
 
+### 5.3 Gazette Listings
+
+A contributor may withdraw their yes at any time, by sending a new research note of the project that answers no or by writing to privacy@insilico.com. We then remove the project from the Gazette and end the public sharing of its publication folder within 30 days. The private workspace and its collaborators are not affected. We cannot recall copies that others made while the listing was public.
+
 We may be unable to remove an individual contribution from already published findings that are genuinely deidentified and no longer linkable to that person, subject to applicable law. This does not excuse deletion of underlying personal or coded records that remain subject to a valid request.
 
 ## 6. Retention, Security and Processing Locations
 
 ### 6.1 Retention
 
-We keep website logs for 12 months, contact and program application records for 24 months after our last contact with you, and research contributions until you ask us to delete them or the program ends. We keep coded records needed to verify published findings for seven years after publication unless you ask us to delete them earlier.
+We keep website logs for 12 months, contact and program application records for 24 months after our last contact with you, research contributions until you ask us to delete them or the program ends, and project owner and collaborator addresses while the project workspace exists. We keep coded records needed to verify published findings for seven years after publication unless you ask us to delete them earlier.
 
 ### 6.2 Security
 

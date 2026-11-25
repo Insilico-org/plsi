@@ -1,8 +1,8 @@
 # Longevity Grok Terms of Service
 
-<!-- plsi-legal: 2026-11-07 -->
+<!-- plsi-legal: 2026-11-25 -->
 
-Effective November 7, 2026
+Effective November 25, 2026
 
 ## 1. Who We Are and What These Terms Cover
 
@@ -66,7 +66,7 @@ You retain your rights in the information you provide and in the outputs generat
 
 ### 6.2 Research Participation and Email
 
-Participation in the MotherShip research program is voluntary, is off until you opt in, and requires a separate consent notice identifying the information, uses and recipients involved. You may use the personal features without joining. If you send research notes or other messages to us by email, including from an email address provided by xAI, we receive your email address and the contents of the message, and that submission is not anonymous. Research participation and any clinical trial enrollment are separate matters governed by their own documents.
+Participation in the MotherShip research program is voluntary, is off until you opt in, and requires a separate consent notice identifying the information, uses and recipients involved. You may use the personal features without joining. If you send research notes or other messages to us by email, including from an email address provided by xAI, we receive your email address and the contents of the message, and that submission is not anonymous. If a research note names a project and its contributor says yes, the project may be listed in the public Longevity Grok Gazette with the materials the team chose and the name the contributor chose; by asking for the listing, the team confirms it has the right to share those materials and lets us display them there until the listing is withdrawn, as the Privacy Policy describes. Research participation and any clinical trial enrollment are separate matters governed by their own documents.
 
 ## 7. Acceptable Use and Intellectual Property
 
