@@ -250,21 +250,22 @@ direction worth writing up, that is the user's decision (step 3).
 
      | | |
      |---|---|
-     | 2% | up to 8% of your week |
-     | 5% | up to 20% of your week |
-     | 10% | up to 40% of your week |
+     | 2% | up to 6% of your week |
+     | 5% | up to 15% of your week |
+     | 10% | up to 30% of your week |
      | Off | |
 
-     The daily share is a target research spends each day; the weekly figure is the **ceiling**, four days' worth
+     The daily share is a target research spends each day; the weekly figure is the **ceiling**, three days' worth
      of the daily share, and code enforces it. Say in one line under the card: "research spends about this much
-     each day, stops at the weekly figure, and always leaves you at least 10% of the week. It uses only your
+     each day, stops at the weekly figure, always leaves you at least 10% of the week, and pauses all research once your
+     weekly usage reaches 85%. It uses only your
      plan's weekly allowance, never prepaid or on-demand credits."
 
      Both numbers are free text; take whatever the user names ("1.5% a day", "15% a day but never more than 30%
      in a week", "as little as possible").
 
      ```bash
-     plsi research budget --share 1.5                 # the ceiling stays four days' worth: 6%
+     plsi research budget --share 1.5                 # the ceiling stays three days' worth: 4.5%
      plsi research budget --share 15 --ceiling 30     # both named
      plsi research budget                             # what they are now
      ```

@@ -12,7 +12,7 @@ from plsi.errors import ValidationError
 from plsi.research import cursor as cursors
 from plsi.research import frontier, ledger, projects, runs, store
 from plsi.research.store import clip, today
-from plsi.research.tuning import (DEPTH_LIMITS, HEADROOM, MAX_ATTEMPTS, RUN_MINUTES, TRIED_CHARS, TRIED_MOVES,
+from plsi.research.tuning import (DEPTH_LIMITS, HEADROOM, MAX_ATTEMPTS, QUOTA_CAP, RUN_MINUTES, TRIED_CHARS, TRIED_MOVES,
                                   UNPRODUCTIVE_STOP)
 from plsi.research.verdict import floor_words
 from plsi.research.working_set import working_set
@@ -122,6 +122,11 @@ def next_move(topic: str | None = None, usage: float | None = None, project: str
     opened = _read_meter(graph, usage) or fresh
     if stop := _meter_stop(graph):
         return stop
+    if ledger.over_quota(usage, today()):
+        _log_stop_once(graph, log, ResearchStop.QUOTA, today())
+        return {**_orient(graph), "stop": str(ResearchStop.QUOTA),
+                "why": f"the weekly meter reached the {QUOTA_CAP}% cap at which all research stops",
+                "open": frontier.open_items(graph), "resumes": "when the weekly meter resets"}
     room = ledger.headroom(usage)
     if not room["ok"]:
         _log_stop_once(graph, log, ResearchStop.HEADROOM, today(), **room)

@@ -81,7 +81,7 @@ COMMANDS: dict[str, Cmd] = {
                                    "hour to UTC"),
                             A("--ceiling", type=float,
                               help="percent of the weekly meter research may use in a week; "
-                                   "left alone it is four days' worth of --share"),
+                                   "left alone it is three days' worth of --share"),
                             A("--meter-reset", action="store_true",
                               help="the user confirmed the weekly meter reset: open today and a fresh week at --usage"),
                             A("--usage", type=float,

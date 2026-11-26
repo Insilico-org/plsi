@@ -145,6 +145,7 @@ class ResearchStop(StrEnum):
     METER = "meter"  # a usage reading went backwards; the next day opens fresh
     OFF = "off"  # research has no share of the meter
     HEADROOM = "headroom"  # the user's reserve of the weekly meter would be touched
+    QUOTA = "quota"  # the weekly meter reached the hard cap: all research stops until it resets
     CEILING = "ceiling"  # research has used its share of the week
     STUCK = "stuck"  # the first move failed to save too many times
     BUDGET = "budget"  # today's allocation is spent
@@ -193,6 +194,7 @@ class RunRest(StrEnum):
     NOTHING_SAVED = "nothing_saved"  # two runs in a row saved no move: the day ends
     OFF = "off"  # the share is 0
     HEADROOM = "headroom"  # the user's reserve of the weekly meter would be touched
+    QUOTA = "quota"  # the weekly meter reached the hard cap: all research stops until it resets
     CEILING = "ceiling"  # the week's ceiling is spent
     METER = "meter"  # a reading went below the one before it; only the user can say it was a reset
     EARLY = "early"  # a new day is due but the user's start hour has not come

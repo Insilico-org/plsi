@@ -21,6 +21,9 @@ join and no token. Data Controller clears it before the user sees the send card 
     (`orchestrator/conduct`, `failed` rows included) and `feedback mark/timeline`. The run stays quiet when nothing
     was marked that week (no stage timed, no frustration or `failed` row), or after two "Not now" in a row; then
     offer again only when the user brings it up or a month after the second "Not now".
+- **After every update** (`plsi.md` step 10, Update), once, whatever the Mothership choice: "your time with PLSI
+  since the last update", from the same sources since the previous version was installed. Its "Not now" does not
+  count towards the weekly routine's two.
   Keep the offers made and the "Not now" count in your permanent memory; a See the report resets the count. The user
   can always ask.
 

@@ -17,7 +17,7 @@ from typing import Any
 from plsi import files
 from plsi.errors import ValidationError, warn
 from plsi.research import store
-from plsi.research.tuning import CEILING_MULTIPLE, HEADROOM, START_HOUR
+from plsi.research.tuning import CEILING_MULTIPLE, HEADROOM, QUOTA_CAP, START_HOUR
 
 BLANK = {"share_of_day": 0.0, "day": None, "opening_usage": None, "last_usage": None,
          "allocated": 0.0, "spent": 0.0, "week": None, "week_spent": 0.0, "start_hour": START_HOUR}
@@ -60,7 +60,7 @@ def _save(budget: dict[str, Any]) -> None:
 
 
 def ceiling(budget: dict[str, Any] | None = None) -> float:
-    """What research may take out of one week: the number the user named, else four days' worth of the share. Reads
+    """What research may take out of one week: the number the user named, else three days' worth of the share. Reads
     the ledger unless `budget` is given."""
     budget = state() if budget is None else budget
     named = budget.get("week_ceiling")
@@ -209,6 +209,30 @@ def headroom(usage: float | None) -> dict[str, Any]:
     left = round(100.0 - float(reading), 4)
     need = round(float(budget.get("share_of_day") or 0.0) + HEADROOM, 4)
     return {"ok": left >= need, "left": left, "need": need, "keeps_back": HEADROOM}
+
+
+def over_quota(usage: float | None, today: str) -> bool:
+    """Whether the week's reading is at the hard cap (QUOTA_CAP). The first time it is, the stop is kept as
+    `quota_hit` so the reset that renews the quota can be told apart (`quota_renewed`)."""
+    budget = state()
+    reading = usage if usage is not None else budget.get("last_usage")
+    if reading is None or float(reading) < QUOTA_CAP:
+        return False
+    if not budget.get("quota_hit"):
+        budget["quota_hit"] = {"day": today, "usage": float(reading)}
+        _save(budget)
+    return True
+
+
+def quota_renewed(usage: float | None) -> dict[str, Any] | None:
+    """The kept quota stop, once, at the first reading below the cap after it: the meter has reset."""
+    budget = state()
+    hit = budget.get("quota_hit")
+    if not hit or usage is None or float(usage) >= QUOTA_CAP:
+        return None
+    budget.pop("quota_hit")
+    _save(budget)
+    return hit
 
 
 def meter_fell(today: str) -> dict[str, Any] | None:
