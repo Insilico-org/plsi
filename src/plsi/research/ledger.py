@@ -16,7 +16,7 @@ from __future__ import annotations
 from plsi.research.allocation import affordable, bar, part, share, starving, working
 from plsi.research.costing import estimate, typical
 from plsi.research.meter import (BLANK, ceiling, charge, day_is_open, headroom, is_off, meter_fell, meter_reset,
-                                 open_day, reading, rebase, set_share, state, week_of, week_spent, _save)
+                                 open_day, over_quota, quota_renewed, reading, rebase, set_share, state, week_of, week_spent, _save)
 from plsi.research.picking import pick_next
 from plsi.research.reservations import BILLED, RESERVATIONS_FILE, release, reserve
 
@@ -24,6 +24,7 @@ __all__ = [
     # meter: the week ledger, the weekly ceiling, charging the meter
     "BLANK", "week_of", "week_spent", "state", "ceiling", "set_share", "reading", "day_is_open", "open_day",
     "meter_reset", "charge", "rebase", "headroom", "meter_fell", "is_off",
+    "over_quota", "quota_renewed",
     # costing: what a move costs, read off the run log
     "estimate", "typical",
     # allocation: the day shared out, with carry-on

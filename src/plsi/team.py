@@ -48,14 +48,17 @@ def show() -> dict[str, Any]:
 
 
 def set_fields(primary: str | None = None, own_health: str | None = None, terms: str | None = None,
-               version: str | None = None, sessions_section: str | None = None) -> dict[str, Any]:
-    """`team set`: change the shared settings given; the rest stay."""
+               version: str | None = None, sessions_section: str | None = None,
+               contact: str | None = None) -> dict[str, Any]:
+    """`team set`: change the shared settings given; the rest stay. `contact` is the user's single point of contact
+    (a Chief of Staff bot outside PLSI, by its name), or "none" once the user declined routing through one."""
     given = {"primary": None if primary is None else BotRole(primary).value,
              "own_health": None if own_health is None else own_health == "on",
-             "terms_accepted": terms, "version": version, "sessions_section": sessions_section}
+             "terms_accepted": terms, "version": version, "sessions_section": sessions_section,
+             "contact": None if contact is None else contact.strip() or None}
     if all(v is None for v in given.values()):
         raise ValidationError("nothing to set",
-                              hint="plsi team set --primary|--own-health|--terms|--version|--sessions-section")
+                              hint="plsi team set --primary|--own-health|--terms|--version|--sessions-section|--contact")
     with _editing() as team:
         team.update({k: v for k, v in given.items() if v is not None})
     return show()

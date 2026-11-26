@@ -41,7 +41,9 @@ CORE: dict[str, Cmd] = {
     "team set": Cmd("plsi.team:set_fields",
                     (A("--primary", choices=PRIMARY_HUBS, help="the hub that ran plsi.md"), A("--own-health", choices=("on", "off")),
                      A("--terms", help="the legal/TERMS.md marker the user accepted"), A("--version", help="the PLSI version installed"),
-                     A("--sessions-section", choices=("ready", "skipped"), help="the user's answer on PLSI Sessions")),
+                     A("--sessions-section", choices=("ready", "skipped"), help="the user's answer on PLSI Sessions"),
+                     A("--contact", help="the user's single point of contact outside PLSI (a Chief of Staff bot's "
+                                         "name), or none")),
                     "change the shared team settings given", ("plsi team show",)),
     "team add": Cmd("plsi.team:add",
                     (A("--role", required=True, choices=V(BotRole)), A("--display-name", required=True),

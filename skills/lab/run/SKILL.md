@@ -46,6 +46,8 @@ run's rise over the moves it saved.
      user's call.
    - **`done`**: the topic was already finished. Report the answer.
    - **`ceiling`**: research has used its weekly share. Resumes when the meter resets.
+   - **`quota`**: the weekly meter reached 85%, the hard cap at which all research stops, whatever share or
+     ceiling is left. Resumes when the meter resets. Follow Quota below.
    - **`headroom`**: research would take the user below the tenth of the weekly meter it always leaves them.
      Resumes at the reset. Tell the user in plain words: "Research uses only your plan's weekly allowance, never
      prepaid or on-demand credits, so it stops when the weekly meter is nearly full, even if you still have
@@ -135,3 +137,23 @@ the user, naming the question and its verdict; the user decides. Never turn a fi
 - **Obey the stop.** A save past the allocation is warned about and counts against the week's ceiling. Use `budget.affordable`
   to land on the allocation, and never quietly hand the rest back.
 - Nothing personal leaves the topic folder; nothing from it goes to the platform without Data Controller.
+
+## Quota
+
+At 85% of the weekly meter code stops every run, in `run --start`, `next` and `run --end` (`quota`, with `then`
+naming this section), so no project runs until the meter resets. The first time a week hits it, tell the user
+(Research Orchestrator's own chat, and the user's single point of contact when there is one, `shared/hub` Chief of
+Staff) with ONE card, multi-select, one option per project that is active now (`plsi research project`), at most
+six (the rest on a second page):
+
+> "Research is paused: your weekly usage reached 85%. These projects were running: <titles>. Which should resume
+> when your quota renews?" (each project / None, keep them all on hold)
+
+A project not picked goes on hold (`plsi research project --hold <id>`); a picked one stays active and simply waits.
+Keep "Quota card: <week>" in your permanent memory and show the card once per week; an unanswered card leaves every
+project as it is.
+
+**When the quota renews**: the first `run --start` or `--end` after the meter reset carries `quota_renewed`
+(`on_hold`: the projects on hold now). Send the message again: "Your weekly quota has renewed and research is
+running again on <the active titles>. On hold: <titles>. Resume any?" (each project on hold / Not now), the same
+two places; each pick is `plsi research project --resume <id>`. With nothing on hold, one line instead of the card.

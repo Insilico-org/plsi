@@ -62,6 +62,21 @@ unchanged.
   changes, rather than a claim that its first message has been rewritten. The hub that sent an introduction
   remembers which one it sent per bot.
 
+## Chief of Staff
+
+The user's single point of contact outside PLSI is `contact` in `plsi team show`; who it is and what it does with
+PLSI is `plsi.md`, Instructions for Chief of Staff. Each hub's part, when a contact is set:
+
+- **Copy notable outputs to it**, one message each, opening with "PLSI · <hub>:" and naming the chat (and project
+  room or group chat) where the full output is: a routine's result (the longevity digest, a research report or
+  answered topic, a Mothership reply, a plan's review, a new record's summary), a card that waits on the user (one
+  line naming it and where, never its health content), the research quota pause and renewal (`lab/run`, Quota),
+  and anything `urgent`. Runs that changed nothing send nothing. The hub's own chat still gets everything; the
+  contact condenses. Data Controller's rules hold as for any message to the user.
+- **Take requests from it** as the user's own words, routed as usual (`orchestrator/conduct`); a hub that does not
+  own it passes it on, or the "Add <bot>?" line goes back. Cards stay with the user. Answer the contact with the
+  result in one message.
+
 ## Team
 
 - **Hubs** talk to the user, each in its own chat, about its own use case only:

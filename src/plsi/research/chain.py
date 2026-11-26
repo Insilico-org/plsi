@@ -15,8 +15,9 @@ from typing import Any
 from plsi import files, keys, net
 from plsi.errors import NetworkError, UsageError, ValidationError
 from plsi.research import findings, inbox, ledger, loop, projects, runs, store
-from plsi.research.tuning import KICK_TIMEOUT_S, OPEN_RUN_STALE_MIN, RUN_CAP_MIN, RUN_CAP_MULTIPLE, RUN_MINUTES
-from plsi.vocab.research import KickSource, ResearchLogEvent, RunEvent, RunRest
+from plsi.research.tuning import (KICK_TIMEOUT_S, OPEN_RUN_STALE_MIN, RUN_CAP_MIN, QUOTA_CAP, RUN_CAP_MULTIPLE,
+                                 RUN_MINUTES)
+from plsi.vocab.research import KickSource, ProjectStatus, ResearchLogEvent, RunEvent, RunRest
 
 NOTHING = "end this run here and post nothing"
 END_WITH = "plsi research run --end --run {run} --usage <percent of this week's limit used, read now>"
@@ -32,7 +33,12 @@ def run(start: bool = False, end: bool = False, usage: float | None = None, kick
         raise UsageError("--run goes with --end, and only there: the id --start gave this run",
                          hint="plsi research run --end --run <id> --usage <U>")
     usage = ledger.reading(usage)
-    return start_run(usage, *_source(kick)) if start else _end(str(rid), usage)
+    out = start_run(usage, *_source(kick)) if start else _end(str(rid), usage)
+    if renewed := ledger.quota_renewed(usage):  # the first reading below the cap after a quota stop
+        out["quota_renewed"] = {"stopped": renewed, "on_hold": [projects.card(p) for p in projects.every()
+                                                                if p.get("status") == ProjectStatus.ON_HOLD],
+                                "then": "lab/run Quota: offer to resume the projects on hold"}
+    return out
 
 
 def hooked() -> bool:
@@ -100,7 +106,7 @@ def _early() -> bool:
 
 
 def _until(why: RunRest) -> str:
-    if why in (RunRest.HEADROOM, RunRest.CEILING):
+    if why in (RunRest.HEADROOM, RunRest.QUOTA, RunRest.CEILING):
         return "when the weekly meter resets"
     if why == RunRest.OFF:
         return "when the user gives research a share again"
@@ -116,6 +122,13 @@ def _stop(event: RunEvent, rid: str, source: str | None, says: str, why: RunRest
     return {"run": rid, "stop": str(event), "why": None if why is None else str(why), "says": says, "until": until}
 
 
+QUOTA_THEN = "lab/run Quota: tell the user which projects were running and ask which resume"
+
+
+def _then(why: RunRest) -> str:
+    return QUOTA_THEN if why == RunRest.QUOTA else NOTHING
+
+
 def hard_stop(usage: float) -> tuple[RunRest, str] | None:
     """Off, a fallen reading, the user's headroom or the week's ceiling: what ends research whatever is left."""
     if ledger.is_off():
@@ -123,6 +136,8 @@ def hard_stop(usage: float) -> tuple[RunRest, str] | None:
     if fell := ledger.meter_fell(store.today()):
         return RunRest.METER, (f"the meter read {fell['saw']} after {fell['after']}: the user says whether the week "
                                f"reset (plsi research budget --meter-reset --usage {fell['saw']})")
+    if ledger.over_quota(usage, store.today()):
+        return RunRest.QUOTA, f"the weekly meter is at {usage}%, the {QUOTA_CAP}% cap at which all research stops"
     room = ledger.headroom(usage)
     if not room["ok"]:
         return RunRest.HEADROOM, f"{room['left']}% of the week is left and the user keeps {room['keeps_back']}%"
@@ -176,7 +191,7 @@ def start_run(usage: float, source: KickSource, asked: str | None = None) -> dic
         if not ledger.is_off() and not ledger.open_day(usage, store.today()) and not dead:
             ledger.rebase(usage)
         if halt := hard_stop(usage):
-            return {**_stop(RunEvent.REST, rid, source, halt[1], halt[0], usage=usage), "then": NOTHING}
+            return {**_stop(RunEvent.REST, rid, source, halt[1], halt[0], usage=usage), "then": _then(halt[0])}
         pick = work(lines)
         if isinstance(pick, tuple):
             return {**_stop(pick[0], rid, source, pick[2], pick[1], usage=usage), "then": NOTHING}
@@ -267,7 +282,8 @@ def _end(rid: str, usage: float) -> dict[str, Any]:
             "room_line": _room_line(meta["title"], settled), "charged": settled, "findings": str(doc),
             "next": after, "inbox": notice,
             "then": "post room_line in the project's room" + (" and the inbox notice (with its form or card) in "
-                                                              "your own chat" if notice else "") + "; then stop"}
+                                                              "your own chat" if notice else "") +
+                    (f"; then {after['then']}" if after.get("then") else "; then stop")}
 
 
 def _after(ended: str, usage: float) -> dict[str, Any]:
@@ -286,7 +302,8 @@ def _after(ended: str, usage: float) -> dict[str, Any]:
     if not halt and _early():  # the run crossed into a new day before its start hour
         halt = RunRest.EARLY, "the next day starts at the user's start hour"
     if halt:
-        return _stop(RunEvent.REST, ended, KickSource.CHAIN, halt[1], halt[0], usage=usage)
+        out = _stop(RunEvent.REST, ended, KickSource.CHAIN, halt[1], halt[0], usage=usage)
+        return {**out, "then": QUOTA_THEN} if halt[0] == RunRest.QUOTA else out
     pick = work(lines)
     if isinstance(pick, tuple):
         return _stop(pick[0], ended, KickSource.CHAIN, pick[2], pick[1], usage=usage)
