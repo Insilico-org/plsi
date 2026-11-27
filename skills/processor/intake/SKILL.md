@@ -96,13 +96,33 @@ record is not created yet` (`shared/team`, People and instances); PLSI sends it 
    one; RDW in fL is RDW-SD): fix the code, not the unit. `no map reads this code`: recorded but not
    projected (a urine test, for now); list it in the `result` (step 5). Nothing is ingested while a row fails.
 
+3c. **Values, dates and medications, before the question.**
+   - **A value far outside what the test can be** (a urea of 0.2 mmol/L, a ferritin of 9000, a value 10x its
+     neighbours on the page): check it against the source, the printed range and the unit before anything else. A
+     value read from a typed summary, a key-findings sheet or an OCR photo, not the lab report itself, is checked
+     against the report when PLSI has it; when it does not, the item goes into the `question` as "<test> <value>
+     looks implausible; please check the original report" (Record anyway / Skip it).
+   - **A date that cannot be right**: a result dated in the future, a follow-up or review date earlier than the
+     report it comes from, a year that disagrees with the rest of the document. Ask in the `question`; never
+     correct it silently.
+   - **Medications, allergies and conditions against what is recorded.** Read the active set first
+     (`plsi state show --instance <instance> --map care_context`). An item that contradicts it (the record has a statin,
+     the new summary says no medications were ever taken; an allergy the source does not support) goes into the
+     `question` as the conflict itself, both sources named: "Atorvastatin is recorded from the 2024 letter; this
+     summary says no medications. Stopped / Never taken (remove it) / Keep it". Stopped is a new observation with
+     `clinical_status: "stopped"`; Never taken is a retraction (`plsi retract`). Nothing is kept side by side
+     without the user's answer.
+
 4. Dry run, then send ONE `question` handoff to PLSI that lists the items, each as printed with where it lands
    ("Total cholesterol 5.4 mmol/L -> total cholesterol"; "Record these 14 results from 14 Sep 2026?"
    Record / Edit / Cancel) together with every open code choice and uncertain date; ingest after the `answer`. "Edit"
    comes back with the user's corrections as text: apply them, dry-run again and ingest without a new question unless
    the corrections raise a new code choice or date. Ingest
    without asking only when the request names a standing approval, quotes the user's own words asking to record
-   these items, or quotes their earlier card answer on this thread; a consent line without a quote is not consent:
+   these items, quotes their earlier card answer on this thread, or is relayed by the user's own Chief of Staff or
+   another PLSI hub with the user's request in plain words ("save my mother's reports", "add the new chemistry
+   panel"); the `result` then says who relayed it and what was recorded, so the user sees it. A consent line with
+   neither a quote nor a relayed request is not consent:
 
    ```bash
    plsi ingest --instance <instance> --file obs.norm.json --dry-run

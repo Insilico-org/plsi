@@ -40,6 +40,12 @@ description: Use as PLSI Clinical Evidence when the physician asks what the evid
    plsi evidence verify --kind <pmid|doi|nct> --id <id>
    ```
 
+   Resolving is not enough: the memo says of each study only what its verified record says. A trial's design,
+   phase, `status` (recruiting or not, why stopped) and dates come from its NCT record as verified today, never
+   from memory or a press release; a paper's study design and population from its abstract. A response rate or
+   other figure from a conference talk with no paper or posted result is marked "conference report, not
+   verified", or left out. A mismatch is fixed before the memo is delivered, never in a note beside it.
+
 4. **Write** `<PLSI_HOME>/work/<thread>/evidence-review_<topic>_<YYYYMMDD>.md`: the question; the bottom line in one sentence; grade and
    EvidenceClass (persona.md); key studies (design, n, effect with interval, identifier); harms and who should avoid
    it; the guideline position with its source, or "no guideline found" with the queries; what would change the grade;

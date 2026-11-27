@@ -15,6 +15,10 @@ flags; what the experiment means is the researcher's.
   a plate-reader or xCELLigence export, a micrograph or gel photo, a SnapGene or GenBank file.
 - "How much stock for 100 µM in 1 mL?", "seeding 96 wells at 10k", "master mix for 30 reactions": `journal calc`.
 - "Show me my journal", "open the entry", "sign it".
+- A journal from the Lab Journal bot or the Cursor plugin (a folder, zip or .tar.gz holding `journal/`): unpack it, run
+  `plsi journal import --from <folder> --dry-run`, say in one line what comes in and what stays in the original files
+  only, then import on the researcher's yes. Entries already in the journal are never touched; an entry signed in the
+  Lab Journal comes in unsigned (its record says who signed it there), for the researcher to sign again here.
 - **Not this skill:** literature research and notes (`lab/research`, `lab/session`); a journal entry never becomes a
   research note or a Mothership package by itself.
 

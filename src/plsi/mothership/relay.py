@@ -10,7 +10,7 @@ from typing import Any
 
 from plsi import __version__, net, references
 from plsi.clock import now
-from plsi.errors import NetworkError, ValidationError
+from plsi.errors import NetworkError, NotFound, ValidationError
 
 REFERENCE = "longevity_mothership"  # the relay
 RESEARCH_REFERENCE = "longevity_mothership_research"  # the address research notes are emailed to
@@ -64,6 +64,9 @@ def get(path: str, token: str | None = None) -> Any:
         if exc.code == "BAD_RESPONSE":  # a web page instead of JSON: the relay does not serve this route
             raise NetworkError(f"the Mothership relay does not serve {path} yet", code="NOT_SERVED",
                                hint="the relay may still run an older version; try again after it is updated") from None
+        if exc.status == 404 and relay_error(exc) == "not_published":  # a valid token, nothing published yet
+            raise NotFound(f"the Mothership has not published {path.rsplit('/', 1)[-1]} yet", code="NOT_PUBLISHED",
+                           hint="your access works; the stewards have not published this yet. Try again later") from None
         raise refused(exc, "document") from None
 
 

@@ -42,6 +42,7 @@ tests/*
 !tests/test_journal_calc.py
 !tests/test_journal_flow.py
 !tests/test_journal_store.py
+!tests/test_journal_import.py
 !tests/test_evidence_authors.py
 !tests/fixtures/
 tests/fixtures/*
