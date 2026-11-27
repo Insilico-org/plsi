@@ -112,6 +112,11 @@ record is not created yet` (`shared/team`, People and instances); PLSI sends it 
      summary says no medications. Stopped / Never taken (remove it) / Keep it". Stopped is a new observation with
      `clinical_status: "stopped"`; Never taken is a retraction (`plsi retract`). Nothing is kept side by side
      without the user's answer.
+   - **Fasting.** Glucose, insulin, triglycerides and lipid panels whose report does not say fasting or not: ask
+     "Were you fasting for this test?" in the `question` (Fasting / Not fasting / Not sure), never assume either.
+   - **Undated items** (an imported note, a history line with no date): never the setup day or today. Use the
+     date the document gives (its year with `effective_basis: "assumed"` when only a year is known) or ask once for
+     the batch in the `question`.
 
 4. Dry run, then send ONE `question` handoff to PLSI that lists the items, each as printed with where it lands
    ("Total cholesterol 5.4 mmol/L -> total cholesterol"; "Record these 14 results from 14 Sep 2026?"

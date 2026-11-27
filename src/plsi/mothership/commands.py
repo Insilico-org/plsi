@@ -10,7 +10,9 @@ COMMANDS: dict[str, Cmd] = {
                            (INSTANCE, A("--kind", action="append", choices=V(ContributionKind),
                                          help="a kind the user picked; none to accept reworded consent text (kinds stay)"),
                             A("--consent-version", required=True, help="version marker of mothership/consent.md shown to the user"),
-                            A("--code", help="one-time enrollment code from the relay's /join page (first join only)")),
+                            A("--code", help="one-time enrollment code from the relay's /join page (first join only)"),
+                            A("--send", choices=("ask", "weekly"), help="the send mode the user picked: ask (show me "
+                              "each file first) or weekly (send each week without asking); kept on a re-consent")),
                            "record the user's consent to share the chosen kinds", ("plsi mothership pack --instance {instance}",)),
     "mothership status": Cmd("plsi.mothership.enroll:status", (INSTANCE,), "enrollment, consent, address and what was sent"),
     "mothership pack": Cmd("plsi.mothership.pack:pack",

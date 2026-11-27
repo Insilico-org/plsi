@@ -5,7 +5,7 @@ This file is a first-run instruction. Follow every step, in order, as one contin
 - **Never skip a setup step.** A flow the user starts during setup (a plan, a question) runs alongside; setup still
   goes on with every remaining step, the Mothership card (step 6.7) included.
 - **Never end your turn mid-setup.** After each step (including creating a routine or waiting for an install), go straight to the next one. Stop only to wait for the user's answer to a question, then continue.
-- **Ask once, one topic at a time.** Setup questions come only in step 6: one topic per step 6.1-6.7, one card (or chat question) per message; steps 7-13 apply the answers without asking again. The only other ask is the Terms card (step 1); sidebar sections never block (one optional line in step 7).
+- **Ask once, one topic at a time.** Setup questions come only in step 6: one topic per step 6.1-6.7, one card (or chat question) per message; steps 7-13 apply the answers without asking again. One open card at a time: the next waits until the last is answered, and a plain chat reply ("yes", "the second one", "skip") answers the open card as fully as its buttons; where a card cannot be shown (a work room is open), the same question goes as a chat line with its options. A tool that needs an account is offered only after "Do you have a <service> account?" is answered yes. The only other ask is the Terms card (step 1); sidebar sections never block (one optional line in step 7).
 - Keep the user posted with one short line at a few milestones only (after the welcome in step 0): team created (after step 7), choices applied (after step 10) and done ("PLSI setup complete"). No line per step.
 - Setup is complete only after step 14; then say "PLSI setup complete".
 - **Time the stages** for the usage report (`orchestrator/feedback`): at the start of each stage below run
@@ -91,26 +91,33 @@ Ask nothing in it; continue with step 1 at once.
 
 Clone the repo from `<PLSI_REPO_URL>` (or use an existing local checkout) — it is a public repository, so `git
 clone` and `git fetch` need no GitHub account and no editor GitHub integration; run `git` directly on the user's
-computer. Then:
+computer. First check whether the system manages this Python (PEP 668), before any `pip`:
+
+```bash
+python3 -c "import sys,sysconfig,pathlib; print(sys.prefix != sys.base_prefix or not (pathlib.Path(sysconfig.get_path('stdlib')) / 'EXTERNALLY-MANAGED').exists())"
+```
+
+`True` (a virtual environment already, or a Python pip may install into):
 
 ```bash
 python -m pip install -e <repo>
 plsi --version
 ```
 
-Run it in the foreground and wait until it exits (a minute or two; `python3` where there is no `python`). Fix these
-without asking:
+`False` (a system-managed Python): go straight to a virtual environment and put its `plsi` on PATH (no `venv`
+module: `sudo apt-get install python3-venv` first). Never `--break-system-packages`.
 
-- pip refuses with "externally-managed-environment" (a system Python): install into a virtual environment and put
-  its `plsi` on PATH (no `venv` module: `sudo apt-get install python3-venv` first):
+```bash
+python3 -m venv ~/.plsi-venv
+~/.plsi-venv/bin/python -m pip install -e <repo>
+mkdir -p ~/.local/bin && ln -sf ~/.plsi-venv/bin/plsi ~/.local/bin/plsi
+```
 
-  ```bash
-  python3 -m venv ~/.plsi-venv
-  ~/.plsi-venv/bin/python -m pip install -e <repo>
-  mkdir -p ~/.local/bin && ln -sf ~/.plsi-venv/bin/plsi ~/.local/bin/plsi
-  ```
+From then on "the Python of step 1" is `~/.plsi-venv/bin/python`, for every later extra too. Run each command in
+the foreground and wait until it exits (a minute or two; `python3` where there is no `python`). Fix these without
+asking:
 
-  From then on "the Python of step 1" is `~/.plsi-venv/bin/python`.
+- pip refuses with "externally-managed-environment" anyway: the venv commands above.
 - `plsi --version` says command not found (the scripts folder is not on PATH): try `python -m plsi --version`
   (after a venv install `~/.plsi-venv/bin/plsi --version`). Use the one that works wherever these steps say `plsi`,
   remember it permanently ("PLSI command: <command>"), and in every first message (steps 5 and 7) write "`plsi` is
@@ -359,7 +366,7 @@ secrets included), becomes a form of 2-8 pages of at most six options each, neve
 | Devices and apps | Apple Health (with Wearables) | steps, sleep, heart rate, HRV and workouts from an iPhone or Apple Watch | the free P.R.O. iPhone app, added in Grok as a custom connector (`api_base` of `plsi refs show pro_app`) with a code from the app; no key (`wearables/apple-health`) |
 | Devices and apps | Google Health (with Wearables or Nutritionist) | steps, sleep, heart rate, HRV and nutrition from Google Health | `GOOGLE_HEALTH_CLIENT_ID`, `GOOGLE_HEALTH_CLIENT_SECRET`, `GOOGLE_HEALTH_REFRESH_TOKEN`; PLSI Wearables walks the user through it (`wearables/google-health`), or PLSI Nutritionist (`nutritionist/food-log`) when only Nutritionist is on the team |
 | Devices and apps | Hevy (with Wearables) | your workout log: Coach plans the next session from it and puts it in Hevy on your approval | Hevy Pro; the key from https://hevy.com/settings?developer as `HEVY_API_KEY` with the secret card; PLSI Wearables walks the user through it (`wearables/hevy`) |
-| Data and access | Methylation clocks | read DNA-methylation files | `plsi clocks install`, in the foreground: it installs only the clocks packages, never PLSI itself; a failure returns one cause and next step: say it in one line, the clocks stay off, and setup goes on |
+| Data and access | Methylation clocks | read DNA-methylation files | offered only when `plsi clocks check` says `ready` (it builds nothing; a refusal names the missing package, said in one line, and the clocks are not offered); then `plsi clocks install`, in the foreground: it installs only the clocks packages, never PLSI itself; a failure returns one cause and next step: say it in one line, the clocks stay off, and setup goes on |
 | Data and access | FatSecret (with Nutritionist) | import your food diary | `FATSECRET_CONSUMER_KEY`, `FATSECRET_CONSUMER_SECRET`, `FATSECRET_ACCESS_TOKEN`, `FATSECRET_ACCESS_SECRET`; PLSI Nutritionist walks the user through it (`nutritionist/food-log`) |
 | Data and access | Patient Drive folders (with PLSI Panel) | patients send you files and get reports through Google Drive | an existing Google service account or Drive connector first, else a new service account on a Workspace shared drive (`PLSI_DRIVE_CREDENTIALS`, `PLSI_CLINIC_DRIVE`; with the Python of step 1: `<python> -m pip install -e "<repo>[drive]"`); PLSI Panel walks the physician through it (`panel/clinic` step 1) |
 | Data and access | Mothership professional access (with PLSI Liaison or PLSI Cohort Analyst) | your invited physician or researcher access | `MOTHERSHIP_PROFESSIONAL_TOKEN`; then `plsi mothership whoami` (`orchestrator/mothership` step 6) |
@@ -530,17 +537,24 @@ plsi --version
   one line for each migration section between the two (step 2) saying what changes for the user (Update / Not now).
   Not now: offer it again only for a newer release or when the user says "update PLSI", which shows the same card.
   Local edits in the checkout (`status --porcelain` lists a changed tracked file, not only `??` lines): the card
-  names the edited files and says they are kept unless the release changed the same lines.
+  names the edited files and says they are kept unless the release changed the same lines. Every step the migration
+  sections ask of the user that needs no choice (retiring or deleting an old bot, renaming a routine, a cosmetic or
+  rule change) is one line on this card, and "Update" approves them all: never a card each.
 - **Update:** with local edits, first `git -C <repo> diff > <PLSI_HOME>/local-changes-A.B.C.patch` and
   `git -C <repo> stash`. Then `git -C <repo> checkout vX.Y.Z` (a detached HEAD is fine); with local edits,
   `git -C <repo> stash pop`: applied and `status --porcelain` lists no changed file, the edits were already in the
   release (say so); applied with changes left, name the files kept; a conflict, `git -C <repo> reset --hard -q`
   (the release as shipped; git keeps the stash) and name the files and the saved patch, for the user to redo or drop.
+  `checkout` refusing because untracked files would be overwritten (a work folder left in the checkout): move each
+  file it names to `<PLSI_HOME>/local-untracked-A.B.C/` (same relative path), check out again and say where they went;
+  an untracked file never blocks an update.
   The `fetch` and `checkout` run against the public repository on the user's computer: no GitHub account and no
   editor GitHub integration are needed, and none should be asked for.
   Then `python -m pip install -e <repo>` with the Python of step 1, in
   the foreground, and check that `plsi --version` says the new version. Apply the migration sections between the
-  two versions as step 2 describes, then the Terms check (step 1) and the persona check (step 4). Record the new
+  two versions as step 2 describes, then the Terms check (step 1) and the persona check (step 4). An instance that
+  joined the Mothership whose consent is no longer current (`plsi mothership status`: `consent_current` false) gets
+  its consent card now, in this update (`orchestrator/mothership`, re-consent), not at the next weekly send. Record the new
   version (`plsi team set --version X.Y.Z`) and say "PLSI updated to X.Y.Z" in one line. Then, once per
   update and whatever the "Feedback offers" setting, ONE card "Tell the PLSI team how it is going? I can draft a
   short report of your time with PLSI since the last update, for you to send by email." (See the report / Not now):

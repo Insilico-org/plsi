@@ -19,6 +19,8 @@ CORE: dict[str, Cmd] = {
     # system
     "doctor": Cmd("plsi.doctor:doctor", (A("--online", action="store_true", help="also check reachability of references"),),
                   "versions, extras, PLSI_HOME, keys and fixes", ("plsi keys status",)),
+    "clocks check": Cmd("plsi.doctor:check_clocks", (), "whether the methylation clocks can install here, before "
+                        "offering them (prebuilt packages, else Python headers)", ("plsi clocks install",)),
     "clocks install": Cmd("plsi.doctor:install_clocks", (), "install the methylation clocks packages (never plsi itself)",
                           ("plsi doctor",)),
     "keys status": Cmd("plsi.keys:status", (), "which key variables are set (booleans only)"),
