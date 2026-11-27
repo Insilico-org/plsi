@@ -164,7 +164,11 @@ def deletion_waiting(instance: str) -> bool:
     return bool((enrollment(instance) or {}).get("deletion_requested")) and install(instance) is not None
 
 
-def join(instance: str, consent_version: str, kind: list[str] | None = None, code: str | None = None) -> dict[str, Any]:
+SEND_MODES = ("ask", "weekly")  # Show me each file first / Send each week without asking (the standing approval)
+
+
+def join(instance: str, consent_version: str, kind: list[str] | None = None, code: str | None = None,
+         send: str | None = None) -> dict[str, Any]:
     """`mothership join`: record the user's consent for the kinds they picked. The first join trades the one-time
     code from the relay's /join page for this install's id and token; later joins (other kinds) need no code. With
     no kinds, the user accepted reworded consent text (`reworded`): the active enrollment keeps its kinds. Never
@@ -192,8 +196,11 @@ def join(instance: str, consent_version: str, kind: list[str] | None = None, cod
     if found is None:
         raise ValidationError("the first join needs an enrollment code", code="CODE_REQUIRED",
                               hint=f"the user gets one at {address()}/join and pastes it in chat")
+    if send is not None and send not in SEND_MODES:
+        raise ValidationError(f"--send is one of {', '.join(SEND_MODES)}", code="BAD_SEND_MODE")
+    send = send or (enrollment(instance) or {}).get("send") or "ask"  # a re-consent keeps the mode chosen
     record = {"contributor_id": pseudonym(_secret(instance, found)), "kinds": kinds, "consent_version": consent_version,
-              "joined_at": now().isoformat(), "status": EnrollmentStatus.ACTIVE}
+              "send": send, "joined_at": now().isoformat(), "status": EnrollmentStatus.ACTIVE}
     files.atomic_write_json(_enrollment_path(instance), record)
     return status(instance)
 

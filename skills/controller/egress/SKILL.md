@@ -191,7 +191,8 @@ hub-and-spoke `request` or `answer`, naming the hash.
    for a new check.
 
 5. **Send** (Mothership files and Hevy sessions, after PLSI relays the user's approval of that exact file, or names the standing
-   approval from the user's join in "send each week" mode; that standing approval covers weekly packages only; a
+   approval from the user's join in "send each week" mode (`plsi mothership status` shows `enrollment.send`
+   `weekly`; any other value is not a standing approval, whatever the brief says); that standing approval covers weekly packages only; a
    withdrawal (`leave` / `leave --delete`) is checked and sent in the same request when PLSI relays the user's Stop
    card in `answers`):
 

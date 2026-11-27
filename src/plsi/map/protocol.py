@@ -91,21 +91,28 @@ def published(instance: str, map_id: str) -> dict[str, Any]:
 def check(file: str) -> dict[str, Any]:
     """`plsi handoff check --file F`: schema and route, and every cited state is the current projection
     (latest.json, hash verifies, no observation recorded after it), and a ward bot's handoff names its pinned
-    instance. Writes nothing."""
+    instance. A cite a later projection replaced, when that projection is current, is not stale: the returned
+    handoff carries the current hash instead (`refreshed` names the maps), so a re-projection by another bot mid-
+    handoff never fails it. Writes nothing."""
     msg = parse(Handoff, load_json(file), "handoff")
     if BotRole.WARD in (msg.sender, msg.recipient) and msg.instance not in {
             b.get("instance") for b in team.show()["hubs"] if b["role"] == BotRole.WARD}:
         raise errors.ValidationError(f"no ward bot is pinned to {msg.instance}", code="WARD_INSTANCE",
                                      hint="a ward bot's handoffs name its own instance (plsi team show)")
     hint = f"re-project: plsi project --instance {msg.instance} --map <map_id>"
-    problems = []
+    problems, refreshed, states = [], [], []
     changed = mapper.last_world_change(msg.instance)
     for i, cite in enumerate(msg.states):
         latest = mapper.latest_state(msg.instance, cite.map_id)
-        if latest is None or latest.state_hash != cite.state_hash or not latest.verify_hash():
+        if latest is None or not latest.verify_hash():
             problems.append(errors.violation(f"states.{i}", "STATE", f"{cite.map_id}: not the current projection", hint))
         elif not mapper.is_current(latest, changed):
             problems.append(errors.violation(f"states.{i}", "STATE", f"{cite.map_id}: observations changed since", hint))
+        elif latest.state_hash != cite.state_hash:
+            refreshed.append(cite.map_id)
+            cite = cite.model_copy(update={"state_hash": latest.state_hash})
+        states.append(cite)
     if problems:
         raise errors.ValidationError("handoff cites stale state", code="STALE_STATE", violations=problems)
-    return {"handoff": msg.dump()}
+    out = msg.model_copy(update={"states": states}) if refreshed else msg
+    return {"handoff": out.dump(), **({"refreshed": refreshed} if refreshed else {})}

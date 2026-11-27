@@ -8,6 +8,8 @@ import platform
 import re
 import subprocess
 import sys
+import sysconfig
+from pathlib import Path
 from typing import Any
 
 from plsi import __version__, errors, keys, net, paths, references
@@ -112,9 +114,39 @@ def _run(args: list[str], timeout: int = 120) -> subprocess.CompletedProcess[str
                                        hint="retry plsi clocks install later") from None
 
 
+def _headers() -> bool:
+    """This Python's development headers (Python.h) are present, so a package without a prebuilt wheel can build."""
+    return (Path(sysconfig.get_paths()["include"]) / "Python.h").is_file()
+
+
+def check_clocks() -> dict[str, Any]:
+    """`plsi clocks check`: whether `clocks install` can succeed here, without installing or building anything:
+    every clocks package has a prebuilt wheel for this Python (`pip install --dry-run --only-binary`), or the Python
+    headers are present to build the rest. Raises DependencyMissing with the exact fix when neither holds."""
+    reqs = clocks_requirements()
+    if _run(["-c", "import biolearn"]).returncode == 0:
+        return {"ready": True, "installed": True, "python": _PY}
+    dry = _run(["-m", "pip", "install", "--dry-run", "--quiet", "--only-binary=:all:", *reqs], PIP_TIMEOUT_S)
+    if dry.returncode == 0:
+        return {"ready": True, "installed": False, "python": _PY, "builds": False}
+    cause, step = clocks_failure(dry.stdout + dry.stderr)
+    if CLOCKS_FAILURES[1][1] == cause:  # the index could not be reached: say so, never guess a missing build
+        raise errors.DependencyMissing(f"methylation clocks cannot be checked: {cause}", hint=step)
+    if not _headers():
+        raise errors.DependencyMissing(
+            f"methylation clocks cannot install here: some packages have no prebuilt build for Python {_PY} and its "
+            f"headers are missing to build them; PLSI works without them",
+            hint=(f"on Debian/Ubuntu: sudo apt-get install python{_PY}-dev build-essential, then plsi clocks install"
+                  + ("; on 3.13 some packages (ecos) may still fail: a Python 3.11 or 3.12 environment is safer"
+                     if sys.version_info >= (3, 13) else "")))
+    return {"ready": True, "installed": False, "python": _PY, "builds": True}
+
+
 def install_clocks() -> dict[str, Any]:
-    """`plsi clocks install`: pip-install only the clocks packages (binary builds preferred), then check that plsi
-    still imports and biolearn does. A failure leaves the extra off, with one cause and next step."""
+    """`plsi clocks install`: `check_clocks` first (nothing is built when it cannot succeed), then pip-install only
+    the clocks packages (binary builds preferred), then check that plsi still imports and biolearn does. A failure
+    leaves the extra off, with one cause and next step."""
+    check_clocks()
     reqs = clocks_requirements()
     proc = _run(["-m", "pip", "install", "--prefer-binary", *reqs], PIP_TIMEOUT_S)
     if proc.returncode != 0:

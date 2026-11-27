@@ -43,14 +43,15 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    isn't Mothership data and needs no join.
 
    - **Page 1, the kinds:** multi-select, none preselected: Health states / Life story / Prediction scores /
-     Feedback on PLSI (no health data) / Not now.
-   - **Page 2, "How should I send it?":** single-select: Show me each file first / Send each week without asking.
+     Feedback on PLSI (no health data). "Not now" is never on this page: it is not a kind.
+   - **Page 2, "How should I send it?":** single-select: Show me each file first / Send each week without asking /
+     Not now: don't join.
    - **Page 3, "Your enrollment code"** (first join only): a text field labelled "Enrollment code from the join
      page (not your professional access token)", and the option "Skip: join later".
 
    Read the answers in that order. "Feedback on PLSI": remember "Feedback offers: on" (`orchestrator/feedback`);
-   picked alone, say in one line that PLSI will offer usage reports and stop, whatever pages 2 and 3 say. No data
-   kind picked, or "Not now": say "You can join later" and stop. On a re-consent (`CONSENT_OUTDATED`: what is shared
+   picked alone, say in one line that PLSI will offer usage reports and stop, whatever pages 2 and 3 say. "Not now:
+   don't join" on page 2, or no data kind picked: say "You can join later" and stop, whatever page 1 says. On a re-consent (`CONSENT_OUTDATED`: what is shared
    changed) the form is page 1 only, and the send mode already chosen stays. A wording-only change
    (`CONSENT_REWORDED`) never gets the form: step 3.
 
@@ -62,7 +63,7 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    shared. The permanent install token never appears anywhere. Then, at once:
 
    ```bash
-   plsi mothership join --instance <instance> --kind states --kind life_events --kind scores --consent-version <marker> --code <code>
+   plsi mothership join --instance <instance> --kind states --kind life_events --kind scores --consent-version <marker> --code <code> --send <ask|weekly>
    ```
 
    with one `--kind` per picked item (Health states `states`, Life story `life_events`, Prediction scores `scores`)
@@ -70,7 +71,8 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    text you showed; omit `--code` when the install already has a token. `ENROLL_FAILED` (used or expired code): once,
    one message "That code has expired or was used (codes last 24 hours). Open <join_page> for a fresh one and
    paste it here." with ONE card "Your enrollment code": a text field for the code and "Skip: join later". Failing again: say "You can join any time: say 'join the Mothership'"
-   and stop. Remember the send mode; with "Send each week without asking", the user's join is the
+   and stop. `--send` stores the mode with the enrollment (`ask` for Show me each file first, `weekly` for Send each
+   week without asking), so Data Controller reads it in `plsi mothership status`; with "Send each week without asking", the user's join is the
    standing approval to send each week. Create an ENABLED weekly routine **"PLSI Mothership"** (step 3). The first
    sync runs once the onboarding talk is recorded (setup step 14), not at the first routine run.
 

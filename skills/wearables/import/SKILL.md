@@ -20,6 +20,10 @@ night, and predictions are scored on months. The raw data stays where it came fr
 
 ## Steps
 
+A source that is connected (Open Wearables, Google Health, Apple Health through P.R.O.) is always pulled: never ask
+the user for an export file while one is connected. A pull refused for an expired or revoked grant goes back in a
+`result` naming the re-connection step of that source's skill, never as a request for a file.
+
 1. **Read the data.**
    - **Open Wearables** (`plsi refs show open_wearables`; the user's own server, set up by `wearables/open-wearables`,
      read through its MCP connector or the REST API with its key from the secret store; a server on this computer

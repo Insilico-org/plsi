@@ -86,14 +86,23 @@ done only when you have collected and verified the reply.
    to the request you prepared and send, in ONE shell call with the ledger update, without copying its files. The
    full list runs before anything reaches the user:
    - it is a `result` or `question` on the same thread, and `plsi handoff check` returns `ok`;
-   - every cited state is current (no `STALE_STATE`) and every path in `files` exists;
+   - every cited state is current (no `STALE_STATE`) and every path in `files` exists. `refreshed` is not a
+     problem: a later projection replaced a cited state, and the returned `handoff` cites the current one; use it.
+     `STALE_STATE` (observations changed since): the re-project row below, then the step again, once; never a
+     warning to the user;
    - it has the shape the skill promises (e.g. `nostradamus/plan`: `plan.json`, `findings.json`, predictions with a
      no-action control and `trajectory.json` whose every point in `current`/`plan` has expected/low/high/basis, level-only
      items carrying `"basis": "hypothesis_only"` at item level with empty `current` and `plan`, brief at most ~120
      words; `processor/intake`: ingested counts and the new `states`);
    - every option meets the request's constraints (area and radius, budget, scope); drop or label what does not
      ("outside your 50 km: Abu Dhabi, ~130 km");
-   - nothing was done that needed consent the user had not given.
+   - nothing was done that needed consent the user had not given;
+   - every claim about a file, image or screenshot comes from that file read in this thread (an answer about an
+     image nobody opened goes back as a gap); a product, brand or amount a bot found by search is said as found
+     ("a common product is …"), never as the user's own, and an amount already in the record is used, not guessed.
+
+   Two rows that touch the same instance's states never run at once: a request to a reader of the states waits
+   for an open `processor/intake` or re-project row on that instance, so no handoff cites a state being replaced.
 
    A reply that asks for another bot's work (re-project, record items via `processor/intake`, `processor/add-score`) is not a
    gap: insert a row for that bot before the current one (not on the team: the step 2 "Add" line), dispatch it (recording only with the consent it needs,
@@ -104,6 +113,9 @@ done only when you have collected and verified the reply.
 
 6. **Re-prompt on a gap.** Send a `request` on the same thread naming the exact gap ("`findings.json` missing for
    a2"), mark `retry`. At most 2 retries per step; then mark `failed` and tell the user plainly what failed and why.
+   A routine that cannot do its job (the usage limit is reached, a key is missing, a grant expired) tells the user
+   at once in one line, with what fixes it, and runs the missed job at its next chance; a report whose one source
+   failed (no night of sleep yet) still goes on the latest data it has and names the source that failed.
    A browser or download step that failed the same way twice is not tried a third time by any route (another bot,
    another site): it is `failed` with what the user can do instead.
    With "Feedback offers: on", the failure goes into the week's usage report ("PLSI feedback", `orchestrator/feedback`).
