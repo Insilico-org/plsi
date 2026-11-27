@@ -104,6 +104,8 @@ done only when you have collected and verified the reply.
 
 6. **Re-prompt on a gap.** Send a `request` on the same thread naming the exact gap ("`findings.json` missing for
    a2"), mark `retry`. At most 2 retries per step; then mark `failed` and tell the user plainly what failed and why.
+   A browser or download step that failed the same way twice is not tried a third time by any route (another bot,
+   another site): it is `failed` with what the user can do instead.
    With "Feedback offers: on", the failure goes into the week's usage report ("PLSI feedback", `orchestrator/feedback`).
 
 7. **Batch questions.** A `question` (or a `result` with `questions`) marks the row `asked`. First answer from the
@@ -179,7 +181,13 @@ done only when you have collected and verified the reply.
    I'll come back with the options"), each card with its result in the same message ("Recorded: blood-test age 50, about 4 years above your age"),
    any depth-cap progress line and the final answer. That first line says about how long the thread takes whenever
    that is more than a couple of minutes ("a plan takes about 10-15 minutes"): while it waits on its bots you cannot
-   speak, so it is the only warning the user gets. Never narrate handoffs ("sending to the Data Processor",
+   speak, so it is the only warning the user gets. **Heavy work:** ordinary jobs never get an approval card,
+   but a thread that will plausibly use a fifth or more of the user's weekly usage (a long document or deck, many
+   figures, a large batch of files, a multi-bot review) says so in that same line ("this is a heavy job, roughly a
+   fifth of your week; say stop to cancel") and goes on. **Files back to the user:** a document goes as PDF beside
+   any PowerPoint or Word file; a file over 20 MB is split or saved to the user's Drive with its link instead of
+   attached; an edit to a file the user has changed themselves since PLSI sent it comes as a new file, never
+   patched into theirs. Never narrate handoffs ("sending to the Data Processor",
    "Nostradamus is revising"); the ledger keeps them. A thread a routine started (the weekly Mothership send, the
    digest, the feedback offer) has no start line and no step 4 waiting line, and never offers "Add <bot>?": it speaks
    only with a card, a red flag or refusal the user must act on, or its one-line result, and is silent otherwise.

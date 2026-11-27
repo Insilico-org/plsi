@@ -45,8 +45,8 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    - **Page 1, the kinds:** multi-select, none preselected: Health states / Life story / Prediction scores /
      Feedback on PLSI (no health data) / Not now.
    - **Page 2, "How should I send it?":** single-select: Show me each file first / Send each week without asking.
-   - **Page 3, "Your enrollment code"** (first join only): a text field for the code, and the option "Skip: join
-     later".
+   - **Page 3, "Your enrollment code"** (first join only): a text field labelled "Enrollment code from the join
+     page (not your professional access token)", and the option "Skip: join later".
 
    Read the answers in that order. "Feedback on PLSI": remember "Feedback offers: on" (`orchestrator/feedback`);
    picked alone, say in one line that PLSI will offer usage reports and stop, whatever pages 2 and 3 say. No data
@@ -55,8 +55,11 @@ longevity_mothership`); `plsi mothership` talks to it, so you never call it your
    (`CONSENT_REWORDED`) never gets the form: step 3.
 
 2. **Enrollment code** (first join only). The code comes on page 3 of the join form; wait for the form, and do not
-   go on until it is answered. Skip: say "You can join any time: say 'join the Mothership'" and stop. The code may
-   be pasted in chat too; the permanent install token never appears anywhere. Then, at once:
+   go on until it is answered. Skip: say "You can join any time: say 'join the Mothership'" and stop. The code goes
+   only in the form, never as chat text; one pasted in chat anyway is used once and the user is told not to paste
+   codes or tokens in chat. A professional access token pasted there is never used as a code: tell the user it is
+   their professional key, that it goes in the secret card (`liaison/mothership`), and to rotate it if the chat is
+   shared. The permanent install token never appears anywhere. Then, at once:
 
    ```bash
    plsi mothership join --instance <instance> --kind states --kind life_events --kind scores --consent-version <marker> --code <code>

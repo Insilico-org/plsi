@@ -1,3 +1,3 @@
 """PLSI: State Map contracts and a deterministic JSON CLI toolbelt."""
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"
